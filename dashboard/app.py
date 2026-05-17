@@ -2,7 +2,7 @@
 # FILE: dashboard/app.py
 # PURPOSE: Visual trading dashboard in browser
 #          One stock selector controls everything
-#          With paper trading simulator
+#          With paper trading + performance report
 # ================================================
 
 import streamlit as st
@@ -21,6 +21,10 @@ from strategies.paper_trader import (
     load_trades,
     get_current_capital,
     STARTING_CAPITAL
+)
+from portfolio.performance import (
+    get_performance_summary,
+    get_completed_trades
 )
 
 # ── Page configuration ───────────────────────────
@@ -189,10 +193,8 @@ st.divider()
 # ── SECTION 6: Paper Trading ──────────────────────
 st.subheader(f"💰 Paper Trading — {selected_stock}")
 
-# Show current capital
 current_capital = get_current_capital()
 total_invested  = STARTING_CAPITAL - current_capital
-pnl_pct         = round(((current_capital - STARTING_CAPITAL) / STARTING_CAPITAL) * 100, 2)
 
 cap1, cap2, cap3 = st.columns(3)
 cap1.metric("Starting Capital", f"₹{STARTING_CAPITAL:,}")
@@ -201,7 +203,6 @@ cap3.metric("Total Invested",   f"₹{total_invested:,}")
 
 st.write("")
 
-# ── BUY and SELL buttons ──────────────────────────
 col_buy, col_sell = st.columns(2)
 
 with col_buy:
@@ -228,7 +229,6 @@ st.divider()
 # ── SECTION 7: Current Portfolio ─────────────────
 st.subheader("📂 Current Portfolio")
 
-# Build current prices dict from summary
 current_prices = {}
 if not summary_df.empty:
     for _, row in summary_df.iterrows():
@@ -251,12 +251,60 @@ else:
 
 st.divider()
 
-# ── SECTION 8: Trade History ──────────────────────
+# ── SECTION 8: Performance Report ────────────────
+st.subheader("📊 Portfolio Performance Report")
+
+summary = get_performance_summary()
+
+# Show key metrics in cards
+p1, p2, p3, p4 = st.columns(4)
+p1.metric("Total Trades",   summary["Total Trades"])
+p2.metric("Win Rate",       summary["Win Rate"])
+p3.metric("Total P&L",      summary["Total P&L"])
+p4.metric("Current Capital",summary["Current Capital"])
+
+p5, p6, p7, p8 = st.columns(4)
+p5.metric("Winning Trades", summary["Winning Trades"])
+p6.metric("Losing Trades",  summary["Losing Trades"])
+p7.metric("Best Trade",     summary["Best Trade"])
+p8.metric("Worst Trade",    summary["Worst Trade"])
+
+st.divider()
+
+# ── Completed trades table ────────────────────────
+st.caption("📋 Completed Trades — Round Trips Only")
+completed_df = get_completed_trades()
+
+if completed_df.empty:
+    st.info("No completed trades yet — buy and sell a stock to see performance!")
+else:
+    def color_result(val):
+        if "WIN"  in str(val): return "color: green"
+        if "LOSS" in str(val): return "color: red"
+        return ""
+
+    styled_completed = completed_df.style.map(
+        color_result,
+        subset=["Result"]
+    )
+    st.dataframe(styled_completed, use_container_width=True)
+
+    csv = completed_df.to_csv(index=False)
+    st.download_button(
+        label     = "⬇️ Download Performance Report",
+        data      = csv,
+        file_name = "performance_report.csv",
+        mime      = "text/csv"
+    )
+
+st.divider()
+
+# ── SECTION 9: Trade History ──────────────────────
 st.subheader("📜 Trade History")
 
 trades_df = load_trades()
 if trades_df.empty:
-    st.info("No trades yet — make your first paper trade above!")
+    st.info("No trades yet!")
 else:
     st.dataframe(
         trades_df.sort_values('Timestamp', ascending=False),
@@ -272,7 +320,7 @@ else:
 
 st.divider()
 
-# ── SECTION 9: Signal Log ─────────────────────────
+# ── SECTION 10: Signal Log ────────────────────────
 st.subheader("📋 Signal Log — History")
 
 log_df = load_signal_log()
