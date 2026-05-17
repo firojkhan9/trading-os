@@ -1,8 +1,8 @@
 # ================================================
 # FILE: dashboard/app.py
 # PURPOSE: Visual trading dashboard in browser
-#          One stock selector controls everything
-#          With paper trading + performance report
+#          Clickable table + dropdown selector
+#          With risk management alerts
 # ================================================
 
 import streamlit as st
@@ -25,6 +25,13 @@ from strategies.paper_trader import (
 from portfolio.performance import (
     get_performance_summary,
     get_completed_trades
+)
+from risk.risk_manager import (
+    run_full_risk_check,
+    get_risk_summary,
+    STOP_LOSS_PCT,
+    TARGET_PROFIT_PCT,
+    MAX_OPEN_POSITIONS
 )
 
 # ── Page configuration ───────────────────────────
@@ -52,16 +59,7 @@ WATCHLIST = {
     "ITC":        "ITC.NS",
     "KOTAKBANK":  "KOTAKBANK.NS",
 }
-
-# ── ONE SINGLE STOCK SELECTOR ────────────────────
-st.subheader("🎯 Select Stock")
-selected_stock  = st.selectbox(
-    "Choose a stock — all charts and indicators will update:",
-    options=list(WATCHLIST.keys())
-)
-selected_symbol = WATCHLIST[selected_stock]
-
-st.divider()
+STOCK_NAMES = list(WATCHLIST.keys())
 
 # ── Fetch all stocks ──────────────────────────────
 @st.cache_data(ttl=300)
@@ -113,31 +111,38 @@ def fetch_stock_data(symbol):
 
 
 # ── SECTION 1: Watchlist Summary Table ───────────
-st.subheader("📊 Watchlist Summary — All Stocks")
+st.subheader("📊 Watchlist Summary — Click a row OR use dropdown")
 
 with st.spinner("Fetching market data..."):
     summary_df = fetch_all_stocks()
 
-def highlight_selected(row):
-    if row['Stock'] == selected_stock:
-        return ['background-color: #1a1a2e; color: white'] * len(row)
-    return [''] * len(row)
+# ── Clickable table ───────────────────────────────
+st.caption("👆 Click any row to select that stock")
 
-def color_change(val):
-    color = "green" if val > 0 else "red"
-    return f"color: {color}"
+selection = st.dataframe(
+    summary_df,
+    use_container_width=True,
+    on_select="rerun",        # Rerun app when row clicked
+    selection_mode="single-row",  # Only one row at a time
+    hide_index=True,
+)
 
-styled_df = summary_df.style\
-    .apply(highlight_selected, axis=1)\
-    .map(color_change, subset=["30D Change"])\
-    .format({
-        "Close (₹)":  "₹{:.2f}",
-        "30D Change": "{:.2f}%",
-        "Day High":   "₹{:.2f}",
-        "Day Low":    "₹{:.2f}",
-    })
+# ── Detect clicked row ────────────────────────────
+clicked_stock = None
+if selection and selection.selection.rows:
+    clicked_index = selection.selection.rows[0]
+    clicked_stock = summary_df.iloc[clicked_index]['Stock']
 
-st.dataframe(styled_df, use_container_width=True)
+# ── Dropdown selector ─────────────────────────────
+# Default to clicked stock if available
+default_index = STOCK_NAMES.index(clicked_stock) if clicked_stock else 0
+
+selected_stock = st.selectbox(
+    "🎯 Or select from dropdown — both work together:",
+    options=STOCK_NAMES,
+    index=default_index
+)
+selected_symbol = WATCHLIST[selected_stock]
 
 st.divider()
 
@@ -165,7 +170,39 @@ log_signal(
     signal     = latest_signal
 )
 
-# ── SECTION 3: Metric Cards ───────────────────────
+# ── SECTION 3: Risk Alerts ────────────────────────
+st.subheader("🛡️ Risk Alerts")
+
+current_prices = {}
+if not summary_df.empty:
+    for _, row in summary_df.iterrows():
+        current_prices[row['Stock']] = row['Close (₹)']
+
+alerts = get_risk_summary(current_prices)
+
+if not alerts:
+    st.success("✅ No risk alerts — all positions are safe!")
+else:
+    for alert in alerts:
+        if alert['color'] == "red":
+            st.error(f"🛑 {alert['stock']} — {alert['type']}: {alert['msg']}")
+        else:
+            st.success(f"🎯 {alert['stock']} — {alert['type']}: {alert['msg']}")
+
+st.divider()
+
+# ── SECTION 4: Risk Rules Summary ────────────────
+st.subheader("📋 Active Risk Rules")
+
+r1, r2, r3, r4 = st.columns(4)
+r1.metric("Stop Loss",       f"{int(STOP_LOSS_PCT * 100)}%")
+r2.metric("Profit Target",   f"{int(TARGET_PROFIT_PCT * 100)}%")
+r3.metric("Max Position",    "10%")
+r4.metric("Max Positions",   f"{MAX_OPEN_POSITIONS} stocks")
+
+st.divider()
+
+# ── SECTION 5: Metric Cards ───────────────────────
 st.subheader(f"🧠 Technical Indicators — {selected_stock}")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -176,21 +213,21 @@ col4.metric("Signal",       latest_signal)
 
 st.divider()
 
-# ── SECTION 4: Indicator Table ────────────────────
+# ── SECTION 6: Indicator Table ────────────────────
 st.caption(f"Last 5 trading days for **{selected_stock}**")
 last5 = analyzed[['Close','MA20','RSI','Signal']].tail(5).round(2)
-st.dataframe(last5, use_container_width=True)
+st.dataframe(last5, use_container_width=True, hide_index=False)
 
 st.divider()
 
-# ── SECTION 5: Price Chart ────────────────────────
+# ── SECTION 7: Price Chart ────────────────────────
 st.subheader(f"📈 Price Chart — {selected_stock}")
 chart_df = analyzed[['Close', 'MA20']].dropna()
 st.line_chart(chart_df, use_container_width=True)
 
 st.divider()
 
-# ── SECTION 6: Paper Trading ──────────────────────
+# ── SECTION 8: Paper Trading ──────────────────────
 st.subheader(f"💰 Paper Trading — {selected_stock}")
 
 current_capital = get_current_capital()
@@ -203,19 +240,38 @@ cap3.metric("Total Invested",   f"₹{total_invested:,}")
 
 st.write("")
 
+# ── Risk check before showing buttons ────────────
+buy_risk  = run_full_risk_check(selected_stock, latest_close, "BUY")
+sell_risk = run_full_risk_check(selected_stock, latest_close, "CHECK")
+
+# Show risk warnings
+for block in buy_risk["blocks"]:
+    st.error(block)
+for warning in sell_risk["warnings"]:
+    st.warning(warning)
+
 col_buy, col_sell = st.columns(2)
 
 with col_buy:
-    if st.button(f"🟢 BUY {selected_stock} @ ₹{latest_close}", use_container_width=True):
+    # Disable buy button if risk check failed
+    buy_disabled = not buy_risk["approved"]
+    if st.button(
+        f"🟢 BUY {selected_stock} @ ₹{latest_close}",
+        use_container_width=True,
+        disabled=buy_disabled
+    ):
         result = execute_paper_buy(selected_stock, latest_close)
         if result['status'] == "EXECUTED":
-            st.success(f"✅ Bought {result['quantity']} shares of {selected_stock} @ ₹{result['price']}")
+            st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']}")
             st.info(f"💰 Capital remaining: ₹{result['capital']:,}")
         else:
             st.warning(f"⚠️ {result['reason']}")
 
 with col_sell:
-    if st.button(f"🔴 SELL {selected_stock} @ ₹{latest_close}", use_container_width=True):
+    if st.button(
+        f"🔴 SELL {selected_stock} @ ₹{latest_close}",
+        use_container_width=True
+    ):
         result = execute_paper_sell(selected_stock, latest_close)
         if result['status'] == "EXECUTED":
             pnl_color = "✅" if result['pnl'] >= 0 else "❌"
@@ -226,13 +282,8 @@ with col_sell:
 
 st.divider()
 
-# ── SECTION 7: Current Portfolio ─────────────────
+# ── SECTION 9: Current Portfolio ─────────────────
 st.subheader("📂 Current Portfolio")
-
-current_prices = {}
-if not summary_df.empty:
-    for _, row in summary_df.iterrows():
-        current_prices[row['Stock']] = row['Close (₹)']
 
 portfolio_df = get_portfolio_summary(current_prices)
 
@@ -251,32 +302,30 @@ else:
 
 st.divider()
 
-# ── SECTION 8: Performance Report ────────────────
+# ── SECTION 10: Performance Report ───────────────
 st.subheader("📊 Portfolio Performance Report")
 
 summary = get_performance_summary()
 
-# Show key metrics in cards
 p1, p2, p3, p4 = st.columns(4)
-p1.metric("Total Trades",   summary["Total Trades"])
-p2.metric("Win Rate",       summary["Win Rate"])
-p3.metric("Total P&L",      summary["Total P&L"])
-p4.metric("Current Capital",summary["Current Capital"])
+p1.metric("Total Trades",    summary["Total Trades"])
+p2.metric("Win Rate",        summary["Win Rate"])
+p3.metric("Total P&L",       summary["Total P&L"])
+p4.metric("Current Capital", summary["Current Capital"])
 
 p5, p6, p7, p8 = st.columns(4)
-p5.metric("Winning Trades", summary["Winning Trades"])
-p6.metric("Losing Trades",  summary["Losing Trades"])
-p7.metric("Best Trade",     summary["Best Trade"])
-p8.metric("Worst Trade",    summary["Worst Trade"])
+p5.metric("Winning Trades",  summary["Winning Trades"])
+p6.metric("Losing Trades",   summary["Losing Trades"])
+p7.metric("Best Trade",      summary["Best Trade"])
+p8.metric("Worst Trade",     summary["Worst Trade"])
 
 st.divider()
 
-# ── Completed trades table ────────────────────────
 st.caption("📋 Completed Trades — Round Trips Only")
 completed_df = get_completed_trades()
 
 if completed_df.empty:
-    st.info("No completed trades yet — buy and sell a stock to see performance!")
+    st.info("No completed trades yet!")
 else:
     def color_result(val):
         if "WIN"  in str(val): return "color: green"
@@ -284,8 +333,7 @@ else:
         return ""
 
     styled_completed = completed_df.style.map(
-        color_result,
-        subset=["Result"]
+        color_result, subset=["Result"]
     )
     st.dataframe(styled_completed, use_container_width=True)
 
@@ -299,7 +347,7 @@ else:
 
 st.divider()
 
-# ── SECTION 9: Trade History ──────────────────────
+# ── SECTION 11: Trade History ─────────────────────
 st.subheader("📜 Trade History")
 
 trades_df = load_trades()
@@ -320,7 +368,7 @@ else:
 
 st.divider()
 
-# ── SECTION 10: Signal Log ────────────────────────
+# ── SECTION 12: Signal Log ────────────────────────
 st.subheader("📋 Signal Log — History")
 
 log_df = load_signal_log()
