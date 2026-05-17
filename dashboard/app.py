@@ -42,6 +42,47 @@ st.set_page_config(
     layout="wide"
 )
 
+# ── Password Protection ───────────────────────────
+def check_password():
+    """
+    Simple password protection for dashboard.
+    Returns True if password is correct.
+    """
+
+    # If already authenticated this session — skip
+    if st.session_state.get("authenticated"):
+        return True
+
+    # ── Login Screen ──────────────────────────────
+    st.title("🔐 Trading OS — Login")
+    st.caption("Enter your password to access the dashboard")
+    st.divider()
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password_input = st.text_input(
+            "Password:",
+            type="password",
+            placeholder="Enter password..."
+        )
+
+        if st.button("🔓 Login", use_container_width=True):
+            # Get password from secrets file
+            correct_password = st.secrets["auth"]["password"]
+
+            if password_input == correct_password:
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("❌ Wrong password. Try again.")
+
+    return False
+
+
+# ── Block dashboard if not authenticated ──────────
+if not check_password():
+    st.stop()
+
 # ── Our watchlist ────────────────────────────────
 WATCHLIST = {
     "RELIANCE":   "RELIANCE.NS",
