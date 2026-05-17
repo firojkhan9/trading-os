@@ -9,9 +9,13 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import sys
+import os
 from datetime import datetime
 
-sys.path.append("D:\\trading_os")
+# ── Works on both laptop and cloud ───────────────
+# Gets the parent folder of dashboard/
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
 from strategies.indicators import analyze_stock
 from logs.signal_logger import log_signal, load_signal_log
 from strategies.paper_trader import (
