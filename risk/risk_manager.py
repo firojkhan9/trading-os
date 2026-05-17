@@ -8,16 +8,19 @@ import pandas as pd
 import os
 
 # ── Risk Rules Configuration ─────────────────────
-STOP_LOSS_PCT     = 0.03   # Exit if loss exceeds 3%
-TARGET_PROFIT_PCT = 0.06   # Exit if profit exceeds 6%
-MAX_POSITION_PCT  = 0.10   # Max 10% capital per stock
-MAX_OPEN_POSITIONS= 5      # Max 5 stocks at once
-MAX_DAILY_LOSS    = 0.05   # Stop trading if down 5% today
-
-# ── File locations ────────────────────────────────
-PORTFOLIO_FILE = "logs/paper_portfolio.csv"
-TRADES_FILE    = "logs/paper_trades.csv"
-STARTING_CAPITAL = 100000  # ₹1,00,000
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import (
+    STOP_LOSS_PCT,
+    TARGET_PROFIT_PCT,
+    MAX_POSITION_PCT,
+    MAX_OPEN_POSITIONS,
+    TRADES_FILE,
+    PORTFOLIO_FILE,
+    STARTING_CAPITAL
+)
+MAX_DAILY_LOSS = 0.05
 
 
 def load_portfolio():

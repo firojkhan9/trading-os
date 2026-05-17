@@ -9,11 +9,16 @@ import yfinance as yf
 from strategies.indicators import calculate_ma20, calculate_rsi
 
 # ── Backtesting Configuration ─────────────────────
-STARTING_CAPITAL  = 100000   # ₹1,00,000 virtual money
-STOP_LOSS_PCT     = 0.03     # 3% stop loss
-TARGET_PROFIT_PCT = 0.06     # 6% profit target
-MAX_POSITION_PCT  = 0.10     # 10% max per trade
-BROKERAGE_PCT     = 0.001    # 0.1% brokerage per trade
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import (
+    STARTING_CAPITAL,
+    STOP_LOSS_PCT,
+    TARGET_PROFIT_PCT,
+    MAX_POSITION_PCT,
+    BROKERAGE_PCT
+)
 
 
 def fetch_historical_data(symbol, period="1y"):

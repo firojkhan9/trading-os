@@ -9,7 +9,11 @@ import os
 from datetime import datetime
 
 # ── Where we save the signal log ─────────────────
-LOG_FILE = "logs/signal_log.csv"
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import SIGNAL_LOG_FILE
+LOG_FILE = SIGNAL_LOG_FILE
 
 def log_signal(stock_name, close, ma20, rsi, signal):
     """

@@ -8,16 +8,15 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# ── Where we save paper trades ───────────────────
-TRADES_FILE  = "logs/paper_trades.csv"
-PORTFOLIO_FILE = "logs/paper_portfolio.csv"
-
-# ── Starting virtual cash ────────────────────────
-STARTING_CAPITAL = 100000  # ₹1,00,000 virtual money
-
-# ── Risk per trade ───────────────────────────────
-# We never risk more than 10% of capital on one stock
-MAX_POSITION_PCT = 0.10
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import (
+    TRADES_FILE,
+    PORTFOLIO_FILE,
+    STARTING_CAPITAL,
+    MAX_POSITION_PCT
+)
 
 
 def load_trades():

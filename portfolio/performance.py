@@ -8,9 +8,14 @@ import pandas as pd
 import os
 
 # ── File locations ────────────────────────────────
-TRADES_FILE    = "logs/paper_trades.csv"
-PORTFOLIO_FILE = "logs/paper_portfolio.csv"
-STARTING_CAPITAL = 100000  # ₹1,00,000
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import (
+    TRADES_FILE,
+    PORTFOLIO_FILE,
+    STARTING_CAPITAL
+)
 
 def load_trades():
     """Load all completed trades from CSV."""
