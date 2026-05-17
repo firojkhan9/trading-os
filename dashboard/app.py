@@ -262,10 +262,35 @@ with tab1:
 
     st.divider()
 
-    # ── Price Chart ───────────────────────────────
+
+    # ── SECTION 5: Price Chart ────────────────────────
+    from strategies.ema_strategy import (
+        calculate_ema_signals,
+        get_ema_summary
+    )
+
     st.subheader(f"📈 Price Chart — {selected_stock}")
-    chart_df = analyzed[['Close', 'MA20']].dropna()
+
+    # Add EMA indicators to chart data
+    ema_data    = calculate_ema_signals(stock_data.copy())
+    chart_df    = ema_data[['Close', 'EMA9', 'EMA21']].dropna()
     st.line_chart(chart_df, use_container_width=True)
+
+    st.divider()
+
+    # ── EMA Signal Section ────────────────────────────
+    st.subheader(f"⚡ EMA Crossover Signal — {selected_stock}")
+    ema_summary = get_ema_summary(ema_data)
+
+    e1, e2, e3 = st.columns(3)
+    e4, e5, e6 = st.columns(3)
+
+    e1.metric("Fast EMA (9)",    ema_summary["Fast EMA"])
+    e2.metric("Slow EMA (21)",   ema_summary["Slow EMA"])
+    e3.metric("EMA Gap",         ema_summary["EMA Gap"])
+    e4.metric("Signal",          ema_summary["Signal"])
+    e5.metric("Trend",           ema_summary["Trend"])
+    e6.metric("Days Since Cross",ema_summary["Days Since Cross"])
 
     st.divider()
 
@@ -385,12 +410,12 @@ with tab2:
     # ── Backtest Controls ─────────────────────────
     st.subheader("⚙️ Backtest Settings")
 
-    bc1, bc2 = st.columns(2)
+    bc1, bc2, bc3 = st.columns(3)
     with bc1:
         bt_stock = st.selectbox(
-            "Select Stock to Backtest:",
+            "Select Stock:",
             options=STOCK_NAMES,
-            key="bt_stock"
+            key="bt_stock_v2"
         )
     with bc2:
         bt_period = st.selectbox(
@@ -404,51 +429,70 @@ with tab2:
                 "2y":  "2 Years"
             }[x]
         )
+    with bc3:
+        bt_strategy = st.selectbox(
+            "Select Strategy:",
+            options=["MA + RSI", "EMA Crossover"],
+            key="bt_strategy"
+        )
 
     st.divider()
 
-    # ── Run Backtest ──────────────────────────────
     if st.button("🚀 Run Backtest", use_container_width=True):
-        with st.spinner(f"Running backtest for {bt_stock} over {bt_period}..."):
-            result = run_backtest(
-                symbol     = WATCHLIST[bt_stock],
-                stock_name = bt_stock,
-                period     = bt_period
-            )
+        with st.spinner(f"Running {bt_strategy} backtest for {bt_stock}..."):
 
-        # Handle return values
-        if result[0] is None:
+            # ── Fetch data ────────────────────────
+            raw_data = yf.download(
+                tickers=WATCHLIST[bt_stock],
+                period=bt_period,
+                interval="1d",
+                progress=False
+            )
+            raw_data.columns = [col[0] for col in raw_data.columns]
+
+            if bt_strategy == "MA + RSI":
+                result = run_backtest(
+                    symbol     = WATCHLIST[bt_stock],
+                    stock_name = bt_stock,
+                    period     = bt_period
+                )
+                bt_summary  = result[0]
+                bt_equity   = result[1]
+                bt_trades   = result[2] if len(result) > 2 else pd.DataFrame()
+
+            else:
+                from strategies.ema_strategy import (
+                    calculate_ema_signals,
+                    run_ema_backtest
+                )
+                ema_data   = calculate_ema_signals(raw_data.copy())
+                ema_data   = ema_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_data)
+
+        if bt_summary is None:
             st.error("Could not fetch data — try again.")
         else:
-            bt_summary  = result[0]
-            bt_equity   = result[1]
-            bt_trades   = result[2] if len(result) > 2 else pd.DataFrame()
-
-            # ── Summary Cards ─────────────────────
-            st.subheader(f"📊 Backtest Results — {bt_stock}")
+            st.subheader(f"📊 {bt_strategy} Results — {bt_stock}")
 
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Total Trades",  bt_summary["Total Trades"])
             m2.metric("Win Rate",      bt_summary["Win Rate"])
             m3.metric("Total P&L",     bt_summary["Total P&L"])
-            m4.metric("Total Return",  bt_summary["Total Return"])
+            m4.metric("Total Return",  bt_summary.get("Total Return", "N/A"))
 
             m5, m6, m7, m8 = st.columns(4)
-            m5.metric("Best Trade",    bt_summary["Best Trade"])
-            m6.metric("Worst Trade",   bt_summary["Worst Trade"])
-            m7.metric("Max Drawdown",  bt_summary["Max Drawdown"])
+            m5.metric("Best Trade",    bt_summary.get("Best Trade", "N/A"))
+            m6.metric("Worst Trade",   bt_summary.get("Worst Trade", "N/A"))
+            m7.metric("Max Drawdown",  bt_summary.get("Max Drawdown", "N/A"))
             m8.metric("Final Capital", bt_summary["Final Capital"])
 
             st.divider()
 
-            # ── Equity Curve Chart ─────────────────
             st.subheader("📈 Equity Curve")
-            st.caption("This shows how your capital grew or shrank over time")
             st.line_chart(bt_equity['Equity'], use_container_width=True)
 
             st.divider()
 
-            # ── Trade by Trade Table ───────────────
             if not bt_trades.empty:
                 st.subheader("📋 Trade by Trade Breakdown")
 
@@ -468,14 +512,13 @@ with tab2:
                 st.download_button(
                     label     = "⬇️ Download Backtest Results",
                     data      = bt_trades.to_csv(index=False),
-                    file_name = f"backtest_{bt_stock}_{bt_period}.csv",
+                    file_name = f"backtest_{bt_stock}_{bt_strategy}_{bt_period}.csv",
                     mime      = "text/csv"
                 )
             else:
-                st.info("No trades were generated in this period.")
-
+                st.info("No trades generated in this period.")
     else:
-        st.info("👆 Select a stock and period above, then click Run Backtest")
+        st.info("👆 Select stock, period and strategy, then click Run Backtest")
 
 
 # ════════════════════════════════════════════════
