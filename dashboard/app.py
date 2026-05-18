@@ -1,8 +1,6 @@
 # ================================================
 # FILE: dashboard/app.py
 # PURPOSE: Visual trading dashboard in browser
-#          Clickable table + dropdown selector
-#          With risk management + backtesting
 # ================================================
 
 import streamlit as st
@@ -12,18 +10,17 @@ import sys
 import os
 from datetime import datetime
 
-# ── Works on both laptop and cloud ───────────────
-# On laptop: app.py is inside dashboard/ → go up two levels
-# On Cloud:  app.py is at repo root → go up one level
-# This tries both and uses whichever works
+# ── Path fix: works on laptop AND Streamlit Cloud ────
+_file_path = os.path.abspath(__file__)
+_dir = _file_path
+for _ in range(4):
+    _dir = os.path.dirname(_dir)
+    if _dir not in sys.path:
+        sys.path.insert(0, _dir)
+    if os.path.isdir(os.path.join(_dir, "strategies")):
+        break
 
-_this_file = os.path.abspath(__file__)
-_one_up    = os.path.dirname(_this_file)           # dashboard/ or repo root
-_two_up    = os.path.dirname(_one_up)              # trading_os/ or parent
-
-# Add both to path — Python will use whichever has the modules
-sys.path.insert(0, _one_up)
-sys.path.insert(0, _two_up)
+# ── All imports at top — never inside tabs ───────────
 from strategies.indicators import analyze_stock
 from logs.signal_logger import log_signal, load_signal_log
 from strategies.paper_trader import (
@@ -46,7 +43,7 @@ from risk.risk_manager import (
     MAX_OPEN_POSITIONS
 )
 from strategies.backtest import run_backtest
-from strategies.ema_strategy import (          
+from strategies.ema_strategy import (
     calculate_ema_signals,
     get_ema_summary,
     run_ema_backtest
