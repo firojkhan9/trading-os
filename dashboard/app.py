@@ -46,7 +46,7 @@ from risk.risk_manager import (
     MAX_OPEN_POSITIONS
 )
 from strategies.backtest import run_backtest
-from strategies.ema_strategy import (          # ← ADD THIS HERE
+from strategies.ema_strategy import (          
     calculate_ema_signals,
     get_ema_summary,
     run_ema_backtest
