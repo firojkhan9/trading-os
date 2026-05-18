@@ -13,9 +13,17 @@ import os
 from datetime import datetime
 
 # ── Works on both laptop and cloud ───────────────
-# Gets the parent folder of dashboard/
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(ROOT_DIR)
+# On laptop: app.py is inside dashboard/ → go up two levels
+# On Cloud:  app.py is at repo root → go up one level
+# This tries both and uses whichever works
+
+_this_file = os.path.abspath(__file__)
+_one_up    = os.path.dirname(_this_file)           # dashboard/ or repo root
+_two_up    = os.path.dirname(_one_up)              # trading_os/ or parent
+
+# Add both to path — Python will use whichever has the modules
+sys.path.insert(0, _one_up)
+sys.path.insert(0, _two_up)
 from strategies.indicators import analyze_stock
 from logs.signal_logger import log_signal, load_signal_log
 from strategies.paper_trader import (
@@ -36,6 +44,12 @@ from risk.risk_manager import (
     STOP_LOSS_PCT,
     TARGET_PROFIT_PCT,
     MAX_OPEN_POSITIONS
+)
+from strategies.backtest import run_backtest
+from strategies.ema_strategy import (          # ← ADD THIS HERE
+    calculate_ema_signals,
+    get_ema_summary,
+    run_ema_backtest
 )
 from strategies.backtest import run_backtest
 
@@ -263,11 +277,6 @@ with tab1:
     st.divider()
 
 
-    # ── SECTION 5: Price Chart ────────────────────────
-    from strategies.ema_strategy import (
-        calculate_ema_signals,
-        get_ema_summary
-    )
 
     st.subheader(f"📈 Price Chart — {selected_stock}")
 
@@ -461,10 +470,6 @@ with tab2:
                 bt_trades   = result[2] if len(result) > 2 else pd.DataFrame()
 
             else:
-                from strategies.ema_strategy import (
-                    calculate_ema_signals,
-                    run_ema_backtest
-                )
                 ema_data   = calculate_ema_signals(raw_data.copy())
                 ema_data   = ema_data.dropna()
                 bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_data)
