@@ -49,6 +49,11 @@ from strategies.ema_strategy import (
     get_ema_summary,
     run_ema_backtest
 )
+from strategies.bollinger_strategy import (
+    analyze_bollinger,
+    get_bollinger_summary,
+    run_bollinger_backtest
+)
 
 # ── Page configuration ───────────────────────────
 st.set_page_config(
@@ -283,6 +288,26 @@ with tab1:
 
     st.divider()
 
+    st.divider()
+
+    # ── Bollinger Bands Section ───────────────────
+    st.subheader(f"📉 Bollinger Bands — {selected_stock}")
+    bb_data    = analyze_bollinger(stock_data.copy())
+    bb_summary = get_bollinger_summary(bb_data)
+
+    # Chart with Bollinger Bands
+    bb_chart = bb_data[['Close', 'BB_Upper', 'BB_Middle', 'BB_Lower']].dropna()
+    st.line_chart(bb_chart, use_container_width=True)
+
+    b1, b2, b3 = st.columns(3)
+    b4, b5, b6 = st.columns(3)
+    b1.metric("Upper Band",  bb_summary["Upper Band"])
+    b2.metric("Middle Band", bb_summary["Middle Band"])
+    b3.metric("Lower Band",  bb_summary["Lower Band"])
+    b4.metric("Signal",      bb_summary["Signal"])
+    b5.metric("Position",    bb_summary["Position"])
+    b6.metric("Squeeze",     bb_summary["Squeeze"])
+
     # ── Paper Trading ─────────────────────────────
     st.subheader(f"💰 Paper Trading — {selected_stock}")
     current_capital = get_current_capital()
@@ -421,7 +446,7 @@ with tab2:
     with bc3:
         bt_strategy = st.selectbox(
             "Select Strategy:",
-            options=["MA + RSI", "EMA Crossover"],
+            options=["MA + RSI", "EMA Crossover", "Bollinger Bands"],
             key="bt_strategy_v2"
         )
 
@@ -448,10 +473,15 @@ with tab2:
                 bt_equity   = result[1]
                 bt_trades   = result[2] if len(result) > 2 else pd.DataFrame()
 
-            else:
+            elif bt_strategy == "EMA Crossover":
                 ema_data              = calculate_ema_signals(raw_data.copy())
                 ema_data              = ema_data.dropna()
                 bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_data)
+
+            elif bt_strategy == "Bollinger Bands":
+                bb_data               = analyze_bollinger(raw_data.copy())
+                bb_data               = bb_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_bollinger_backtest(bb_data)
 
         if bt_summary is None:
             st.error("Could not fetch data — try again.")
