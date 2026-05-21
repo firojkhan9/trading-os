@@ -1,5 +1,5 @@
 # ================================================
-# FILE: app.py  ← lives at REPO ROOT now
+# FILE: app.py  ← lives at REPO ROOT
 # PURPOSE: Visual trading dashboard in browser
 # ================================================
 # HOW TO USE:
@@ -15,8 +15,6 @@ import os
 from datetime import datetime
 
 # ── Path fix ─────────────────────────────────────
-# app.py is now at repo root, same level as strategies/
-# So we just add the folder containing app.py to sys.path
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -53,6 +51,19 @@ from strategies.bollinger_strategy import (
     analyze_bollinger,
     get_bollinger_summary,
     run_bollinger_backtest
+)
+from strategies.macd_strategy import (
+    analyze_macd,
+    get_macd_summary,
+    run_macd_backtest
+)
+from strategies.strategy_comparison import (
+    run_all_backtests,
+    get_best_strategy,
+    get_strategy_scores
+)
+from strategies.combined_signal import (
+    build_combined_summary
 )
 
 # ── Page configuration ───────────────────────────
@@ -141,7 +152,7 @@ def fetch_all_stocks():
 def fetch_stock_data(symbol):
     data = yf.download(
         tickers=symbol,
-        period="30d",
+        period="60d",       # 60 days — MACD needs 26+ days warmup
         interval="1d",
         progress=False
     )
@@ -150,9 +161,10 @@ def fetch_stock_data(symbol):
 
 
 # ── Navigation Tabs ───────────────────────────────
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Dashboard",
     "🔬 Backtesting",
+    "📊 Strategy Comparison",
     "📋 Logs"
 ])
 
@@ -219,6 +231,65 @@ with tab1:
         signal     = latest_signal
     )
 
+    # ── Compute all strategy signals ──────────────
+    ema_data     = calculate_ema_signals(stock_data.copy())
+    ema_summary  = get_ema_summary(ema_data)
+
+    bb_data      = analyze_bollinger(stock_data.copy())
+    bb_summary   = get_bollinger_summary(bb_data)
+
+    macd_data    = analyze_macd(stock_data.copy())
+    macd_summary = get_macd_summary(macd_data)
+
+    # ── Combined Signal ───────────────────────────
+    combined = build_combined_summary(
+        ma_signal   = latest_signal,
+        ema_signal  = ema_summary["Signal"],
+        bb_signal   = bb_summary["Signal"],
+        macd_signal = macd_summary["Signal"],
+    )
+
+    # ════════════════════════════════════════════
+    # COMBINED SIGNAL BANNER — shown at the top
+    # ════════════════════════════════════════════
+    st.subheader(f"🎯 Combined Signal — {selected_stock}")
+
+    final_signal = combined["Final Signal"]
+
+    # Color the banner based on signal
+    if "STRONG BUY" in final_signal:
+        st.success(f"## {final_signal}")
+    elif "BUY" in final_signal:
+        st.success(f"### {final_signal}")
+    elif "STRONG SELL" in final_signal:
+        st.error(f"## {final_signal}")
+    elif "SELL" in final_signal:
+        st.error(f"### {final_signal}")
+    else:
+        st.info(f"### {final_signal}")
+
+    cs1, cs2, cs3, cs4 = st.columns(4)
+    cs1.metric("Confidence",      combined["Confidence"])
+    cs2.metric("Strategies BUY",  combined["Strategies Buy"])
+    cs3.metric("Strategies SELL", combined["Strategies Sell"])
+    cs4.metric("Strategies HOLD", combined["Strategies Hold"])
+
+    # Individual strategy votes
+    st.caption("📋 Individual Strategy Votes")
+    vote_data = []
+    for strategy, signal in combined["Signals"].items():
+        vote = combined["Votes"][strategy]
+        vote_label = "🟢 BUY" if vote == 1 else ("🔴 SELL" if vote == -1 else "⚪ HOLD")
+        vote_data.append({
+            "Strategy": strategy,
+            "Signal":   signal,
+            "Vote":     vote_label,
+            "Weight":   combined["Weights"].get(strategy, 1.0),
+        })
+    st.dataframe(pd.DataFrame(vote_data), use_container_width=True, hide_index=True)
+
+    st.divider()
+
     # ── Risk Alerts ───────────────────────────────
     st.subheader("🛡️ Risk Alerts")
     current_prices = {}
@@ -248,8 +319,8 @@ with tab1:
 
     st.divider()
 
-    # ── Metric Cards ──────────────────────────────
-    st.subheader(f"🧠 Technical Indicators — {selected_stock}")
+    # ── Technical Indicators ──────────────────────
+    st.subheader(f"🧠 MA + RSI Indicators — {selected_stock}")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Latest Close", f"₹{latest_close}", f"₹{round(latest_close - prev_close, 2)}")
     col2.metric("MA20",         f"₹{latest_ma20}")
@@ -266,8 +337,7 @@ with tab1:
     st.divider()
 
     # ── Price + EMA Chart ─────────────────────────
-    st.subheader(f"📈 Price Chart — {selected_stock}")
-    ema_data = calculate_ema_signals(stock_data.copy())
+    st.subheader(f"📈 Price Chart with EMA — {selected_stock}")
     chart_df = ema_data[['Close', 'EMA9', 'EMA21']].dropna()
     st.line_chart(chart_df, use_container_width=True)
 
@@ -275,7 +345,6 @@ with tab1:
 
     # ── EMA Signal Section ────────────────────────
     st.subheader(f"⚡ EMA Crossover Signal — {selected_stock}")
-    ema_summary = get_ema_summary(ema_data)
 
     e1, e2, e3 = st.columns(3)
     e4, e5, e6 = st.columns(3)
@@ -288,14 +357,9 @@ with tab1:
 
     st.divider()
 
-    st.divider()
-
     # ── Bollinger Bands Section ───────────────────
     st.subheader(f"📉 Bollinger Bands — {selected_stock}")
-    bb_data    = analyze_bollinger(stock_data.copy())
-    bb_summary = get_bollinger_summary(bb_data)
 
-    # Chart with Bollinger Bands
     bb_chart = bb_data[['Close', 'BB_Upper', 'BB_Middle', 'BB_Lower']].dropna()
     st.line_chart(bb_chart, use_container_width=True)
 
@@ -307,6 +371,30 @@ with tab1:
     b4.metric("Signal",      bb_summary["Signal"])
     b5.metric("Position",    bb_summary["Position"])
     b6.metric("Squeeze",     bb_summary["Squeeze"])
+
+    st.divider()
+
+    # ── MACD Section ──────────────────────────────
+    st.subheader(f"📊 MACD — {selected_stock}")
+
+    macd_chart = macd_data[['MACD', 'MACD_Signal']].dropna()
+    st.line_chart(macd_chart, use_container_width=True)
+
+    st.caption("📊 MACD Histogram — bars above zero = bullish, below zero = bearish")
+    hist_chart = macd_data[['MACD_Hist']].dropna()
+    st.bar_chart(hist_chart, use_container_width=True)
+
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    mc5, mc6, mc7      = st.columns(3)
+    mc1.metric("MACD Line",        macd_summary["MACD Line"])
+    mc2.metric("Signal Line",      macd_summary["Signal Line"])
+    mc3.metric("Histogram",        macd_summary["Histogram"])
+    mc4.metric("Signal",           macd_summary["Signal"])
+    mc5.metric("Momentum",         macd_summary["Momentum"])
+    mc6.metric("Histogram Trend",  macd_summary["Histogram Trend"])
+    mc7.metric("Days Since Cross", macd_summary["Days Since Cross"])
+
+    st.divider()
 
     # ── Paper Trading ─────────────────────────────
     st.subheader(f"💰 Paper Trading — {selected_stock}")
@@ -446,7 +534,7 @@ with tab2:
     with bc3:
         bt_strategy = st.selectbox(
             "Select Strategy:",
-            options=["MA + RSI", "EMA Crossover", "Bollinger Bands"],
+            options=["MA + RSI", "EMA Crossover", "Bollinger Bands", "MACD"],
             key="bt_strategy_v2"
         )
 
@@ -464,24 +552,29 @@ with tab2:
             raw_data.columns = [col[0] for col in raw_data.columns]
 
             if bt_strategy == "MA + RSI":
-                result      = run_backtest(
+                result     = run_backtest(
                     symbol     = WATCHLIST[bt_stock],
                     stock_name = bt_stock,
                     period     = bt_period
                 )
-                bt_summary  = result[0]
-                bt_equity   = result[1]
-                bt_trades   = result[2] if len(result) > 2 else pd.DataFrame()
+                bt_summary = result[0]
+                bt_equity  = result[1]
+                bt_trades  = result[2] if len(result) > 2 else pd.DataFrame()
 
             elif bt_strategy == "EMA Crossover":
-                ema_data              = calculate_ema_signals(raw_data.copy())
-                ema_data              = ema_data.dropna()
+                ema_data             = calculate_ema_signals(raw_data.copy())
+                ema_data             = ema_data.dropna()
                 bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_data)
 
             elif bt_strategy == "Bollinger Bands":
-                bb_data               = analyze_bollinger(raw_data.copy())
-                bb_data               = bb_data.dropna()
+                bb_data              = analyze_bollinger(raw_data.copy())
+                bb_data              = bb_data.dropna()
                 bt_summary, bt_equity, bt_trades = run_bollinger_backtest(bb_data)
+
+            elif bt_strategy == "MACD":
+                macd_bt_data         = analyze_macd(raw_data.copy())
+                macd_bt_data         = macd_bt_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_macd_backtest(macd_bt_data)
 
         if bt_summary is None:
             st.error("Could not fetch data — try again.")
@@ -532,9 +625,125 @@ with tab2:
 
 
 # ════════════════════════════════════════════════
-# TAB 3: LOGS
+# TAB 3: STRATEGY COMPARISON
 # ════════════════════════════════════════════════
 with tab3:
+
+    st.title("📊 Strategy Comparison")
+    st.caption("Run all 4 strategies on the same stock and period — find the best one")
+    st.divider()
+
+    st.subheader("⚙️ Comparison Settings")
+
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        cmp_stock = st.selectbox(
+            "Select Stock:",
+            options=STOCK_NAMES,
+            key="cmp_stock"
+        )
+    with cc2:
+        cmp_period = st.selectbox(
+            "Select Period:",
+            options=["3mo", "6mo", "1y", "2y"],
+            index=2,
+            key="cmp_period",
+            format_func=lambda x: {
+                "3mo": "3 Months",
+                "6mo": "6 Months",
+                "1y":  "1 Year",
+                "2y":  "2 Years"
+            }[x]
+        )
+
+    st.divider()
+
+    if st.button("🏆 Compare All Strategies", use_container_width=True):
+        with st.spinner(f"Running all 4 strategies on {cmp_stock}... this may take 30 seconds"):
+
+            result = run_all_backtests(
+                symbol     = WATCHLIST[cmp_stock],
+                stock_name = cmp_stock,
+                period     = cmp_period
+            )
+
+            display_df    = result[0]
+            equity_all    = result[1]
+            comparison_df = result[2]
+
+        if display_df.empty:
+            st.error("Could not run comparison — try again.")
+        else:
+            # ── Winner announcement ───────────────
+            best = get_best_strategy(comparison_df)
+            st.success(f"🏆 Best Strategy for {cmp_stock} over {cmp_period}: **{best}**")
+
+            st.divider()
+
+            # ── Comparison table ──────────────────
+            st.subheader("📋 Strategy Comparison Table")
+            st.caption("Ranked by Total Return — highest first")
+
+            def color_rank(val):
+                if "🥇" in str(val): return "color: gold; font-weight: bold"
+                if "🥈" in str(val): return "color: silver"
+                if "🥉" in str(val): return "color: #cd7f32"
+                return ""
+
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # ── Equity curves comparison ──────────
+            st.subheader("📈 Equity Curves — All Strategies")
+            st.caption("Compare how each strategy's capital grew over time")
+
+            # Combine all equity curves into one dataframe
+            equity_combined = pd.DataFrame()
+            for strategy_name, eq_df in equity_all.items():
+                if not eq_df.empty and 'Equity' in eq_df.columns:
+                    equity_combined[strategy_name] = eq_df['Equity']
+
+            if not equity_combined.empty:
+                st.line_chart(equity_combined, use_container_width=True)
+
+            st.divider()
+
+            # ── Scoring breakdown ─────────────────
+            st.subheader("🎯 Strategy Scores")
+            st.caption("Composite score = 50% Return + 30% Win Rate + 20% Risk")
+
+            scores = get_strategy_scores(comparison_df)
+            score_rows = []
+            for strategy, s in scores.items():
+                score_rows.append({
+                    "Strategy":        strategy,
+                    "Return Score":    f"{s['Return Score']}/100",
+                    "Win Rate Score":  f"{s['Win Rate Score']}/100",
+                    "Risk Score":      f"{s['Risk Score']}/100",
+                    "Composite Score": f"{s['Composite Score']}/100",
+                })
+            st.dataframe(
+                pd.DataFrame(score_rows),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.divider()
+            st.download_button(
+                label     = "⬇️ Download Comparison Report",
+                data      = display_df.to_csv(index=False),
+                file_name = f"strategy_comparison_{cmp_stock}_{cmp_period}.csv",
+                mime      = "text/csv"
+            )
+    else:
+        st.info("👆 Select a stock and period, then click Compare All Strategies")
+
+
+# ════════════════════════════════════════════════
+# TAB 4: LOGS
+# ════════════════════════════════════════════════
+with tab4:
 
     st.title("📋 System Logs")
     st.divider()
