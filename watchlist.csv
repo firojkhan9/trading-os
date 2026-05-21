@@ -1,0 +1,11 @@
+Symbol,Name,Sector,Industry,Active,Priority,Notes
+RELIANCE.NS,RELIANCE,Energy,Oil & Gas,True,1,Largest Indian company by market cap
+TCS.NS,TCS,Technology,IT Services,True,1,Largest IT company in India
+HDFCBANK.NS,HDFCBANK,Finance,Private Banks,True,1,Largest private sector bank
+INFY.NS,INFY,Technology,IT Services,True,1,Second largest IT company
+ICICIBANK.NS,ICICIBANK,Finance,Private Banks,True,1,Second largest private sector bank
+HINDUNILVR.NS,HINDUNILVR,FMCG,Consumer Goods,True,2,Largest FMCG company
+SBIN.NS,SBIN,Finance,Public Banks,True,2,Largest public sector bank
+BHARTIARTL.NS,BHARTIARTL,Telecom,Telecom Services,True,2,Largest telecom company
+ITC.NS,ITC,FMCG,Diversified FMCG,True,2,Diversified conglomerate
+KOTAKBANK.NS,KOTAKBANK,Finance,Private Banks,True,2,Premium private sector bank
