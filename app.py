@@ -15,7 +15,8 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-# ── All imports ──────────────────────────────────
+# ── All imports 
+from config.settings_loader import get_settings, DEFAULT_SETTINGS
 from strategies.indicators import analyze_stock
 from logs.signal_logger import log_signal, load_signal_log
 from strategies.paper_trader import (
@@ -1089,6 +1090,95 @@ with tab7:
     w1.metric("Active Stocks", wl_summary["Active Stocks"])
     w2.metric("Total Stocks",  wl_summary["Total Stocks"])
     w3.metric("Sectors",       wl_summary["Sectors"])
+
+    st.divider()
+
+    # ════════════════════════════════════════════
+    # SETTINGS PANEL
+    # ════════════════════════════════════════════
+    st.subheader("⚙️ Strategy Settings")
+    st.caption("These settings control all backtesting and trading logic")
+
+    # Load current settings
+    current_settings = get_settings()
+    source = current_settings.get("_source", "defaults")
+
+    # Show where settings are coming from
+    if source == "Google Sheet":
+        st.success("✅ Settings loaded from Google Sheet — edit the sheet to change values")
+    else:
+        st.info("ℹ️ Using default settings — set up Google Sheet for remote control")
+        st.caption(
+            "To control settings from Google Sheets: "
+            "open config/settings_loader.py and add your Google Sheet URL"
+        )
+
+    # Display current settings in a clean table
+    settings_display = []
+    settings_labels = {
+        "STOP_LOSS_PCT":      ("Stop Loss",              "%",  100),
+        "TARGET_PROFIT_PCT":  ("Profit Target",          "%",  100),
+        "USE_TRAILING_STOP":  ("Trailing Stop Enabled",  "",   1),
+        "TRAILING_STOP_PCT":  ("Trailing Stop %",        "%",  100),
+        "MAX_POSITION_PCT":   ("Max Position Size",      "%",  100),
+        "WEAK_POSITION_PCT":  ("Weak Signal Position",   "%",  100),
+        "BROKERAGE_PCT":      ("Brokerage",              "%",  100),
+        "STRONG_BUY_VOTES":   ("Strong Buy Votes Needed","",   1),
+        "WEAK_BUY_VOTES":     ("Weak Buy Votes Needed",  "",   1),
+        "MACD_MOMENTUM_EXIT": ("MACD Momentum Exit",     "%",  100),
+        "STARTING_CAPITAL":   ("Starting Capital",       "₹",  1),
+    }
+
+    for key, (label, unit, multiplier) in settings_labels.items():
+        value = current_settings.get(key, DEFAULT_SETTINGS.get(key, "N/A"))
+        default = DEFAULT_SETTINGS.get(key, "N/A")
+
+        # Format display value
+        if unit == "%" and multiplier == 100:
+            display_value   = f"{round(float(value) * 100, 1)}%"
+            display_default = f"{round(float(default) * 100, 1)}%"
+        elif unit == "₹":
+            display_value   = f"₹{int(value):,}"
+            display_default = f"₹{int(default):,}"
+        else:
+            display_value   = str(value)
+            display_default = str(default)
+
+        # Flag if different from default
+        changed = str(value) != str(default)
+
+        settings_display.append({
+            "Setting":         label,
+            "Current Value":   display_value,
+            "Default":         display_default,
+            "Changed":         "✏️ Modified" if changed else "—",
+        })
+
+    st.dataframe(
+        pd.DataFrame(settings_display),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # ── Key metrics display ───────────────────────
+    st.caption("📊 Key Trading Parameters at a Glance")
+    sv1, sv2, sv3, sv4 = st.columns(4)
+    sv1.metric(
+        "Stop Loss",
+        f"{round(current_settings['STOP_LOSS_PCT'] * 100, 1)}%"
+    )
+    sv2.metric(
+        "Profit Target",
+        f"{round(current_settings['TARGET_PROFIT_PCT'] * 100, 1)}%"
+    )
+    sv3.metric(
+        "Trailing Stop",
+        f"{round(current_settings['TRAILING_STOP_PCT'] * 100, 1)}%" if current_settings['USE_TRAILING_STOP'] else "OFF"
+    )
+    sv4.metric(
+        "Max Position",
+        f"{round(current_settings['MAX_POSITION_PCT'] * 100, 1)}%"
+    )
 
 # ── Footer ─────────────────────────────────────────
 st.divider()
