@@ -99,7 +99,7 @@ initialize_watchlist()
 def check_password():
     if st.session_state.get("authenticated"):
         return True
-    st.title("🔐 Trading OS — Login")
+    st.title("🔐 Firoj Khan's Trading OS — Login")
     st.caption("Enter your password to access the dashboard")
     st.divider()
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -193,7 +193,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
 # ════════════════════════════════════════════════
 with tab1:
 
-    st.title("🚀 Trading OS — Market Dashboard")
+    st.title("🚀 Firoj Khan's Trading OS — Market Dashboard")
     st.caption(f"Last updated: {datetime.now().strftime('%d %b %Y, %I:%M %p')}")
     st.divider()
 
