@@ -5,3 +5,4 @@ plotly
 requests
 python-dotenv
 loguru
+supabase

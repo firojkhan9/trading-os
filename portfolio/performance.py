@@ -1,41 +1,83 @@
 # ================================================
 # FILE: portfolio/performance.py
 # PURPOSE: Calculate portfolio performance metrics
-#          from paper trading history
+#          PRIMARY: Supabase database (permanent)
+#          FALLBACK: CSV file (local only)
 # ================================================
 
 import pandas as pd
 import os
-
-# ── File locations ────────────────────────────────
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config.settings import (
-    TRADES_FILE,
-    PORTFOLIO_FILE,
-    STARTING_CAPITAL
-)
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config.supabase_client import get_client
+
+# ── Settings ──────────────────────────────────────
+try:
+    from config.strategy_settings import STARTING_CAPITAL
+except ImportError:
+    STARTING_CAPITAL = 100000
+
+# ── CSV fallback ──────────────────────────────────
+try:
+    from config.settings import TRADES_FILE, PORTFOLIO_FILE
+except Exception:
+    _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    TRADES_FILE    = os.path.join(_base, "logs", "paper_trades.csv")
+    PORTFOLIO_FILE = os.path.join(_base, "logs", "paper_portfolio.csv")
+
 
 def load_trades():
-    """Load all completed trades from CSV."""
+    """
+    Load all trades from Supabase or CSV fallback.
+    Returns dataframe with standardised column names.
+    """
+    client = get_client()
+
+    if client:
+        try:
+            response = (
+                client.table("paper_trades")
+                .select("*")
+                .order("timestamp", desc=False)
+                .execute()
+            )
+            if response.data:
+                df = pd.DataFrame(response.data)
+                df = df.rename(columns={
+                    "timestamp":     "Timestamp",
+                    "stock":         "Stock",
+                    "action":        "Action",
+                    "price":         "Price",
+                    "quantity":      "Quantity",
+                    "value":         "Value",
+                    "capital_after": "Capital_After",
+                })
+                return df
+            return pd.DataFrame()
+        except Exception as e:
+            print(f"⚠️ Supabase trades load failed: {e}")
+
     if os.path.exists(TRADES_FILE):
-        return pd.read_csv(TRADES_FILE)
+        try:
+            return pd.read_csv(TRADES_FILE)
+        except Exception:
+            pass
+
     return pd.DataFrame()
 
 
 def get_completed_trades():
     """
-    Match BUY and SELL trades together.
-    Only completed round-trips count for P&L.
-    A round-trip = one BUY + one SELL of same stock.
+    Match BUY and SELL trades into completed round trips.
+    A round trip = one BUY + one SELL of same stock.
     """
     trades = load_trades()
 
     if trades.empty:
         return pd.DataFrame()
 
-    # Separate buys and sells
     buys  = trades[trades['Action'] == 'BUY'].copy()
     sells = trades[trades['Action'] == 'SELL'].copy()
 
@@ -46,17 +88,13 @@ def get_completed_trades():
 
     for _, sell in sells.iterrows():
         stock = sell['Stock']
-
-        # Find matching buy for this stock
         matching_buys = buys[buys['Stock'] == stock]
 
         if matching_buys.empty:
             continue
 
-        # Get the most recent buy before this sell
         buy = matching_buys.iloc[-1]
 
-        # Calculate P&L for this trade
         buy_value  = float(buy['Value'])
         sell_value = float(sell['Value'])
         pnl        = round(sell_value - buy_value, 2)
@@ -91,9 +129,9 @@ def get_performance_summary():
     if trades.empty:
         current_capital = STARTING_CAPITAL
     else:
-        current_capital = float(trades['Capital_After'].iloc[-1])
+        trades_sorted   = trades.sort_values('Timestamp', ascending=True)
+        current_capital = float(trades_sorted['Capital_After'].iloc[-1])
 
-    # Total P&L
     total_pnl     = round(current_capital - STARTING_CAPITAL, 2)
     total_pnl_pct = round((total_pnl / STARTING_CAPITAL) * 100, 2)
 
@@ -111,21 +149,14 @@ def get_performance_summary():
             "Current Capital": f"₹{current_capital:,}",
         }
 
-    # Count wins and losses
     wins   = completed[completed['P&L'] >= 0]
     losses = completed[completed['P&L'] < 0]
-
     total  = len(completed)
-    win_rate = round((len(wins) / total) * 100, 2)
 
-    # Best and worst trades
-    best_idx   = completed['P&L'].idxmax()
-    worst_idx  = completed['P&L'].idxmin()
-    best_trade = completed.loc[best_idx]
-    worst_trade= completed.loc[worst_idx]
-
-    # Average P&L per trade
-    avg_pnl = round(completed['P&L'].mean(), 2)
+    win_rate    = round((len(wins) / total) * 100, 2)
+    best_trade  = completed.loc[completed['P&L'].idxmax()]
+    worst_trade = completed.loc[completed['P&L'].idxmin()]
+    avg_pnl     = round(completed['P&L'].mean(), 2)
 
     return {
         "Total Trades":    total,
