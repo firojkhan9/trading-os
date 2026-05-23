@@ -15,7 +15,8 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-# ── All imports 
+# ── All imports
+from strategies.explainability_engine import get_full_explanation 
 from strategies.performance_scanner import scan_all_stocks
 from config.settings_loader import get_settings, DEFAULT_SETTINGS
 from strategies.indicators import analyze_stock
@@ -779,133 +780,348 @@ with tab3:
 with tab4:
 
     st.title("💯 Stock Intelligence Score")
-    st.caption("Composite score combining all indicators into one clear number")
+    st.caption("Full explanation of why a signal was generated — with signal rarity analysis")
     st.divider()
-
+ 
     sc1, sc2 = st.columns(2)
     with sc1:
         score_stock = st.selectbox(
-            "Select Stock to Score:",
-            options=STOCK_NAMES, key="score_stock"
+            "Select Stock to Analyse:",
+            options=STOCK_NAMES,
+            key="score_stock"
         )
-
+ 
     st.divider()
-
-    if st.button("🔍 Calculate Score", use_container_width=True, key="calc_score"):
-        with st.spinner(f"Scoring {score_stock}..."):
-
-            score_symbol  = WATCHLIST[score_stock]
-            score_data    = fetch_stock_data(score_symbol)
-            score_analyzed= analyze_stock(score_data)
-            score_latest  = score_analyzed.iloc[-1]
-
-            # Extract all needed values
-            s_close   = round(float(score_latest['Close']), 2)
-            s_ma20    = round(float(score_latest['MA20']), 2)
-            s_rsi     = round(float(score_latest['RSI']), 2)
-            s_signal  = score_latest['Signal']
-
-            s_ema_data    = calculate_ema_signals(score_data.copy())
-            s_ema_latest  = s_ema_data.iloc[-1]
-            s_ema9        = round(float(s_ema_latest['EMA9']), 2)
-            s_ema21       = round(float(s_ema_latest['EMA21']), 2)
-
-            s_bb_data     = analyze_bollinger(score_data.copy())
-            s_bb_latest   = s_bb_data.iloc[-1]
-            s_bb_pct      = float(s_bb_latest['BB_Pct']) if not pd.isna(s_bb_latest['BB_Pct']) else None
-            s_bb_signal   = s_bb_latest['BB_Signal']
-
-            s_macd_data   = analyze_macd(score_data.copy())
-            s_macd_latest = s_macd_data.iloc[-1]
-            s_macd        = float(s_macd_latest['MACD'])        if not pd.isna(s_macd_latest['MACD'])        else None
-            s_macd_sig    = float(s_macd_latest['MACD_Signal']) if not pd.isna(s_macd_latest['MACD_Signal']) else None
-            s_macd_hist   = float(s_macd_latest['MACD_Hist'])   if not pd.isna(s_macd_latest['MACD_Hist'])   else None
-
-            s_combined = build_combined_summary(
-                ma_signal=s_signal, ema_signal=s_ema_data.iloc[-1]['EMA_Signal'],
-                bb_signal=s_bb_signal, macd_signal=s_macd_data.iloc[-1]['MACD_Crossover'],
+ 
+    if st.button("🔍 Analyse & Explain", use_container_width=True, key="calc_score"):
+        with st.spinner(f"Running full analysis on {score_stock}... fetching 6 months of data"):
+ 
+            score_symbol = WATCHLIST[score_stock]
+ 
+            # Fetch 6 months for rarity analysis
+            score_data_long = yf.download(
+                tickers=score_symbol, period="6mo",
+                interval="1d", progress=False
             )
-
-            s_votes = {
-                "buy":  s_combined["Strategies Buy"],
-                "sell": s_combined["Strategies Sell"],
-                "hold": s_combined["Strategies Hold"],
-            }
-
-            s_regime_data = fetch_regime_analysis()
-            s_regime      = s_regime_data["regime"]
-
+            score_data_long.columns = [col[0] for col in score_data_long.columns]
+ 
+            # Also fetch 60d for indicators
+            score_data = fetch_stock_data(score_symbol)
+ 
+            # Run all strategies
+            score_analyzed  = analyze_stock(score_data.copy())
+            score_ema_data  = calculate_ema_signals(score_data.copy())
+            score_bb_data   = analyze_bollinger(score_data.copy())
+            score_macd_data = analyze_macd(score_data.copy())
+ 
+            score_latest     = score_analyzed.iloc[-1]
+            score_ema_latest = score_ema_data.iloc[-1]
+            score_bb_latest  = score_bb_data.iloc[-1]
+            score_macd_latest= score_macd_data.iloc[-1]
+ 
+            s_signal   = score_latest['Signal']
+            s_ema_sig  = score_ema_latest['EMA_Signal']
+            s_bb_sig   = score_bb_latest['BB_Signal']
+            s_macd_sig = score_macd_latest['MACD_Crossover']
+ 
+            score_combined = build_combined_summary(
+                ma_signal=s_signal, ema_signal=s_ema_sig,
+                bb_signal=s_bb_sig, macd_signal=s_macd_sig,
+            )
+ 
+            # Get regime
+            score_regime_data = fetch_regime_analysis()
+            score_regime      = score_regime_data["regime"]
+ 
             # Build composite score
-            result = build_composite_score(
-                stock_name           = score_stock,
-                latest_close         = s_close,
-                ma20                 = s_ma20,
-                rsi                  = s_rsi,
-                ema9                 = s_ema9,
-                ema21                = s_ema21,
-                macd                 = s_macd,
-                macd_signal          = s_macd_sig,
-                macd_hist            = s_macd_hist,
-                bb_pct               = s_bb_pct,
-                bb_signal            = s_bb_signal,
-                combined_votes       = s_votes,
-                combined_weighted_score = s_combined["Score"],
-                regime               = s_regime,
-                rs_score             = None
+            s_close  = round(float(score_latest['Close']), 2)
+            s_ma20   = round(float(score_latest['MA20']), 2)   if not pd.isna(score_latest['MA20'])   else None
+            s_rsi    = round(float(score_latest['RSI']), 2)    if not pd.isna(score_latest['RSI'])    else None
+            s_ema9   = round(float(score_ema_latest['EMA9']), 2)  if not pd.isna(score_ema_latest['EMA9'])  else None
+            s_ema21  = round(float(score_ema_latest['EMA21']), 2) if not pd.isna(score_ema_latest['EMA21']) else None
+            s_macd   = float(score_macd_latest['MACD'])        if not pd.isna(score_macd_latest['MACD'])        else None
+            s_msig   = float(score_macd_latest['MACD_Signal']) if not pd.isna(score_macd_latest['MACD_Signal']) else None
+            s_mhist  = float(score_macd_latest['MACD_Hist'])   if not pd.isna(score_macd_latest['MACD_Hist'])   else None
+            s_bbpct  = float(score_bb_latest['BB_Pct'])        if not pd.isna(score_bb_latest['BB_Pct'])        else None
+ 
+            s_votes = {
+                "buy":  score_combined["Strategies Buy"],
+                "sell": score_combined["Strategies Sell"],
+                "hold": score_combined["Strategies Hold"],
+            }
+ 
+            score_result = build_composite_score(
+                stock_name=score_stock, latest_close=s_close,
+                ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
+                macd=s_macd, macd_signal=s_msig, macd_hist=s_mhist,
+                bb_pct=s_bbpct, bb_signal=s_bb_sig,
+                combined_votes=s_votes,
+                combined_weighted_score=score_combined["Score"],
+                regime=score_regime, rs_score=None
             )
-
-        # ── Display Score ─────────────────────────
-        composite = result["Composite Score"]
-
-        # Score color
-        if composite >= 70:
-            st.success(f"# 💯 Score: {composite}/100")
-        elif composite >= 55:
-            st.success(f"## 💯 Score: {composite}/100")
-        elif composite >= 40:
-            st.info(f"## 💯 Score: {composite}/100")
+ 
+            # Get full explanation
+            explanation = get_full_explanation(
+                stock_name   = score_stock,
+                data         = score_data_long,
+                analyzed     = score_analyzed,
+                ema_data     = score_ema_data,
+                bb_data      = score_bb_data,
+                macd_data    = score_macd_data,
+                combined     = score_combined,
+                regime       = score_regime,
+                composite_score = score_result["Composite Score"],
+            )
+ 
+        # ════════════════════════════════════════
+        # DISPLAY RESULTS
+        # ════════════════════════════════════════
+ 
+        composite    = score_result["Composite Score"]
+        final_signal = explanation["final_signal"]
+        rarity       = explanation["rarity"]
+        risk         = explanation["risk"]
+ 
+        # ── Main signal banner ────────────────────
+        if "STRONG BUY" in final_signal:
+            st.success(f"## {final_signal} — {score_stock}")
+        elif "BUY" in final_signal:
+            st.success(f"### {final_signal} — {score_stock}")
+        elif "STRONG SELL" in final_signal:
+            st.error(f"## {final_signal} — {score_stock}")
+        elif "SELL" in final_signal:
+            st.error(f"### {final_signal} — {score_stock}")
         else:
-            st.error(f"## 💯 Score: {composite}/100")
-
-        sc_a, sc_b, sc_c, sc_d = st.columns(4)
-        sc_a.metric("Action",        result["Action"])
-        sc_b.metric("Confidence",    result["Confidence"])
-        sc_c.metric("Position Size", result["Position Size"])
-        sc_d.metric("Regime",        result["Regime"])
-
+            st.info(f"### {final_signal} — {score_stock}")
+ 
+        # ── Top metrics row ───────────────────────
+        tm1, tm2, tm3, tm4, tm5 = st.columns(5)
+        tm1.metric("Composite Score",  f"{composite}/100")
+        tm2.metric("Confidence",       score_result["Confidence"])
+        tm3.metric("Position Size",    score_result["Position Size"])
+        tm4.metric("Strategies BUY",   explanation["buy_votes"])
+        tm5.metric("Market Regime",    score_regime)
+ 
         st.divider()
-
-        # ── Score Breakdown ───────────────────────
-        st.subheader("📊 Score Breakdown")
+ 
+        # ════════════════════════════════════════
+        # SIGNAL RARITY SECTION
+        # ════════════════════════════════════════
+        st.subheader("🔥 Signal Rarity Analysis")
+        st.caption(f"How often has this signal occurred in the last {rarity['total_days']} trading days (~6 months)?")
+ 
+        r1, r2, r3, r4 = st.columns(4)
+        r1.metric(
+            "Rarity",
+            rarity["rarity_label"],
+        )
+        r2.metric(
+            "Occurrences",
+            f"{rarity['occurrences']} / {rarity['total_days']} days",
+            help="How many days had the same signal type in the last 6 months"
+        )
+        r3.metric(
+            "Frequency",
+            f"{rarity['rarity_pct']}% of days",
+            help="Percentage of trading days with this signal"
+        )
+        r4.metric(
+            "Last Seen",
+            f"{rarity['days_since_last']} days ago",
+            help=f"Last occurrence: {rarity['last_occurrence']}"
+        )
+ 
+        # Rarity interpretation
+        if rarity["occurrences"] == 0:
+            st.error(
+                f"🔥 **NEVER occurred in 6 months** — This is an extremely rare signal. "
+                f"The backtest showed 0 trades because this combination never triggered historically. "
+                f"It is triggering for the first time now. Treat with high conviction but verify manually."
+            )
+        elif rarity["rarity_pct"] <= 5:
+            st.warning(
+                f"⭐ **RARE signal** — Only {rarity['occurrences']} occurrences in {rarity['total_days']} days. "
+                f"Last occurred {rarity['days_since_last']} days ago ({rarity['last_occurrence']}). "
+                f"This is why backtests may show few or no trades — the signal is selective by design."
+            )
+        elif rarity["rarity_pct"] <= 15:
+            st.info(
+                f"🔔 **Occasional signal** — Occurred {rarity['occurrences']} times in 6 months. "
+                f"Last seen {rarity['days_since_last']} days ago."
+            )
+        else:
+            st.info(
+                f"📊 **Common signal** — Occurred {rarity['occurrences']} times ({rarity['rarity_pct']}% of days). "
+                f"This signal triggers frequently — use with other filters."
+            )
+ 
+        st.divider()
+ 
+        # ════════════════════════════════════════
+        # WHY THIS SIGNAL — STRATEGY BREAKDOWN
+        # ════════════════════════════════════════
+        st.subheader("📋 Why This Signal — Strategy by Strategy")
+ 
+        if explanation["reasons_buy"]:
+            st.markdown("**✅ Reasons Supporting BUY:**")
+            for reason in explanation["reasons_buy"]:
+                st.markdown(f"- {reason}")
+ 
+        if explanation["reasons_sell"]:
+            st.markdown("**🔴 Reasons Against / Bearish:**")
+            for reason in explanation["reasons_sell"]:
+                st.markdown(f"- {reason}")
+ 
+        if explanation["reasons_hold"]:
+            st.markdown("**⚪ Neutral / Watch:**")
+            for reason in explanation["reasons_hold"]:
+                st.markdown(f"- {reason}")
+ 
+        st.divider()
+ 
+        # ════════════════════════════════════════
+        # SCORE BREAKDOWN
+        # ════════════════════════════════════════
+        st.subheader("📊 Composite Score Breakdown")
         st.caption("How each dimension contributed to the final score")
-
+ 
         breakdown_rows = []
-        for dim, val in result["Individual Scores"].items():
+        for dim, val in score_result["Individual Scores"].items():
+            weight_map = {
+                "Trend": "25%", "Momentum": "25%",
+                "Volatility": "15%", "Signal": "20%",
+                "Regime": "10%", "Rel. Strength": "5%"
+            }
+            bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
                 "Dimension": dim,
                 "Score":     f"{val}/100",
-                "Weight":    {
-                    "Trend": "25%", "Momentum": "25%",
-                    "Volatility": "15%", "Signal": "20%",
-                    "Regime": "10%", "Rel. Strength": "5%"
-                }.get(dim, "N/A"),
-                "Bar": "█" * (val // 10) + "░" * (10 - val // 10),
+                "Weight":    weight_map.get(dim, "N/A"),
+                "Visual":    bar,
             })
-
         st.dataframe(
             pd.DataFrame(breakdown_rows),
             use_container_width=True, hide_index=True
         )
-
+ 
         st.divider()
-
-        # ── Explanation ───────────────────────────
-        st.subheader("📝 Explanation")
-        st.markdown(result["Explanation"])
-
+ 
+        # ════════════════════════════════════════
+        # ENTRY PRICE LEVELS
+        # ════════════════════════════════════════
+        st.subheader("🎯 Entry & Risk Levels")
+        st.caption("Exact price levels if you decide to trade this")
+ 
+        el1, el2, el3, el4 = st.columns(4)
+        el1.metric("Entry Price",    f"₹{risk['entry_price']}")
+        el2.metric(
+            f"Stop Loss ({risk['stop_pct']}%)",
+            f"₹{risk['stop_price']}",
+            delta=f"-₹{round(risk['entry_price'] - risk['stop_price'], 2)}",
+            delta_color="inverse"
+        )
+        el3.metric(
+            f"Target ({risk['target_pct']}%)",
+            f"₹{risk['target_price']}",
+            delta=f"+₹{round(risk['target_price'] - risk['entry_price'], 2)}"
+        )
+        el4.metric("Risk:Reward",    f"1 : {risk['risk_reward']}")
+ 
+        st.caption(
+            f"💡 Trailing stop activates once profitable — "
+            f"trails {risk['trail_pct']}% below peak price to lock in gains"
+        )
+ 
+        st.divider()
+ 
+        # ════════════════════════════════════════
+        # VERDICT
+        # ════════════════════════════════════════
+        st.subheader("⚖️ Final Verdict")
+        st.markdown(explanation["verdict"])
+ 
+        st.divider()
+ 
+        # ════════════════════════════════════════
+        # SIGNAL HISTORY — LAST 30 DAYS
+        # ════════════════════════════════════════
+        st.subheader("📅 Signal History — Last 30 Trading Days")
+        st.caption("What has the Combined Signal been saying over the past 30 days?")
+ 
+        recent = explanation["recent_history"]
+ 
+        def color_hist_signal(val):
+            if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
+            if "BUY"         in str(val): return "color: lightgreen"
+            if "STRONG SELL" in str(val): return "color: red; font-weight: bold"
+            if "SELL"        in str(val): return "color: orange"
+            return "color: gray"
+ 
+        if not recent.empty:
+            st.dataframe(
+                recent.style.map(color_hist_signal, subset=["Signal"]),
+                use_container_width=True
+            )
+ 
+        # Download full report
+        st.divider()
+        report_text = f"""
+TRADING OS — STOCK ANALYSIS REPORT
+Stock: {score_stock}
+Date:  {datetime.now().strftime('%d %b %Y %I:%M %p')}
+ 
+SIGNAL: {final_signal}
+COMPOSITE SCORE: {composite}/100
+CONFIDENCE: {score_result['Confidence']}
+REGIME: {score_regime}
+ 
+SIGNAL RARITY:
+- Occurrences in 6 months: {rarity['occurrences']} / {rarity['total_days']} days
+- Frequency: {rarity['rarity_pct']}% of days
+- Last seen: {rarity['last_occurrence']} ({rarity['days_since_last']} days ago)
+- Rarity rating: {rarity['rarity_label']}
+ 
+ENTRY LEVELS:
+- Entry: Rs {risk['entry_price']}
+- Stop Loss ({risk['stop_pct']}%): Rs {risk['stop_price']}
+- Target ({risk['target_pct']}%): Rs {risk['target_price']}
+- Risk:Reward: 1:{risk['risk_reward']}
+- Suggested Position: {risk['position_pct']}%
+ 
+VERDICT:
+{explanation['verdict']}
+        """.strip()
+ 
+        st.download_button(
+            label     = f"⬇️ Download Analysis Report — {score_stock}",
+            data      = report_text,
+            file_name = f"analysis_{score_stock}_{datetime.now().strftime('%Y%m%d')}.txt",
+            mime      = "text/plain"
+        )
+ 
     else:
-        st.info("👆 Select a stock and click Calculate Score")
-
+        st.info("👆 Select a stock and click Analyse & Explain")
+        st.caption(
+            "This will run all 4 strategies, calculate the composite score, "
+            "analyse 6 months of history to measure signal rarity, "
+            "and explain exactly why the signal was generated — in plain English."
+        )
+ 
+        # Preview
+        st.divider()
+        st.subheader("📖 What This Analysis Shows")
+        preview = [
+            {"Section": "Signal Banner",        "Shows": "Current combined signal with color coding"},
+            {"Section": "Signal Rarity",        "Shows": "How often this signal occurred in last 6 months"},
+            {"Section": "Strategy Breakdown",   "Shows": "Why each of 4 strategies voted BUY / SELL / HOLD"},
+            {"Section": "Score Breakdown",      "Shows": "How each dimension contributed to 0-100 score"},
+            {"Section": "Entry & Risk Levels",  "Shows": "Exact stop loss, target and risk-reward prices"},
+            {"Section": "Final Verdict",        "Shows": "Plain English summary with regime context"},
+            {"Section": "Signal History",       "Shows": "Last 30 days of combined signals for this stock"},
+            {"Section": "Download Report",      "Shows": "Full analysis as downloadable text file"},
+        ]
+        st.dataframe(pd.DataFrame(preview), use_container_width=True, hide_index=True)
+ 
 
 # ════════════════════════════════════════════════
 # TAB 5: RELATIVE STRENGTH RANKING
