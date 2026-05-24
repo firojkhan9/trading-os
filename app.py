@@ -689,18 +689,18 @@ with tab2:
 # FIX: Quick buy panel added at bottom
 # ════════════════════════════════════════════════
 with tab3:
-
+ 
     st.title("📡 Watchlist Scanner")
     st.caption("Scan all stocks at once — find the best and worst performers")
     st.divider()
-
+ 
     st.subheader("⚙️ Scan Settings")
     scan_col1, scan_col2 = st.columns(2)
-
+ 
     with scan_col1:
         period_type = st.selectbox(
             "Select Period Type:",
-            options=["Days", "Months"],
+            options=["Days", "Months", "Years"],
             key="scan_period_type"
         )
     with scan_col2:
@@ -713,20 +713,31 @@ with tab3:
             )
             period_days  = period_value
             period_label = f"{period_value} Days"
-        else:
+ 
+        elif period_type == "Months":
             period_value = st.selectbox(
                 "Number of Months:",
-                options=[1, 2, 3, 6, 9, 12, 18, 24, 36],
+                options=[1, 2, 3, 6, 9, 12],
                 index=2,
                 key="scan_months"
             )
             period_days  = period_value * 21
             period_label = f"{period_value} Month{'s' if period_value > 1 else ''}"
-
+ 
+        else:  # Years
+            period_value = st.selectbox(
+                "Number of Years:",
+                options=[1, 2, 3, 5],
+                index=0,
+                key="scan_years"
+            )
+            period_days  = period_value * 252
+            period_label = f"{period_value} Year{'s' if period_value > 1 else ''}"
+ 
     st.divider()
-
+ 
+    # ── RUN SCAN button ───────────────────────────
     if st.button("🔍 Scan All Stocks", use_container_width=True, key="run_scan"):
-
         with st.spinner(f"Scanning all {len(STOCK_NAMES)} stocks over {period_label}..."):
             regime_info = fetch_regime_analysis()
             scan_regime = regime_info["regime"]
@@ -735,126 +746,25 @@ with tab3:
                 period_days=period_days,
                 regime=scan_regime,
             )
-
-        if full_df.empty:
-            st.error("Could not fetch data — try again.")
-        else:
-            if "BULL" in scan_regime and "WEAK" not in scan_regime:
-                st.success(f"🌡️ Market Regime during scan: **{scan_regime}**")
-            elif "BEAR" in scan_regime and "WEAK" not in scan_regime:
-                st.error(f"🌡️ Market Regime during scan: **{scan_regime}**")
-            else:
-                st.warning(f"🌡️ Market Regime during scan: **{scan_regime}**")
-
-            st.divider()
-
-            # ── Best performers ───────────────────
-            st.subheader(f"🚀 Best Performers — Last {period_label}")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
-            if not best_return_df.empty:
-                sel_best = st.dataframe(
-                    best_return_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_best_return"
-                )
-                if sel_best.selection.rows:
-                    picked = best_return_df.iloc[sel_best.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
-
-            st.divider()
-
-            # ── Worst performers ──────────────────
-            st.subheader(f"⚠️ Worst Performers — Last {period_label}")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
-            if not worst_return_df.empty:
-                sel_worst = st.dataframe(
-                    worst_return_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_worst_return"
-                )
-                if sel_worst.selection.rows:
-                    picked = worst_return_df.iloc[sel_worst.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
-
-            st.divider()
-
-            # ── Best scores ───────────────────────
-            st.subheader("💯 Best Intelligence Scores Right Now")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
-            if not best_score_df.empty:
-                sel_score = st.dataframe(
-                    best_score_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_best_score"
-                )
-                if sel_score.selection.rows:
-                    picked = best_score_df.iloc[sel_score.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
-
-            st.divider()
-
-            # ── Full scan table ───────────────────
-            # NOTE: Plain dataframe — no .style — so on_select works.
-            # Styled dataframes (.style.map()) lose the click feature.
-            st.subheader("📋 Full Scan — All Stocks")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
-
-            display_cols = [c for c in full_df.columns if c != "Symbol"]
-            sel_full = st.dataframe(
-                full_df[display_cols],
-                use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="single-row",
-                key="sel_full_scan"
-            )
-            if sel_full.selection.rows:
-                picked = full_df.iloc[sel_full.selection.rows[0]]['Stock']
-                if picked in STOCK_NAMES:
-                    st.session_state["shared_stock"]     = picked
-                    st.session_state["scan_trade_stock"] = picked
-
-            st.divider()
-
-            # ── Quick Buy Panel ───────────────────
-            st.subheader("💰 Quick Trade from Scanner")
-            st.caption("Click any row above to auto-select, or choose from dropdown below")
-
-            default_scan = st.session_state.get(
-                "scan_trade_stock",
-                st.session_state.get("shared_stock", STOCK_NAMES[0])
-            )
-            if default_scan not in STOCK_NAMES:
-                default_scan = STOCK_NAMES[0]
-
-            scanner_trade_stock = st.selectbox(
-                "Stock to trade:",
-                options=STOCK_NAMES,
-                index=STOCK_NAMES.index(default_scan),
-                key="scanner_trade_stock"
-            )
-            st.session_state["scan_trade_stock"] = scanner_trade_stock
-            st.session_state["shared_stock"]      = scanner_trade_stock
-
-            render_quick_buy_panel(scanner_trade_stock, "scanner")
-
-            st.divider()
-
-            st.download_button(
-                label     = f"⬇️ Download Scan Results ({period_label})",
-                data      = full_df.drop(columns=["Symbol"], errors="ignore").to_csv(index=False),
-                file_name = f"scan_{period_label.replace(' ', '_')}.csv",
-                mime      = "text/csv"
-            )
-
-    else:
+ 
+        # ── STORE results in session state ──────────
+        # This is the KEY FIX — results survive widget reruns
+        st.session_state["scan_results"] = {
+            "full_df":         full_df,
+            "best_return_df":  best_return_df,
+            "worst_return_df": worst_return_df,
+            "best_score_df":   best_score_df,
+            "scan_regime":     scan_regime,
+            "period_label":    period_label,
+        }
+ 
+    # ── DISPLAY — always reads from session state ──
+    # This block runs on EVERY rerun (row clicks, dropdowns)
+    # and shows results as long as they exist in session state.
+    scan_results = st.session_state.get("scan_results", None)
+ 
+    if scan_results is None:
+        # Nothing scanned yet
         st.info("👆 Select a period and click Scan All Stocks")
         st.caption("The scanner fetches all stocks, calculates signals, scores and relative performance")
         st.divider()
@@ -869,6 +779,131 @@ with tab3:
             {"Column": "Action",          "What it means": "Recommended action based on score"},
         ]
         st.dataframe(pd.DataFrame(preview_data), use_container_width=True, hide_index=True)
+ 
+    else:
+        # ── Results exist — display them ────────────
+        full_df         = scan_results["full_df"]
+        best_return_df  = scan_results["best_return_df"]
+        worst_return_df = scan_results["worst_return_df"]
+        best_score_df   = scan_results["best_score_df"]
+        scan_regime     = scan_results["scan_regime"]
+        disp_label      = scan_results["period_label"]
+ 
+        if full_df.empty:
+            st.error("Could not fetch data — try again.")
+        else:
+            if "BULL" in scan_regime and "WEAK" not in scan_regime:
+                st.success(f"🌡️ Market Regime during scan: **{scan_regime}**")
+            elif "BEAR" in scan_regime and "WEAK" not in scan_regime:
+                st.error(f"🌡️ Market Regime during scan: **{scan_regime}**")
+            else:
+                st.warning(f"🌡️ Market Regime during scan: **{scan_regime}**")
+ 
+            st.caption("Results are saved — clicking rows or dropdown won't reset them. Press Scan again to refresh.")
+            st.divider()
+ 
+            # ── Best performers ───────────────────
+            st.subheader(f"🚀 Best Performers — Last {disp_label}")
+            st.caption("Click any row to auto-select stock in the Quick Trade panel below ↓")
+            if not best_return_df.empty:
+                sel_best = st.dataframe(
+                    best_return_df,
+                    use_container_width=True, hide_index=True,
+                    on_select="rerun", selection_mode="single-row",
+                    key="sel_best_return"
+                )
+                if sel_best.selection.rows:
+                    picked = best_return_df.iloc[sel_best.selection.rows[0]]['Stock']
+                    if picked in STOCK_NAMES:
+                        st.session_state["shared_stock"]     = picked
+                        st.session_state["scan_trade_stock"] = picked
+ 
+            st.divider()
+ 
+            # ── Worst performers ──────────────────
+            st.subheader(f"⚠️ Worst Performers — Last {disp_label}")
+            st.caption("Click any row to auto-select stock in the Quick Trade panel below ↓")
+            if not worst_return_df.empty:
+                sel_worst = st.dataframe(
+                    worst_return_df,
+                    use_container_width=True, hide_index=True,
+                    on_select="rerun", selection_mode="single-row",
+                    key="sel_worst_return"
+                )
+                if sel_worst.selection.rows:
+                    picked = worst_return_df.iloc[sel_worst.selection.rows[0]]['Stock']
+                    if picked in STOCK_NAMES:
+                        st.session_state["shared_stock"]     = picked
+                        st.session_state["scan_trade_stock"] = picked
+ 
+            st.divider()
+ 
+            # ── Best scores ───────────────────────
+            st.subheader("💯 Best Intelligence Scores Right Now")
+            st.caption("Click any row to auto-select stock in the Quick Trade panel below ↓")
+            if not best_score_df.empty:
+                sel_score = st.dataframe(
+                    best_score_df,
+                    use_container_width=True, hide_index=True,
+                    on_select="rerun", selection_mode="single-row",
+                    key="sel_best_score"
+                )
+                if sel_score.selection.rows:
+                    picked = best_score_df.iloc[sel_score.selection.rows[0]]['Stock']
+                    if picked in STOCK_NAMES:
+                        st.session_state["shared_stock"]     = picked
+                        st.session_state["scan_trade_stock"] = picked
+ 
+            st.divider()
+ 
+            # ── Full scan table ───────────────────
+            st.subheader("📋 Full Scan — All Stocks")
+            st.caption("Click any row to auto-select stock in the Quick Trade panel below ↓")
+            display_cols = [c for c in full_df.columns if c != "Symbol"]
+            sel_full = st.dataframe(
+                full_df[display_cols],
+                use_container_width=True, hide_index=True,
+                on_select="rerun", selection_mode="single-row",
+                key="sel_full_scan"
+            )
+            if sel_full.selection.rows:
+                picked = full_df.iloc[sel_full.selection.rows[0]]['Stock']
+                if picked in STOCK_NAMES:
+                    st.session_state["shared_stock"]     = picked
+                    st.session_state["scan_trade_stock"] = picked
+ 
+            st.divider()
+ 
+            # ── Quick Buy Panel ───────────────────
+            st.subheader("💰 Quick Trade from Scanner")
+            st.caption("Click any row above to auto-select, or choose from dropdown below")
+ 
+            default_scan = st.session_state.get(
+                "scan_trade_stock",
+                st.session_state.get("shared_stock", STOCK_NAMES[0])
+            )
+            if default_scan not in STOCK_NAMES:
+                default_scan = STOCK_NAMES[0]
+ 
+            scanner_trade_stock = st.selectbox(
+                "Stock to trade:",
+                options=STOCK_NAMES,
+                index=STOCK_NAMES.index(default_scan),
+                key="scanner_trade_stock"
+            )
+            st.session_state["scan_trade_stock"] = scanner_trade_stock
+            st.session_state["shared_stock"]      = scanner_trade_stock
+ 
+            render_quick_buy_panel(scanner_trade_stock, "scanner")
+ 
+            st.divider()
+ 
+            st.download_button(
+                label     = f"⬇️ Download Scan Results ({disp_label})",
+                data      = full_df.drop(columns=["Symbol"], errors="ignore").to_csv(index=False),
+                file_name = f"scan_{disp_label.replace(' ', '_')}.csv",
+                mime      = "text/csv"
+            )
 
 
 # ════════════════════════════════════════════════
@@ -1160,9 +1195,9 @@ with tab4:
         # ── Sentiment Intelligence ────────────────
         st.subheader("📰 Sentiment Intelligence")
         st.caption("What is the news saying about this stock right now?")
-
+ 
         if not sentiment_result["news_available"]:
-            st.info("ℹ️ No recent news found. Composite score uses neutral 50 for this dimension.")
+            st.warning("⚠️ No headlines found from any source. Score uses neutral 50 for this dimension.")
         else:
             sent_label   = sentiment_result["label"]
             sent_score_v = sentiment_result["score_0_100"]
@@ -1176,23 +1211,23 @@ with tab4:
                 st.error(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
             else:
                 st.info(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
-
+ 
             sm1, sm2, sm3, sm4 = st.columns(4)
             sm1.metric("Headlines Analysed", sentiment_result["total_headlines"])
             sm2.metric("Bullish Headlines",  sentiment_result["bullish_count"])
             sm3.metric("Bearish Headlines",  sentiment_result["bearish_count"])
             sm4.metric("Neutral Headlines",  sentiment_result["neutral_count"])
             st.divider()
-
+ 
             if sentiment_result["scored_headlines"]:
                 headlines_df         = pd.DataFrame(sentiment_result["scored_headlines"])
                 headlines_df_display = headlines_df[["Headline", "Sentiment", "Score"]].copy()
-
+ 
                 def color_sentiment(val):
                     if "BULLISH" in str(val): return "color: green"
                     if "BEARISH" in str(val): return "color: red"
                     return "color: gray"
-
+ 
                 def color_score(val):
                     try:
                         f = float(val)
@@ -1201,14 +1236,68 @@ with tab4:
                     except Exception:
                         pass
                     return "color: gray"
-
+ 
                 st.dataframe(
                     headlines_df_display.style
                         .map(color_sentiment, subset=["Sentiment"])
                         .map(color_score,     subset=["Score"]),
                     use_container_width=True, hide_index=True
                 )
-            st.caption(f"📅 {sentiment_result.get('fetched_at','N/A')} | Sources: Yahoo Finance + ET RSS + BS RSS + GNews")
+ 
+        # ── News Source Diagnostics ───────────────
+        # Always show this — tells you which sources worked
+        st.divider()
+        sources_status = sentiment_result.get("sources_status", {})
+        if sources_status:
+            with st.expander("🔍 News Source Diagnostics — click to see which sources worked"):
+                st.caption(
+                    "This tells you exactly why each news source returned results or failed. "
+                    "✅ = worked  |  ⚠️ = connected but no stock-specific news  |  ❌ = failed/blocked"
+                )
+                diag_rows = []
+                for source_name, status_msg in sources_status.items():
+                    if status_msg.startswith("✅"):
+                        icon = "✅"
+                    elif status_msg.startswith("⚠️"):
+                        icon = "⚠️"
+                    elif status_msg.startswith("⏭️"):
+                        icon = "⏭️"
+                    else:
+                        icon = "❌"
+                    diag_rows.append({
+                        "Source":  source_name,
+                        "Status":  icon,
+                        "Details": status_msg.lstrip("✅⚠️❌⏭️ "),
+                    })
+                st.dataframe(
+                    pd.DataFrame(diag_rows),
+                    use_container_width=True,
+                    hide_index=True
+                )
+ 
+                # Count working sources
+                working = sum(1 for s in sources_status.values() if s.startswith("✅"))
+                total   = len(sources_status)
+                if working == 0:
+                    st.error(
+                        "❌ All news sources failed. "
+                        "This usually means network restrictions on Streamlit Cloud "
+                        "are blocking external requests. "
+                        "**Sentiment score is set to neutral (50) — it does not affect other scores.**"
+                    )
+                elif working < total:
+                    st.warning(
+                        f"⚠️ {working}/{total} sources worked. "
+                        "Some sources may be blocked on this network. "
+                        "This is normal on Streamlit Cloud — yfinance is the most reliable source."
+                    )
+                else:
+                    st.success(f"✅ All {total} sources working.")
+ 
+        st.caption(
+            f"📅 {sentiment_result.get('fetched_at','N/A')} | "
+            "Sources: Yahoo Finance + GNews + ET RSS + Business Standard RSS"
+        )
 
         # ── Manual Headline Tester ────────────────
         st.divider()
@@ -1442,51 +1531,76 @@ with tab5:
 # TAB 6: BACKTESTING
 # ════════════════════════════════════════════════
 with tab6:
-
+ 
     st.title("🔬 Strategy Backtesting")
     st.caption("Test strategies on historical data — safely, before risking real money")
     st.divider()
-
+ 
     st.subheader("⚙️ Backtest Settings")
     bc1, bc2, bc3 = st.columns(3)
     with bc1:
         bt_stock = st.selectbox("Select Stock:", options=STOCK_NAMES, key="bt_stock_v2")
     with bc2:
         bt_period = st.selectbox(
-            "Select Period:", options=["3mo", "6mo", "1y", "2y"],
-            index=2, key="bt_period_v2",
-            format_func=lambda x: {"3mo":"3 Months","6mo":"6 Months","1y":"1 Year","2y":"2 Years"}[x]
+            "Select Period:",
+            options=["3mo", "6mo", "1y", "2y", "3y", "5y"],
+            index=2,
+            key="bt_period_v2",
+            format_func=lambda x: {
+                "3mo": "3 Months",
+                "6mo": "6 Months",
+                "1y":  "1 Year",
+                "2y":  "2 Years",
+                "3y":  "3 Years",
+                "5y":  "5 Years (recommended)",
+            }[x]
         )
     with bc3:
         bt_strategy = st.selectbox(
             "Select Strategy:",
-            options=["Combined Signal","MA + RSI","EMA Crossover","Bollinger Bands","MACD"],
+            options=["Combined Signal", "MA + RSI", "EMA Crossover", "Bollinger Bands", "MACD"],
             key="bt_strategy_v2"
         )
-
+ 
     strategy_descriptions = {
-        "Combined Signal":  "🎯 All 4 strategies vote together — most realistic test.",
-        "MA + RSI":         "📈 MA20 for trend, RSI for entry timing.",
-        "EMA Crossover":    "⚡ Fast EMA(9) crosses Slow EMA(21).",
+        "Combined Signal":  "🎯 All 4 strategies vote together. Needs 2-3 strategies to agree — may show fewer trades. Most realistic.",
+        "MA + RSI":         "📈 MA20 for trend direction, RSI for entry timing. Most trades generated.",
+        "EMA Crossover":    "⚡ Fast EMA(9) crosses Slow EMA(21). Good for trending markets.",
         "Bollinger Bands":  "📉 Mean reversion at band extremes with RSI confirmation.",
-        "MACD":             "📊 MACD line crosses signal line.",
+        "MACD":             "📊 MACD line crosses signal line. Good momentum strategy.",
     }
     st.caption(f"ℹ️ {strategy_descriptions.get(bt_strategy, '')}")
+ 
+    # Tip about period
+    if bt_period in ["3mo", "6mo"]:
+        st.warning(
+            "⚠️ Short periods (under 1 year) may show very few or zero trades. "
+            "Signals need time to develop reversals. Try **1y or 2y** for better results."
+        )
+    elif bt_period in ["3y", "5y"]:
+        st.info("✅ Longer periods give more reliable results — more market cycles covered.")
+ 
     st.divider()
-
+ 
     if st.button("🚀 Run Backtest", use_container_width=True):
-        with st.spinner(f"Running {bt_strategy} backtest for {bt_stock}..."):
-
+        with st.spinner(f"Running {bt_strategy} backtest for {bt_stock} over {bt_period}..."):
+ 
             raw_data = yf.download(
                 tickers=WATCHLIST[bt_stock], period=bt_period,
                 interval="1d", progress=False
             )
             raw_data.columns = [col[0] for col in raw_data.columns]
-
+ 
+            data_points = len(raw_data)
+ 
             if bt_strategy == "Combined Signal":
                 bt_summary, bt_equity, bt_trades = run_combined_backtest(raw_data.copy())
             elif bt_strategy == "MA + RSI":
-                result     = run_backtest(symbol=WATCHLIST[bt_stock], stock_name=bt_stock, period=bt_period)
+                result     = run_backtest(
+                    symbol=WATCHLIST[bt_stock],
+                    stock_name=bt_stock,
+                    period=bt_period
+                )
                 bt_summary = result[0]
                 bt_equity  = result[1]
                 bt_trades  = result[2] if len(result) > 2 else pd.DataFrame()
@@ -1499,62 +1613,115 @@ with tab6:
             elif bt_strategy == "MACD":
                 macd_bt = analyze_macd(raw_data.copy()).dropna()
                 bt_summary, bt_equity, bt_trades = run_macd_backtest(macd_bt)
-
+ 
         if bt_summary is None:
             st.error("Could not fetch data — try again.")
         else:
-            st.subheader(f"📊 {bt_strategy} Results — {bt_stock}")
+            st.subheader(f"📊 {bt_strategy} Results — {bt_stock} ({bt_period})")
+ 
+            # Show data coverage
+            period_label_map = {
+                "3mo":"3 Months","6mo":"6 Months","1y":"1 Year",
+                "2y":"2 Years","3y":"3 Years","5y":"5 Years"
+            }
+            st.caption(
+                f"📅 Data: {data_points} trading days | "
+                f"Period: {period_label_map.get(bt_period, bt_period)} | "
+                f"Stop Loss: {round(STOP_LOSS_PCT*100,1)}% | "
+                f"Target: {round(TARGET_PROFIT_PCT*100,1)}%"
+            )
+ 
+            # Show any note from the backtest
             if "Note" in bt_summary:
-                st.info(f"ℹ️ {bt_summary['Note']}")
-
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Trades", bt_summary["Total Trades"])
-            m2.metric("Win Rate",     bt_summary["Win Rate"])
-            m3.metric("Total P&L",    bt_summary["Total P&L"])
-            m4.metric("Total Return", bt_summary.get("Total Return", "N/A"))
-
-            m5, m6, m7, m8 = st.columns(4)
-            m5.metric("Best Trade",    bt_summary.get("Best Trade",   "N/A"))
-            m6.metric("Worst Trade",   bt_summary.get("Worst Trade",  "N/A"))
-            m7.metric("Max Drawdown",  bt_summary.get("Max Drawdown", "N/A"))
-            m8.metric("Final Capital", bt_summary["Final Capital"])
-
-            if bt_strategy == "Combined Signal":
-                st.divider()
-                ce1, ce2, ce3 = st.columns(3)
-                ce1.metric("Strong Buy Entries", bt_summary.get("Strong Buy Entries", 0))
-                ce2.metric("Weak Buy Entries",   bt_summary.get("Weak Buy Entries",   0))
-                ce3.metric("Winning Trades",     bt_summary.get("Winning Trades",     0))
-
-            st.divider()
-            st.subheader("📈 Equity Curve")
-            if 'Equity' in bt_equity.columns:
-                st.line_chart(bt_equity['Equity'], use_container_width=True)
-
-            st.divider()
-            if not bt_trades.empty:
-                st.subheader("📋 Trade by Trade Breakdown")
-
-                def color_result_bt(val):
-                    if "WIN"  in str(val): return "color: green"
-                    if "LOSS" in str(val): return "color: red"
-                    return ""
-
-                st.dataframe(
-                    bt_trades.style.map(color_result_bt, subset=["Result"]),
-                    use_container_width=True
-                )
-                st.download_button(
-                    label     = "⬇️ Download Backtest Results",
-                    data      = bt_trades.to_csv(index=False),
-                    file_name = f"backtest_{bt_stock}_{bt_strategy}_{bt_period}.csv",
-                    mime      = "text/csv"
-                )
+                st.warning(f"ℹ️ {bt_summary['Note']}")
+ 
+            if bt_summary.get("Total Trades", 0) == 0:
+                st.error("⚠️ No completed trades found in this period.")
+ 
+                # Helpful guidance based on strategy
+                if bt_strategy == "Combined Signal":
+                    st.info(
+                        "**Why Combined Signal shows no trades:**\n\n"
+                        "The Combined Signal strategy requires **2–3 strategies to agree** "
+                        "before entering a trade (configurable in Settings). "
+                        "In calm or steadily trending markets, strategies may rarely align. "
+                        "\n\n**Try:** Switch to **MA + RSI** or **EMA Crossover** to see "
+                        "individual strategy trades, then use Combined Signal for confirmation only."
+                    )
+                elif bt_strategy in ["EMA Crossover", "MACD"]:
+                    st.info(
+                        "**Why crossover strategies may show no trades:**\n\n"
+                        "If a stock trended strongly in one direction the entire period, "
+                        "there may be only one BUY and no SELL crossover before the period ends. "
+                        "The trade stays open and is not counted as 'completed'.\n\n"
+                        "**Try:** A longer period (2y or 5y) to capture full market cycles."
+                    )
+                else:
+                    st.info(
+                        "**Suggestion:** Try a longer period (1y, 2y or 5y). "
+                        "Short periods often don't have enough price swings to generate "
+                        "and complete a full BUY → SELL round trip."
+                    )
             else:
-                st.info("No trades generated — signals never reached the BUY threshold.")
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Total Trades", bt_summary["Total Trades"])
+                m2.metric("Win Rate",     bt_summary["Win Rate"])
+                m3.metric("Total P&L",    bt_summary["Total P&L"])
+                m4.metric("Total Return", bt_summary.get("Total Return", "N/A"))
+ 
+                m5, m6, m7, m8 = st.columns(4)
+                m5.metric("Best Trade",    bt_summary.get("Best Trade",   "N/A"))
+                m6.metric("Worst Trade",   bt_summary.get("Worst Trade",  "N/A"))
+                m7.metric("Max Drawdown",  bt_summary.get("Max Drawdown", "N/A"))
+                m8.metric("Final Capital", bt_summary["Final Capital"])
+ 
+                if bt_strategy == "Combined Signal":
+                    st.divider()
+                    ce1, ce2, ce3 = st.columns(3)
+                    ce1.metric("Strong Buy Entries", bt_summary.get("Strong Buy Entries", 0))
+                    ce2.metric("Weak Buy Entries",   bt_summary.get("Weak Buy Entries",   0))
+                    ce3.metric("Winning Trades",     bt_summary.get("Winning Trades",     0))
+ 
+                st.divider()
+                st.subheader("📈 Equity Curve")
+                if 'Equity' in bt_equity.columns:
+                    st.line_chart(bt_equity['Equity'], use_container_width=True)
+ 
+                st.divider()
+                if not bt_trades.empty:
+                    st.subheader("📋 Trade by Trade Breakdown")
+ 
+                    def color_result_bt(val):
+                        if "WIN"  in str(val): return "color: green"
+                        if "LOSS" in str(val): return "color: red"
+                        return ""
+ 
+                    st.dataframe(
+                        bt_trades.style.map(color_result_bt, subset=["Result"]),
+                        use_container_width=True
+                    )
+                    st.download_button(
+                        label     = "⬇️ Download Backtest Results",
+                        data      = bt_trades.to_csv(index=False),
+                        file_name = f"backtest_{bt_stock}_{bt_strategy}_{bt_period}.csv",
+                        mime      = "text/csv"
+                    )
+ 
     else:
         st.info("👆 Select stock, period and strategy, then click Run Backtest")
-        st.caption("💡 Try 'Combined Signal' first — it's the most realistic test of your full system")
+        st.caption("💡 Recommended: Start with **MA + RSI** on **1y or 2y** to see the most trades")
+        st.divider()
+        st.subheader("📖 Understanding Backtest Results")
+        explain_data = [
+            {"Term": "Total Trades",   "Meaning": "Number of completed BUY→SELL round trips"},
+            {"Term": "Win Rate",       "Meaning": "% of trades that made a profit"},
+            {"Term": "Total P&L",      "Meaning": "Net profit or loss across all trades"},
+            {"Term": "Total Return",   "Meaning": "% gain/loss on starting capital of ₹1,00,000"},
+            {"Term": "Max Drawdown",   "Meaning": "Worst peak-to-trough drop — shows max pain"},
+            {"Term": "Exit Reason",    "Meaning": "Why the trade was closed: stop loss / target / signal"},
+            {"Term": "No trades",      "Meaning": "Period too short, or stock trended without reversals — try longer period"},
+        ]
+        st.dataframe(pd.DataFrame(explain_data), use_container_width=True, hide_index=True)
 
 
 # ════════════════════════════════════════════════
