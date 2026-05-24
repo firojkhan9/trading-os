@@ -85,6 +85,15 @@ from strategies.relative_strength import (
 from strategies.scoring_engine import (
     build_composite_score
 )
+from strategies.fundamental_engine import (
+    get_fundamental_display,
+    get_fundamental_score_only,
+    format_market_cap,
+)
+from strategies.sentiment_engine import (
+    get_stock_sentiment,
+    get_market_sentiment,
+)
 
 # ── Page configuration ───────────────────────────
 st.set_page_config(
@@ -175,6 +184,11 @@ def fetch_regime_analysis():
 def fetch_rs_ranking():
     watchlist = get_watchlist_dict()
     return rank_stocks_by_rs(watchlist)
+
+
+@st.cache_data(ttl=1800)   # Cache 30 minutes — news doesn't change that fast
+def fetch_market_sentiment_cached():
+    return get_market_sentiment()
 
 
 # ── Navigation Tabs ───────────────────────────────
@@ -849,7 +863,12 @@ with tab4:
                 "sell": score_combined["Strategies Sell"],
                 "hold": score_combined["Strategies Hold"],
             }
- 
+            with st.spinner(f"Fetching fundamental data for {score_stock}..."):
+                fund_display = get_fundamental_display(score_symbol, score_stock)
+                fund_score_value = fund_display["score_result"]["Fundamental Score"]
+            with st.spinner(f"Analysing sentiment for {score_stock}..."):
+                sentiment_result = get_stock_sentiment(score_stock, score_symbol, max_results=10)
+                sentiment_score_value = sentiment_result["score_0_100"]
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
                 ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
@@ -857,7 +876,9 @@ with tab4:
                 bb_pct=s_bbpct, bb_signal=s_bb_sig,
                 combined_votes=s_votes,
                 combined_weighted_score=score_combined["Score"],
-                regime=score_regime, rs_score=None
+                regime=score_regime, rs_score=None,
+                fundamental_score=fund_score_value,
+                sentiment_score=sentiment_score_value,
             )
  
             # Get full explanation
@@ -1033,7 +1054,266 @@ with tab4:
         )
  
         st.divider()
- 
+
+        # ════════════════════════════════════════════════
+        # FUNDAMENTAL INTELLIGENCE SECTION
+        # ════════════════════════════════════════════════
+        
+        st.subheader("🏦 Fundamental Intelligence")
+        st.caption("Financial health of the business behind the stock")
+        
+        fund_result = fund_display["score_result"]
+        fund_data   = fund_display["fundamentals"]
+        
+        if not fund_result["Data Available"]:
+            st.warning(
+                "⚠️ Fundamental data not available for this stock right now. "
+                "This can happen for some NSE stocks on Yahoo Finance. "
+                "The composite score uses a neutral 50 for this dimension."
+            )
+        else:
+            # ── Fundamental grade banner ───────────────────
+            fund_composite = fund_result["Fundamental Score"]
+            fund_grade     = fund_result["Grade"]
+        
+            if fund_composite >= 70:
+                st.success(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
+            elif fund_composite >= 50:
+                st.info(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
+            else:
+                st.warning(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
+        
+            st.caption(fund_result["Summary"])
+            st.write("")
+        
+            # ── Company identity ──────────────────────────
+            st.caption("📋 Company Profile")
+            fi1, fi2, fi3 = st.columns(3)
+            fi1.metric("Sector",   fund_data.get("sector",   "N/A"))
+            fi2.metric("Industry", fund_data.get("industry", "N/A"))
+            fi3.metric("Market Cap", format_market_cap(fund_data.get("market_cap_cr")))
+        
+            st.divider()
+        
+            # ── Dimension scores ──────────────────────────
+            st.caption("📊 Fundamental Score Breakdown")
+            fund_breakdown = []
+            weight_map = {
+                "Valuation":     "25%",
+                "Profitability": "25%",
+                "Growth":        "20%",
+                "Health":        "20%",
+                "Size":          "10%",
+            }
+            for dim, val in fund_result["Individual Scores"].items():
+                bar = "█" * (val // 10) + "░" * (10 - val // 10)
+                fund_breakdown.append({
+                    "Dimension": dim,
+                    "Score":     f"{val}/100",
+                    "Weight":    weight_map.get(dim, "N/A"),
+                    "Visual":    bar,
+                })
+            st.dataframe(
+                pd.DataFrame(fund_breakdown),
+                use_container_width=True, hide_index=True
+            )
+        
+            st.divider()
+        
+            # ── Raw metrics ───────────────────────────────
+            st.caption("📈 Key Financial Metrics")
+            fm1, fm2, fm3, fm4 = st.columns(4)
+            fm5, fm6, fm7, fm8 = st.columns(4)
+        
+            pe  = fund_data.get("pe_ratio")
+            pb  = fund_data.get("pb_ratio")
+            roe = fund_data.get("roe")
+            pm  = fund_data.get("profit_margin")
+            de  = fund_data.get("debt_equity")
+            cr  = fund_data.get("current_ratio")
+            rg  = fund_data.get("revenue_growth")
+            eg  = fund_data.get("earnings_growth")
+        
+            fm1.metric("P/E Ratio",       f"{pe}x"   if pe  is not None else "N/A",
+                    help="Price vs Earnings. Lower = cheaper. 15-25x is fair for India.")
+            fm2.metric("P/B Ratio",       f"{pb}x"   if pb  is not None else "N/A",
+                    help="Price vs Book Value. Below 3x is generally reasonable.")
+            fm3.metric("ROE",             f"{roe}%"  if roe is not None else "N/A",
+                    help="Return on Equity. 15%+ is good.")
+            fm4.metric("Profit Margin",   f"{pm}%"   if pm  is not None else "N/A",
+                    help="Net profit as % of revenue. Higher = more profitable.")
+            fm5.metric("Debt / Equity",   f"{de}"    if de  is not None else "N/A",
+                    help="Lower is safer. Above 2 = high debt risk.")
+            fm6.metric("Current Ratio",   f"{cr}"    if cr  is not None else "N/A",
+                    help="Ability to pay short-term bills. Above 1.5 is comfortable.")
+            fm7.metric("Revenue Growth",  f"{rg}%"   if rg  is not None else "N/A",
+                    help="Year-over-year revenue growth. 10%+ is healthy.")
+            fm8.metric("Earnings Growth", f"{eg}%"   if eg  is not None else "N/A",
+                    help="Year-over-year earnings growth.")
+        
+            st.divider()
+        
+            # ── Signals and warnings ──────────────────────
+            if fund_result["Signals"]:
+                st.caption("✅ Fundamental Strengths")
+                for sig in fund_result["Signals"]:
+                    st.markdown(f"- {sig}")
+        
+            if fund_result["Warnings"]:
+                st.caption("⚠️ Fundamental Risks")
+                for warn in fund_result["Warnings"]:
+                    st.markdown(f"- {warn}")
+        
+            # ── Data freshness note ───────────────────────
+            st.caption(
+                f"📅 Data fetched: {fund_data.get('fetched_at', 'N/A')} | "
+                "Source: Yahoo Finance (yfinance). "
+                "Fundamental data updates quarterly. Use as direction, not exact values."
+            )
+
+        st.divider()
+
+        # ════════════════════════════════════════════════
+        # SENTIMENT INTELLIGENCE SECTION
+        # ════════════════════════════════════════════════
+
+        st.subheader("📰 Sentiment Intelligence")
+        st.caption("What is the news saying about this stock right now?")
+        
+        if not sentiment_result["news_available"]:
+            st.info(
+                "ℹ️ No recent news found for this stock. "
+                "This can happen when news APIs are rate-limited or the stock has low media coverage. "
+                "The composite score uses a neutral 50 for this dimension. "
+                "You can manually enter headlines below to analyse them."
+            )
+        else:
+            # ── Sentiment banner ──────────────────────────
+            sent_label    = sentiment_result["label"]
+            sent_score_v  = sentiment_result["score_0_100"]
+            sent_avg      = sentiment_result["avg_score"]
+        
+            if "VERY BULLISH" in sent_label:
+                st.success(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
+            elif "BULLISH" in sent_label:
+                st.success(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
+            elif "VERY BEARISH" in sent_label:
+                st.error(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
+            elif "BEARISH" in sent_label:
+                st.error(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
+            else:
+                st.info(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
+        
+            # ── Sentiment breakdown metrics ────────────────
+            sm1, sm2, sm3, sm4 = st.columns(4)
+            sm1.metric("Headlines Analysed", sentiment_result["total_headlines"])
+            sm2.metric("Bullish Headlines",  sentiment_result["bullish_count"],
+                    help="Headlines with positive financial language")
+            sm3.metric("Bearish Headlines",  sentiment_result["bearish_count"],
+                    help="Headlines with negative financial language")
+            sm4.metric("Neutral Headlines",  sentiment_result["neutral_count"],
+                    help="Headlines with no strong directional signal")
+        
+            st.divider()
+        
+            # ── Scored headlines table ─────────────────────
+            st.caption("📋 Headline by Headline Sentiment Breakdown")
+            st.caption("Each headline scored: +1.0 = very bullish, 0 = neutral, -1.0 = very bearish")
+        
+            if sentiment_result["scored_headlines"]:
+                headlines_df = pd.DataFrame(sentiment_result["scored_headlines"])
+        
+                # Show only the most useful columns
+                display_cols = ["Headline", "Sentiment", "Score"]
+                headlines_df_display = headlines_df[display_cols].copy()
+        
+                def color_sentiment(val):
+                    if "BULLISH" in str(val):  return "color: green"
+                    if "BEARISH" in str(val):  return "color: red"
+                    return "color: gray"
+        
+                def color_score(val):
+                    try:
+                        f = float(val)
+                        if f >= 0.15:  return "color: green"
+                        if f <= -0.15: return "color: red"
+                    except Exception:
+                        pass
+                    return "color: gray"
+        
+                st.dataframe(
+                    headlines_df_display.style
+                        .map(color_sentiment, subset=["Sentiment"])
+                        .map(color_score,     subset=["Score"]),
+                    use_container_width=True, hide_index=True
+                )
+        
+            st.caption(
+                f"📅 Fetched: {sentiment_result.get('fetched_at', 'N/A')} | "
+                "Source: Google News RSS via GNews. "
+                "Scored using Financial Lexicon (60%) + TextBlob NLP (40%)."
+            )
+        
+        # ── Manual headline analyser ──────────────────────
+        st.divider()
+        st.caption("🔍 Manual Sentiment Tester — Paste your own headlines to analyse")
+        st.caption(
+            "Copy headlines from Moneycontrol, ET Markets, or any news source. "
+            "One headline per line."
+        )
+        
+        manual_input = st.text_area(
+            "Paste headlines here (one per line):",
+            placeholder=(
+                "Example:\n"
+                "Reliance Q4 profit jumps 18 percent, beats estimates\n"
+                "HDFC Bank faces RBI regulatory action on credit card growth"
+            ),
+            height=120,
+            key="manual_headlines_input"
+        )
+        
+        if st.button("🔍 Analyse My Headlines", key="analyse_manual_headlines"):
+            if manual_input.strip():
+                lines = [l.strip() for l in manual_input.strip().split('\n') if l.strip()]
+                from strategies.sentiment_engine import demo_sentiment
+                manual_result = demo_sentiment(lines)
+        
+                if manual_result["total_headlines"] > 0:
+                    if "BULLISH" in manual_result["label"]:
+                        st.success(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
+                    elif "BEARISH" in manual_result["label"]:
+                        st.error(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
+                    else:
+                        st.info(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
+        
+                    manual_df = pd.DataFrame(manual_result["scored_headlines"])[["Headline","Sentiment","Score"]]
+                    st.dataframe(manual_df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("Please paste at least one headline to analyse.")
+        
+        
+        # ════════════════════════════════════════════════
+        # CHANGE 5 (optional but recommended) — Market Sentiment banner in Tab 1
+        #
+        # In Tab 1 (Dashboard), after the Market Regime banner
+        # (the st.caption("👆 Full analysis in...") line),
+        # add this block to show overall market sentiment:
+        # ════════════════════════════════════════════════
+        
+        # ── Market Sentiment Mini Banner (Tab 1) ──────────
+        market_sent = fetch_market_sentiment_cached()
+        if market_sent["news_available"]:
+            sent_lbl = market_sent["label"]
+            if "BULLISH" in sent_lbl:
+                st.success(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | Based on {market_sent['total_headlines']} news items")
+            elif "BEARISH" in sent_lbl:
+                st.error(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | Based on {market_sent['total_headlines']} news items")
+            else:
+                st.info(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100)")
+
+        st.divider()
+
         # ════════════════════════════════════════
         # VERDICT
         # ════════════════════════════════════════
