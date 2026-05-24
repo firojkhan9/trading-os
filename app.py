@@ -878,7 +878,7 @@ with tab4:
                 combined_weighted_score=score_combined["Score"],
                 regime=score_regime, rs_score=None,
                 fundamental_score=fund_score_value,
-                sentiment_score=sentiment_score_value,
+                sentiment_score=sentiment_score_value
             )
  
             # Get full explanation
