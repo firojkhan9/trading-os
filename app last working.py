@@ -1,17 +1,6 @@
 # ================================================
 # FILE: app.py  ← lives at REPO ROOT
 # PURPOSE: Visual trading dashboard in browser
-#
-# FIXES IN THIS VERSION:
-#   1. One-click row select now works in scanner
-#      (plain dataframes — styled tables lose on_select)
-#   2. vs NIFTY / RS Rating fixed (in performance_scanner.py)
-#   3. Trade logs explanation added in Tab 8
-#   4. use_container_width deprecation warning suppressed
-#      (kept as-is for now — harmless until Streamlit removes it)
-#   5. weight_map corrected to show all 8 dimensions
-#   6. Quick buy panel added to Scanner, RS Ranking, Stock Score
-#   7. Session state shared across tabs for stock selection
 # ================================================
 
 import streamlit as st
@@ -26,8 +15,8 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-# ── All imports ───────────────────────────────────
-from strategies.explainability_engine import get_full_explanation
+# ── All imports
+from strategies.explainability_engine import get_full_explanation 
 from strategies.performance_scanner import scan_all_stocks
 from config.settings_loader import get_settings, DEFAULT_SETTINGS
 from strategies.indicators import analyze_stock
@@ -141,84 +130,79 @@ if not check_password():
     st.stop()
 
 # ── Load watchlist dynamically ────────────────────
+# This replaces the hardcoded WATCHLIST dictionary
 WATCHLIST   = get_watchlist_dict()
 STOCK_NAMES = list(WATCHLIST.keys())
 
-# ── Shared session state for cross-tab stock selection ──
-# This lets clicking a row in Scanner or RS Ranking
-# carry the selected stock across to the buy panel.
+# ── Shared session state for cross-tab stock selection ─────────────
+# This lets Scanner, RS Ranking, Stock Score tabs share the same
+# selected stock — and enables one-click select + buy from any tab.
 if "shared_stock" not in st.session_state:
     st.session_state["shared_stock"] = STOCK_NAMES[0]
 
 
-# ════════════════════════════════════════════════
-# REUSABLE QUICK BUY PANEL
-# Called from Scanner, RS Ranking, Stock Score tabs
-# ════════════════════════════════════════════════
 def render_quick_buy_panel(stock_name, tab_key_prefix):
     """
-    Shows a buy/sell panel for a given stock.
-    tab_key_prefix: unique string per tab to avoid duplicate widget keys.
+    Reusable buy/sell panel shown on Scanner, RS Ranking, Stock Score tabs.
+    stock_name      : e.g. "RELIANCE"
+    tab_key_prefix  : unique string like "scanner", "rs", "score"
+                      prevents Streamlit duplicate widget key errors.
     """
-    symbol = WATCHLIST.get(stock_name)
+    symbol        = WATCHLIST.get(stock_name)
     if not symbol:
         st.warning("Stock not found in watchlist.")
         return
+
+    # Fetch latest price
     try:
-        quick_data  = fetch_stock_data(symbol)
-        quick_price = round(float(quick_data['Close'].iloc[-1]), 2)
+        quick_data    = fetch_stock_data(symbol)
+        quick_price   = round(float(quick_data['Close'].iloc[-1]), 2)
     except Exception:
-        st.error("Could not fetch current price. Try again.")
+        st.error("Could not fetch price. Try again.")
         return
 
     current_capital = get_current_capital()
     buy_risk        = run_full_risk_check(stock_name, quick_price, "BUY")
     sell_risk       = run_full_risk_check(stock_name, quick_price, "CHECK")
 
+    st.markdown(f"**💰 Quick Trade — {stock_name} @ ₹{quick_price}**")
     cap1, cap2 = st.columns(2)
     cap1.metric("Available Cash", f"₹{current_capital:,}")
-    cap2.metric(f"{stock_name} Price", f"₹{quick_price}")
+    cap2.metric("Price",          f"₹{quick_price}")
 
-    for block   in buy_risk["blocks"]:    st.error(block)
-    for warning in sell_risk["warnings"]: st.warning(warning)
+    for block   in buy_risk["blocks"]:   st.error(block)
+    for warning in sell_risk["warnings"]:st.warning(warning)
 
     col_b, col_s = st.columns(2)
     with col_b:
         if st.button(
-            f"🟢 BUY {stock_name} @ ₹{quick_price}",
+            f"🟢 BUY {stock_name}",
             key=f"buy_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
             disabled=not buy_risk["approved"]
         ):
             result = execute_paper_buy(stock_name, quick_price)
             if result['status'] == "EXECUTED":
-                st.success(
-                    f"✅ Bought {result['quantity']} shares @ ₹{result['price']} "
-                    f"| Cash left: ₹{result['capital']:,}"
-                )
+                st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']} | Cash left: ₹{result['capital']:,}")
             else:
                 st.warning(f"⚠️ {result['reason']}")
     with col_s:
         if st.button(
-            f"🔴 SELL {stock_name} @ ₹{quick_price}",
+            f"🔴 SELL {stock_name}",
             key=f"sell_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
         ):
             result = execute_paper_sell(stock_name, quick_price)
             if result['status'] == "EXECUTED":
-                icon = "✅" if result['pnl'] >= 0 else "❌"
-                st.success(
-                    f"{icon} Sold {result['quantity']} @ ₹{result['price']} "
-                    f"| P&L: ₹{result['pnl']} ({result['pnl_pct']}%)"
-                )
+                pnl_icon = "✅" if result['pnl'] >= 0 else "❌"
+                st.success(f"{pnl_icon} Sold {result['quantity']} @ ₹{result['price']} | P&L: ₹{result['pnl']} ({result['pnl_pct']}%)")
             else:
                 st.warning(f"⚠️ {result['reason']}")
-
 
 # ── Fetch functions ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_all_stocks():
-    summary  = []
+    summary = []
     watchlist = get_watchlist_dict()
     for name, symbol in watchlist.items():
         try:
@@ -228,12 +212,12 @@ def fetch_all_stocks():
             )
             if data.empty:
                 continue
-            data.columns    = [col[0] for col in data.columns]
-            latest_close    = round(float(data['Close'].iloc[-1]), 2)
-            oldest_close    = round(float(data['Close'].iloc[0]), 2)
-            change_pct      = round(((latest_close - oldest_close) / oldest_close) * 100, 2)
-            day_high        = round(float(data['High'].iloc[-1]), 2)
-            day_low         = round(float(data['Low'].iloc[-1]), 2)
+            data.columns = [col[0] for col in data.columns]
+            latest_close = round(float(data['Close'].iloc[-1]), 2)
+            oldest_close = round(float(data['Close'].iloc[0]), 2)
+            change_pct   = round(((latest_close - oldest_close) / oldest_close) * 100, 2)
+            day_high     = round(float(data['High'].iloc[-1]), 2)
+            day_low      = round(float(data['Low'].iloc[-1]), 2)
             summary.append({
                 "Stock":      name,
                 "Close (₹)":  latest_close,
@@ -267,7 +251,7 @@ def fetch_rs_ranking():
     return rank_stocks_by_rs(watchlist)
 
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=1800)   # Cache 30 minutes — news doesn't change that fast
 def fetch_market_sentiment_cached():
     return get_market_sentiment()
 
@@ -284,7 +268,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📋 Logs"
 ])
 
-
 # ════════════════════════════════════════════════
 # TAB 1: MAIN DASHBOARD
 # ════════════════════════════════════════════════
@@ -296,9 +279,9 @@ with tab1:
 
     # ── Market Regime Mini Banner ─────────────────
     with st.spinner("Checking market regime..."):
-        regime_data   = fetch_regime_analysis()
-    regime        = regime_data["regime"]
-    regime_advice = regime_data["advice"]
+        regime_data  = fetch_regime_analysis()
+    regime       = regime_data["regime"]
+    regime_advice= regime_data["advice"]
 
     if "BULL" in regime and "WEAK" not in regime:
         st.success(f"🌡️ Market Regime: **{regime}** — {regime_advice['Action']} | Best: {regime_advice['Best Strategies']}")
@@ -323,11 +306,12 @@ with tab1:
         on_select="rerun", selection_mode="single-row", hide_index=True,
     )
 
-    # ── Row click updates shared session state ────
+    # ── Row click → update shared session state ───
     if selection and selection.selection.rows:
-        clicked = summary_df.iloc[selection.selection.rows[0]]['Stock']
-        if clicked in STOCK_NAMES:
-            st.session_state["shared_stock"] = clicked
+        clicked_index = selection.selection.rows[0]
+        clicked_stock = summary_df.iloc[clicked_index]['Stock']
+        if clicked_stock in STOCK_NAMES:
+            st.session_state["shared_stock"] = clicked_stock
 
     default_index  = STOCK_NAMES.index(st.session_state["shared_stock"]) \
                      if st.session_state["shared_stock"] in STOCK_NAMES else 0
@@ -335,7 +319,7 @@ with tab1:
         "🎯 Or select from dropdown:",
         options=STOCK_NAMES, index=default_index, key="main_selector"
     )
-    # Keep session state synced with dropdown
+    # Keep session state in sync with dropdown too
     st.session_state["shared_stock"] = selected_stock
     selected_symbol = WATCHLIST[selected_stock]
 
@@ -376,11 +360,11 @@ with tab1:
     # ── Combined Signal Banner ────────────────────
     st.subheader(f"🎯 Combined Signal — {selected_stock}")
     final_signal = combined["Final Signal"]
-    if "STRONG BUY"   in final_signal: st.success(f"## {final_signal}")
-    elif "BUY"        in final_signal: st.success(f"### {final_signal}")
+    if "STRONG BUY"  in final_signal: st.success(f"## {final_signal}")
+    elif "BUY"       in final_signal: st.success(f"### {final_signal}")
     elif "STRONG SELL" in final_signal: st.error(f"## {final_signal}")
-    elif "SELL"       in final_signal: st.error(f"### {final_signal}")
-    else:                               st.info(f"### {final_signal}")
+    elif "SELL"      in final_signal: st.error(f"### {final_signal}")
+    else:                              st.info(f"### {final_signal}")
 
     cs1, cs2, cs3, cs4 = st.columns(4)
     cs1.metric("Confidence",      combined["Confidence"])
@@ -391,7 +375,7 @@ with tab1:
     st.caption("📋 Individual Strategy Votes")
     vote_data = []
     for strategy, signal in combined["Signals"].items():
-        vote       = combined["Votes"][strategy]
+        vote = combined["Votes"][strategy]
         vote_label = "🟢 BUY" if vote == 1 else ("🔴 SELL" if vote == -1 else "⚪ HOLD")
         vote_data.append({"Strategy": strategy, "Signal": signal, "Vote": vote_label})
     st.dataframe(pd.DataFrame(vote_data), use_container_width=True, hide_index=True)
@@ -674,27 +658,27 @@ with tab2:
     st.divider()
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
-        {"Regime": "BULL 🐂",      "Use": "EMA, MACD",       "Avoid": "Nothing",       "Cash": "20%"},
-        {"Regime": "WEAK BULL 📈", "Use": "EMA, MA+RSI",     "Avoid": "Large sizes",   "Cash": "40%"},
-        {"Regime": "SIDEWAYS ↔️",  "Use": "Bollinger",       "Avoid": "EMA (whipsaws)","Cash": "50%"},
-        {"Regime": "WEAK BEAR 📉", "Use": "Nothing new",     "Avoid": "All buys",      "Cash": "70%"},
-        {"Regime": "BEAR 🐻",      "Use": "Cash only",       "Avoid": "Everything",    "Cash": "90%+"},
+        {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},
+        {"Regime": "WEAK BULL 📈",  "Use": "EMA, MA+RSI",    "Avoid": "Large sizes",  "Cash": "40%"},
+        {"Regime": "SIDEWAYS ↔️",   "Use": "Bollinger",      "Avoid": "EMA (whipsaws)","Cash": "50%"},
+        {"Regime": "WEAK BEAR 📉",  "Use": "Nothing new",    "Avoid": "All buys",     "Cash": "70%"},
+        {"Regime": "BEAR 🐻",       "Use": "Cash only",      "Avoid": "Everything",   "Cash": "90%+"},
     ]
     st.dataframe(pd.DataFrame(guide_data), use_container_width=True, hide_index=True)
 
 
 # ════════════════════════════════════════════════
-# TAB 3: SCANNER
-# FIX: plain st.dataframe (no .style) enables on_select
-# FIX: Quick buy panel added at bottom
+# SCANNER TAB — paste this as a new tab block
 # ════════════════════════════════════════════════
-with tab3:
+with tab3:   
 
     st.title("📡 Watchlist Scanner")
     st.caption("Scan all stocks at once — find the best and worst performers")
     st.divider()
 
+    # ── Period selector ───────────────────────────
     st.subheader("⚙️ Scan Settings")
+
     scan_col1, scan_col2 = st.columns(2)
 
     with scan_col1:
@@ -703,12 +687,13 @@ with tab3:
             options=["Days", "Months"],
             key="scan_period_type"
         )
+
     with scan_col2:
         if period_type == "Days":
             period_value = st.selectbox(
                 "Number of Days:",
                 options=[5, 10, 15, 20, 30, 45, 60, 90],
-                index=4,
+                index=4,   # Default 30 days
                 key="scan_days"
             )
             period_days  = period_value
@@ -717,28 +702,34 @@ with tab3:
             period_value = st.selectbox(
                 "Number of Months:",
                 options=[1, 2, 3, 6, 9, 12, 18, 24, 36],
-                index=2,
+                index=2,   # Default 3 months
                 key="scan_months"
             )
-            period_days  = period_value * 21
+            period_days  = period_value * 21   # ~21 trading days per month
             period_label = f"{period_value} Month{'s' if period_value > 1 else ''}"
 
     st.divider()
 
     if st.button("🔍 Scan All Stocks", use_container_width=True, key="run_scan"):
 
-        with st.spinner(f"Scanning all {len(STOCK_NAMES)} stocks over {period_label}..."):
-            regime_info = fetch_regime_analysis()
-            scan_regime = regime_info["regime"]
+        with st.spinner(f"Scanning all {len(STOCK_NAMES)} stocks over {period_label}... this takes ~60 seconds"):
+
+            # Get current regime for scoring
+            regime_info  = fetch_regime_analysis()
+            scan_regime  = regime_info["regime"]
+
+            # Run the scan
             full_df, best_return_df, worst_return_df, best_score_df = scan_all_stocks(
-                watchlist_dict=WATCHLIST,
-                period_days=period_days,
-                regime=scan_regime,
+                watchlist_dict = WATCHLIST,
+                period_days    = period_days,
+                regime         = scan_regime,
             )
 
         if full_df.empty:
             st.error("Could not fetch data — try again.")
         else:
+
+            # ── Regime context ────────────────────
             if "BULL" in scan_regime and "WEAK" not in scan_regime:
                 st.success(f"🌡️ Market Regime during scan: **{scan_regime}**")
             elif "BEAR" in scan_regime and "WEAK" not in scan_regime:
@@ -750,117 +741,125 @@ with tab3:
 
             # ── Best performers ───────────────────
             st.subheader(f"🚀 Best Performers — Last {period_label}")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
+            st.caption("Stocks with highest price return in this period")
+
             if not best_return_df.empty:
-                sel_best = st.dataframe(
-                    best_return_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_best_return"
-                )
-                if sel_best.selection.rows:
-                    picked = best_return_df.iloc[sel_best.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
+                def color_return_best(val):
+                    v = str(val)
+                    if v.startswith('-'):  return "color: red"
+                    if v != "N/A" and v != "0%": return "color: green"
+                    return ""
+                col_name = f"{period_days}D Return"
+                if col_name in best_return_df.columns:
+                    st.dataframe(
+                        best_return_df.style.map(color_return_best, subset=[col_name]),
+                        use_container_width=True, hide_index=True
+                    )
+                else:
+                    st.dataframe(best_return_df, use_container_width=True, hide_index=True)
 
             st.divider()
 
             # ── Worst performers ──────────────────
             st.subheader(f"⚠️ Worst Performers — Last {period_label}")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
+            st.caption("Stocks with lowest price return — avoid or monitor for recovery")
+
             if not worst_return_df.empty:
-                sel_worst = st.dataframe(
-                    worst_return_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_worst_return"
-                )
-                if sel_worst.selection.rows:
-                    picked = worst_return_df.iloc[sel_worst.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
+                def color_return_worst(val):
+                    v = str(val)
+                    if v.startswith('-'): return "color: red; font-weight: bold"
+                    if v != "N/A":       return "color: green"
+                    return ""
+                col_name = f"{period_days}D Return"
+                if col_name in worst_return_df.columns:
+                    st.dataframe(
+                        worst_return_df.style.map(color_return_worst, subset=[col_name]),
+                        use_container_width=True, hide_index=True
+                    )
+                else:
+                    st.dataframe(worst_return_df, use_container_width=True, hide_index=True)
 
             st.divider()
 
             # ── Best scores ───────────────────────
             st.subheader("💯 Best Intelligence Scores Right Now")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
+            st.caption("Stocks with highest composite score — strongest buy opportunities")
+
             if not best_score_df.empty:
-                sel_score = st.dataframe(
-                    best_score_df,
-                    use_container_width=True, hide_index=True,
-                    on_select="rerun", selection_mode="single-row",
-                    key="sel_best_score"
+                def color_action(val):
+                    if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
+                    if "BUY"         in str(val): return "color: lightgreen"
+                    if "AVOID"       in str(val): return "color: red"
+                    if "HOLD"        in str(val): return "color: orange"
+                    return ""
+                st.dataframe(
+                    best_score_df.style.map(color_action, subset=["Action"]),
+                    use_container_width=True, hide_index=True
                 )
-                if sel_score.selection.rows:
-                    picked = best_score_df.iloc[sel_score.selection.rows[0]]['Stock']
-                    if picked in STOCK_NAMES:
-                        st.session_state["shared_stock"]     = picked
-                        st.session_state["scan_trade_stock"] = picked
 
             st.divider()
 
             # ── Full scan table ───────────────────
-            # NOTE: Plain dataframe — no .style — so on_select works.
-            # Styled dataframes (.style.map()) lose the click feature.
             st.subheader("📋 Full Scan — All Stocks")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
+            st.caption("Complete scan results sorted by composite score")
 
-            display_cols = [c for c in full_df.columns if c != "Symbol"]
-            sel_full = st.dataframe(
-                full_df[display_cols],
-                use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="single-row",
-                key="sel_full_scan"
-            )
-            if sel_full.selection.rows:
-                picked = full_df.iloc[sel_full.selection.rows[0]]['Stock']
-                if picked in STOCK_NAMES:
-                    st.session_state["shared_stock"]     = picked
-                    st.session_state["scan_trade_stock"] = picked
+            def color_signal_scan(val):
+                if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
+                if "BUY"         in str(val): return "color: lightgreen"
+                if "STRONG SELL" in str(val): return "color: red; font-weight: bold"
+                if "SELL"        in str(val): return "color: orange"
+                return ""
+
+            def color_rs_scan(val):
+                if "STRONG" in str(val): return "color: green; font-weight: bold"
+                if "ABOVE"  in str(val): return "color: lightgreen"
+                if "BELOW"  in str(val): return "color: orange"
+                if "WEAK"   in str(val): return "color: red"
+                return ""
+
+            style_cols = {}
+            if "Combined Signal" in full_df.columns:
+                style_cols["Combined Signal"] = color_signal_scan
+            if "RS Rating" in full_df.columns:
+                style_cols["RS Rating"] = color_rs_scan
+
+            styled = full_df.style
+            for col, func in style_cols.items():
+                styled = styled.map(func, subset=[col])
+
+            st.dataframe(styled, use_container_width=True, hide_index=True)
 
             st.divider()
 
             # ── Quick Buy Panel ───────────────────
+            st.divider()
             st.subheader("💰 Quick Trade from Scanner")
-            st.caption("Click any row above to auto-select, or choose from dropdown below")
-
-            default_scan = st.session_state.get(
-                "scan_trade_stock",
-                st.session_state.get("shared_stock", STOCK_NAMES[0])
-            )
-            if default_scan not in STOCK_NAMES:
-                default_scan = STOCK_NAMES[0]
-
+            st.caption("Select a stock from the scan results and trade directly here")
             scanner_trade_stock = st.selectbox(
-                "Stock to trade:",
+                "Select stock to trade:",
                 options=STOCK_NAMES,
-                index=STOCK_NAMES.index(default_scan),
                 key="scanner_trade_stock"
             )
-            st.session_state["scan_trade_stock"] = scanner_trade_stock
-            st.session_state["shared_stock"]      = scanner_trade_stock
-
             render_quick_buy_panel(scanner_trade_stock, "scanner")
-
             st.divider()
 
+            # ── Download ──────────────────────────
             st.download_button(
                 label     = f"⬇️ Download Scan Results ({period_label})",
-                data      = full_df.drop(columns=["Symbol"], errors="ignore").to_csv(index=False),
+                data      = full_df.to_csv(index=False),
                 file_name = f"scan_{period_label.replace(' ', '_')}.csv",
                 mime      = "text/csv"
             )
 
     else:
-        st.info("👆 Select a period and click Scan All Stocks")
-        st.caption("The scanner fetches all stocks, calculates signals, scores and relative performance")
+        st.info(f"👆 Select a period and click Scan All Stocks")
+        st.caption("The scanner will fetch data for all stocks, calculate signals, scores and relative performance — all in one view")
+
+        # ── Preview what scanner shows ────────────
         st.divider()
         st.subheader("📖 What the Scanner Shows")
         preview_data = [
-            {"Column": "N Days Return",   "What it means": "How much the stock moved in your chosen period"},
+            {"Column": f"N Days Return",  "What it means": "How much the stock moved in your chosen period"},
             {"Column": "vs NIFTY",        "What it means": "Return minus NIFTY return — positive = beating market"},
             {"Column": "RS Rating",       "What it means": "STRONG / ABOVE / IN LINE / BELOW / WEAK vs NIFTY"},
             {"Column": "Combined Signal", "What it means": "What all 4 strategies together are saying"},
@@ -872,16 +871,14 @@ with tab3:
 
 
 # ════════════════════════════════════════════════
-# TAB 4: STOCK SCORE
-# FIX: weight_map corrected (8 dimensions with correct %)
-# FIX: Quick buy panel added after download button
+# TAB 4: STOCK SCORE (Composite Intelligence Score)
 # ════════════════════════════════════════════════
 with tab4:
 
     st.title("💯 Stock Intelligence Score")
     st.caption("Full explanation of why a signal was generated — with signal rarity analysis")
     st.divider()
-
+ 
     sc1, sc2 = st.columns(2)
     with sc1:
         score_stock = st.selectbox(
@@ -889,66 +886,71 @@ with tab4:
             options=STOCK_NAMES,
             key="score_stock"
         )
-
+ 
     st.divider()
-
+ 
     if st.button("🔍 Analyse & Explain", use_container_width=True, key="calc_score"):
         with st.spinner(f"Running full analysis on {score_stock}... fetching 6 months of data"):
-
+ 
             score_symbol = WATCHLIST[score_stock]
-
+ 
+            # Fetch 6 months for rarity analysis
             score_data_long = yf.download(
                 tickers=score_symbol, period="6mo",
                 interval="1d", progress=False
             )
             score_data_long.columns = [col[0] for col in score_data_long.columns]
-
-            score_data      = fetch_stock_data(score_symbol)
+ 
+            # Also fetch 60d for indicators
+            score_data = fetch_stock_data(score_symbol)
+ 
+            # Run all strategies
             score_analyzed  = analyze_stock(score_data.copy())
             score_ema_data  = calculate_ema_signals(score_data.copy())
             score_bb_data   = analyze_bollinger(score_data.copy())
             score_macd_data = analyze_macd(score_data.copy())
-
-            score_latest      = score_analyzed.iloc[-1]
-            score_ema_latest  = score_ema_data.iloc[-1]
-            score_bb_latest   = score_bb_data.iloc[-1]
-            score_macd_latest = score_macd_data.iloc[-1]
-
+ 
+            score_latest     = score_analyzed.iloc[-1]
+            score_ema_latest = score_ema_data.iloc[-1]
+            score_bb_latest  = score_bb_data.iloc[-1]
+            score_macd_latest= score_macd_data.iloc[-1]
+ 
             s_signal   = score_latest['Signal']
             s_ema_sig  = score_ema_latest['EMA_Signal']
             s_bb_sig   = score_bb_latest['BB_Signal']
             s_macd_sig = score_macd_latest['MACD_Crossover']
-
+ 
             score_combined = build_combined_summary(
                 ma_signal=s_signal, ema_signal=s_ema_sig,
                 bb_signal=s_bb_sig, macd_signal=s_macd_sig,
             )
-
+ 
+            # Get regime
             score_regime_data = fetch_regime_analysis()
             score_regime      = score_regime_data["regime"]
-
+ 
+            # Build composite score
             s_close  = round(float(score_latest['Close']), 2)
-            s_ma20   = round(float(score_latest['MA20']), 2)    if not pd.isna(score_latest['MA20'])          else None
-            s_rsi    = round(float(score_latest['RSI']), 2)     if not pd.isna(score_latest['RSI'])           else None
-            s_ema9   = round(float(score_ema_latest['EMA9']), 2)  if not pd.isna(score_ema_latest['EMA9'])    else None
-            s_ema21  = round(float(score_ema_latest['EMA21']), 2) if not pd.isna(score_ema_latest['EMA21'])   else None
-            s_macd   = float(score_macd_latest['MACD'])           if not pd.isna(score_macd_latest['MACD'])        else None
-            s_msig   = float(score_macd_latest['MACD_Signal'])    if not pd.isna(score_macd_latest['MACD_Signal']) else None
-            s_mhist  = float(score_macd_latest['MACD_Hist'])      if not pd.isna(score_macd_latest['MACD_Hist'])   else None
-            s_bbpct  = float(score_bb_latest['BB_Pct'])           if not pd.isna(score_bb_latest['BB_Pct'])        else None
-
+            s_ma20   = round(float(score_latest['MA20']), 2)   if not pd.isna(score_latest['MA20'])   else None
+            s_rsi    = round(float(score_latest['RSI']), 2)    if not pd.isna(score_latest['RSI'])    else None
+            s_ema9   = round(float(score_ema_latest['EMA9']), 2)  if not pd.isna(score_ema_latest['EMA9'])  else None
+            s_ema21  = round(float(score_ema_latest['EMA21']), 2) if not pd.isna(score_ema_latest['EMA21']) else None
+            s_macd   = float(score_macd_latest['MACD'])        if not pd.isna(score_macd_latest['MACD'])        else None
+            s_msig   = float(score_macd_latest['MACD_Signal']) if not pd.isna(score_macd_latest['MACD_Signal']) else None
+            s_mhist  = float(score_macd_latest['MACD_Hist'])   if not pd.isna(score_macd_latest['MACD_Hist'])   else None
+            s_bbpct  = float(score_bb_latest['BB_Pct'])        if not pd.isna(score_bb_latest['BB_Pct'])        else None
+ 
             s_votes = {
                 "buy":  score_combined["Strategies Buy"],
                 "sell": score_combined["Strategies Sell"],
                 "hold": score_combined["Strategies Hold"],
             }
             with st.spinner(f"Fetching fundamental data for {score_stock}..."):
-                fund_display     = get_fundamental_display(score_symbol, score_stock)
+                fund_display = get_fundamental_display(score_symbol, score_stock)
                 fund_score_value = fund_display["score_result"]["Fundamental Score"]
             with st.spinner(f"Analysing sentiment for {score_stock}..."):
-                sentiment_result      = get_stock_sentiment(score_stock, score_symbol, max_results=10)
+                sentiment_result = get_stock_sentiment(score_stock, score_symbol, max_results=10)
                 sentiment_score_value = sentiment_result["score_0_100"]
-
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
                 ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
@@ -960,113 +962,166 @@ with tab4:
                 fundamental_score=fund_score_value,
                 sentiment_score=sentiment_score_value
             )
-
+ 
+            # Get full explanation
             explanation = get_full_explanation(
-                stock_name      = score_stock,
-                data            = score_data_long,
-                analyzed        = score_analyzed,
-                ema_data        = score_ema_data,
-                bb_data         = score_bb_data,
-                macd_data       = score_macd_data,
-                combined        = score_combined,
-                regime          = score_regime,
+                stock_name   = score_stock,
+                data         = score_data_long,
+                analyzed     = score_analyzed,
+                ema_data     = score_ema_data,
+                bb_data      = score_bb_data,
+                macd_data    = score_macd_data,
+                combined     = score_combined,
+                regime       = score_regime,
                 composite_score = score_result["Composite Score"],
             )
-
-        # ── Display Results ───────────────────────
+ 
+        # ════════════════════════════════════════
+        # DISPLAY RESULTS
+        # ════════════════════════════════════════
+ 
         composite    = score_result["Composite Score"]
         final_signal = explanation["final_signal"]
         rarity       = explanation["rarity"]
         risk         = explanation["risk"]
-
-        if "STRONG BUY"  in final_signal: st.success(f"## {final_signal} — {score_stock}")
-        elif "BUY"       in final_signal: st.success(f"### {final_signal} — {score_stock}")
-        elif "STRONG SELL" in final_signal: st.error(f"## {final_signal} — {score_stock}")
-        elif "SELL"      in final_signal: st.error(f"### {final_signal} — {score_stock}")
-        else:                              st.info(f"### {final_signal} — {score_stock}")
-
+ 
+        # ── Main signal banner ────────────────────
+        if "STRONG BUY" in final_signal:
+            st.success(f"## {final_signal} — {score_stock}")
+        elif "BUY" in final_signal:
+            st.success(f"### {final_signal} — {score_stock}")
+        elif "STRONG SELL" in final_signal:
+            st.error(f"## {final_signal} — {score_stock}")
+        elif "SELL" in final_signal:
+            st.error(f"### {final_signal} — {score_stock}")
+        else:
+            st.info(f"### {final_signal} — {score_stock}")
+ 
+        # ── Top metrics row ───────────────────────
         tm1, tm2, tm3, tm4, tm5 = st.columns(5)
-        tm1.metric("Composite Score", f"{composite}/100")
-        tm2.metric("Confidence",      score_result["Confidence"])
-        tm3.metric("Position Size",   score_result["Position Size"])
-        tm4.metric("Strategies BUY",  explanation["buy_votes"])
-        tm5.metric("Market Regime",   score_regime)
-
+        tm1.metric("Composite Score",  f"{composite}/100")
+        tm2.metric("Confidence",       score_result["Confidence"])
+        tm3.metric("Position Size",    score_result["Position Size"])
+        tm4.metric("Strategies BUY",   explanation["buy_votes"])
+        tm5.metric("Market Regime",    score_regime)
+ 
         st.divider()
-
-        # ── Signal Rarity ─────────────────────────
+ 
+        # ════════════════════════════════════════
+        # SIGNAL RARITY SECTION
+        # ════════════════════════════════════════
         st.subheader("🔥 Signal Rarity Analysis")
         st.caption(f"How often has this signal occurred in the last {rarity['total_days']} trading days (~6 months)?")
-
+ 
         r1, r2, r3, r4 = st.columns(4)
-        r1.metric("Rarity",       rarity["rarity_label"])
-        r2.metric("Occurrences",  f"{rarity['occurrences']} / {rarity['total_days']} days")
-        r3.metric("Frequency",    f"{rarity['rarity_pct']}% of days")
-        r4.metric("Last Seen",    f"{rarity['days_since_last']} days ago")
-
+        r1.metric(
+            "Rarity",
+            rarity["rarity_label"],
+        )
+        r2.metric(
+            "Occurrences",
+            f"{rarity['occurrences']} / {rarity['total_days']} days",
+            help="How many days had the same signal type in the last 6 months"
+        )
+        r3.metric(
+            "Frequency",
+            f"{rarity['rarity_pct']}% of days",
+            help="Percentage of trading days with this signal"
+        )
+        r4.metric(
+            "Last Seen",
+            f"{rarity['days_since_last']} days ago",
+            help=f"Last occurrence: {rarity['last_occurrence']}"
+        )
+ 
+        # Rarity interpretation
         if rarity["occurrences"] == 0:
-            st.error(f"🔥 **NEVER occurred in 6 months** — Extremely rare setup. Verify manually.")
+            st.error(
+                f"🔥 **NEVER occurred in 6 months** — This is an extremely rare signal. "
+                f"The backtest showed 0 trades because this combination never triggered historically. "
+                f"It is triggering for the first time now. Treat with high conviction but verify manually."
+            )
         elif rarity["rarity_pct"] <= 5:
-            st.warning(f"⭐ **RARE** — {rarity['occurrences']} times in {rarity['total_days']} days. Last: {rarity['last_occurrence']}.")
+            st.warning(
+                f"⭐ **RARE signal** — Only {rarity['occurrences']} occurrences in {rarity['total_days']} days. "
+                f"Last occurred {rarity['days_since_last']} days ago ({rarity['last_occurrence']}). "
+                f"This is why backtests may show few or no trades — the signal is selective by design."
+            )
         elif rarity["rarity_pct"] <= 15:
-            st.info(f"🔔 **Occasional** — {rarity['occurrences']} times in 6 months. Last: {rarity['days_since_last']} days ago.")
+            st.info(
+                f"🔔 **Occasional signal** — Occurred {rarity['occurrences']} times in 6 months. "
+                f"Last seen {rarity['days_since_last']} days ago."
+            )
         else:
-            st.info(f"📊 **Common** — {rarity['occurrences']} times ({rarity['rarity_pct']}% of days). Use with other filters.")
-
+            st.info(
+                f"📊 **Common signal** — Occurred {rarity['occurrences']} times ({rarity['rarity_pct']}% of days). "
+                f"This signal triggers frequently — use with other filters."
+            )
+ 
         st.divider()
-
-        # ── Why This Signal ───────────────────────
+ 
+        # ════════════════════════════════════════
+        # WHY THIS SIGNAL — STRATEGY BREAKDOWN
+        # ════════════════════════════════════════
         st.subheader("📋 Why This Signal — Strategy by Strategy")
+ 
         if explanation["reasons_buy"]:
             st.markdown("**✅ Reasons Supporting BUY:**")
             for reason in explanation["reasons_buy"]:
                 st.markdown(f"- {reason}")
+ 
         if explanation["reasons_sell"]:
             st.markdown("**🔴 Reasons Against / Bearish:**")
             for reason in explanation["reasons_sell"]:
                 st.markdown(f"- {reason}")
+ 
         if explanation["reasons_hold"]:
             st.markdown("**⚪ Neutral / Watch:**")
             for reason in explanation["reasons_hold"]:
                 st.markdown(f"- {reason}")
-
+ 
         st.divider()
-
-        # ── Score Breakdown ───────────────────────
-        # FIX: weight_map now has all 8 dimensions with correct weights
+ 
+        # ════════════════════════════════════════
+        # SCORE BREAKDOWN
+        # ════════════════════════════════════════
         st.subheader("📊 Composite Score Breakdown")
         st.caption("How each dimension contributed to the final score")
-
-        weight_map = {
-            "Trend":         "20%",   # MA + EMA direction
-            "Momentum":      "20%",   # RSI + MACD
-            "Volatility":    "12%",   # Bollinger Bands position
-            "Signal":        "17%",   # Combined strategy votes
-            "Regime":        "10%",   # Market regime favorability
-            "Rel. Strength": "5%",    # vs NIFTY
-            "Fundamental":   "8%",    # Business health
-            "Sentiment":     "8%",    # News sentiment
-        }
+ 
         breakdown_rows = []
         for dim, val in score_result["Individual Scores"].items():
+            weight_map = {
+                "Trend":         "20%",   # MA + EMA direction
+                "Momentum":      "20%",   # RSI + MACD
+                "Volatility":    "12%",   # Bollinger Bands
+                "Signal":        "17%",   # Combined strategy votes
+                "Regime":        "10%",   # Market regime
+                "Rel. Strength": "5%",    # vs NIFTY
+                "Fundamental":   "8%",    # Business health
+                "Sentiment":     "8%",    # News sentiment
+            }
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
                 "Dimension": dim,
                 "Score":     f"{val}/100",
-                "Weight":    weight_map.get(dim, "—"),
+                "Weight":    weight_map.get(dim, "N/A"),
                 "Visual":    bar,
             })
         st.dataframe(
             pd.DataFrame(breakdown_rows),
             use_container_width=True, hide_index=True
         )
-
+ 
         st.divider()
-
-        # ── Entry & Risk Levels ───────────────────
+ 
+        # ════════════════════════════════════════
+        # ENTRY PRICE LEVELS
+        # ════════════════════════════════════════
         st.subheader("🎯 Entry & Risk Levels")
+        st.caption("Exact price levels if you decide to trade this")
+ 
         el1, el2, el3, el4 = st.columns(4)
-        el1.metric("Entry Price", f"₹{risk['entry_price']}")
+        el1.metric("Entry Price",    f"₹{risk['entry_price']}")
         el2.metric(
             f"Stop Loss ({risk['stop_pct']}%)",
             f"₹{risk['stop_price']}",
@@ -1078,52 +1133,85 @@ with tab4:
             f"₹{risk['target_price']}",
             delta=f"+₹{round(risk['target_price'] - risk['entry_price'], 2)}"
         )
-        el4.metric("Risk:Reward", f"1 : {risk['risk_reward']}")
-        st.caption(f"💡 Trailing stop: {risk['trail_pct']}% below peak price")
-
+        el4.metric("Risk:Reward",    f"1 : {risk['risk_reward']}")
+ 
+        st.caption(
+            f"💡 Trailing stop activates once profitable — "
+            f"trails {risk['trail_pct']}% below peak price to lock in gains"
+        )
+ 
         st.divider()
 
-        # ── Fundamental Intelligence ──────────────
+        # ════════════════════════════════════════════════
+        # FUNDAMENTAL INTELLIGENCE SECTION
+        # ════════════════════════════════════════════════
+        
         st.subheader("🏦 Fundamental Intelligence")
         st.caption("Financial health of the business behind the stock")
-
+        
         fund_result = fund_display["score_result"]
         fund_data   = fund_display["fundamentals"]
-
+        
         if not fund_result["Data Available"]:
-            st.warning("⚠️ Fundamental data not available. Composite score uses neutral 50 for this dimension.")
+            st.warning(
+                "⚠️ Fundamental data not available for this stock right now. "
+                "This can happen for some NSE stocks on Yahoo Finance. "
+                "The composite score uses a neutral 50 for this dimension."
+            )
         else:
+            # ── Fundamental grade banner ───────────────────
             fund_composite = fund_result["Fundamental Score"]
             fund_grade     = fund_result["Grade"]
+        
             if fund_composite >= 70:
                 st.success(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
             elif fund_composite >= 50:
                 st.info(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
             else:
                 st.warning(f"### Fundamental Grade: {fund_grade}  |  Score: {fund_composite}/100")
+        
             st.caption(fund_result["Summary"])
             st.write("")
-
+        
+            # ── Company identity ──────────────────────────
+            st.caption("📋 Company Profile")
             fi1, fi2, fi3 = st.columns(3)
-            fi1.metric("Sector",     fund_data.get("sector",   "N/A"))
-            fi2.metric("Industry",   fund_data.get("industry", "N/A"))
+            fi1.metric("Sector",   fund_data.get("sector",   "N/A"))
+            fi2.metric("Industry", fund_data.get("industry", "N/A"))
             fi3.metric("Market Cap", format_market_cap(fund_data.get("market_cap_cr")))
+        
             st.divider()
-
-            fund_weight_map = {
-                "Valuation": "25%", "Profitability": "25%",
-                "Growth": "20%", "Health": "20%", "Size": "10%",
-            }
+        
+            # ── Dimension scores ──────────────────────────
+            st.caption("📊 Fundamental Score Breakdown")
             fund_breakdown = []
+            weight_map = {
+                "Valuation":     "25%",
+                "Profitability": "25%",
+                "Growth":        "20%",
+                "Health":        "20%",
+                "Size":          "10%",
+            }
             for dim, val in fund_result["Individual Scores"].items():
                 bar = "█" * (val // 10) + "░" * (10 - val // 10)
                 fund_breakdown.append({
-                    "Dimension": dim, "Score": f"{val}/100",
-                    "Weight": fund_weight_map.get(dim, "N/A"), "Visual": bar,
+                    "Dimension": dim,
+                    "Score":     f"{val}/100",
+                    "Weight":    weight_map.get(dim, "N/A"),
+                    "Visual":    bar,
                 })
-            st.dataframe(pd.DataFrame(fund_breakdown), use_container_width=True, hide_index=True)
+            st.dataframe(
+                pd.DataFrame(fund_breakdown),
+                use_container_width=True, hide_index=True
+            )
+        
             st.divider()
-
+        
+            # ── Raw metrics ───────────────────────────────
+            st.caption("📈 Key Financial Metrics")
+            fm1, fm2, fm3, fm4 = st.columns(4)
+            fm5, fm6, fm7, fm8 = st.columns(4)
+        
             pe  = fund_data.get("pe_ratio")
             pb  = fund_data.get("pb_ratio")
             roe = fund_data.get("roe")
@@ -1132,40 +1220,66 @@ with tab4:
             cr  = fund_data.get("current_ratio")
             rg  = fund_data.get("revenue_growth")
             eg  = fund_data.get("earnings_growth")
-
-            fm1, fm2, fm3, fm4 = st.columns(4)
-            fm5, fm6, fm7, fm8 = st.columns(4)
-            fm1.metric("P/E Ratio",       f"{pe}x"  if pe  is not None else "N/A")
-            fm2.metric("P/B Ratio",       f"{pb}x"  if pb  is not None else "N/A")
-            fm3.metric("ROE",             f"{roe}%" if roe is not None else "N/A")
-            fm4.metric("Profit Margin",   f"{pm}%"  if pm  is not None else "N/A")
-            fm5.metric("Debt / Equity",   f"{de}"   if de  is not None else "N/A")
-            fm6.metric("Current Ratio",   f"{cr}"   if cr  is not None else "N/A")
-            fm7.metric("Revenue Growth",  f"{rg}%"  if rg  is not None else "N/A")
-            fm8.metric("Earnings Growth", f"{eg}%"  if eg  is not None else "N/A")
+        
+            fm1.metric("P/E Ratio",       f"{pe}x"   if pe  is not None else "N/A",
+                    help="Price vs Earnings. Lower = cheaper. 15-25x is fair for India.")
+            fm2.metric("P/B Ratio",       f"{pb}x"   if pb  is not None else "N/A",
+                    help="Price vs Book Value. Below 3x is generally reasonable.")
+            fm3.metric("ROE",             f"{roe}%"  if roe is not None else "N/A",
+                    help="Return on Equity. 15%+ is good.")
+            fm4.metric("Profit Margin",   f"{pm}%"   if pm  is not None else "N/A",
+                    help="Net profit as % of revenue. Higher = more profitable.")
+            fm5.metric("Debt / Equity",   f"{de}"    if de  is not None else "N/A",
+                    help="Lower is safer. Above 2 = high debt risk.")
+            fm6.metric("Current Ratio",   f"{cr}"    if cr  is not None else "N/A",
+                    help="Ability to pay short-term bills. Above 1.5 is comfortable.")
+            fm7.metric("Revenue Growth",  f"{rg}%"   if rg  is not None else "N/A",
+                    help="Year-over-year revenue growth. 10%+ is healthy.")
+            fm8.metric("Earnings Growth", f"{eg}%"   if eg  is not None else "N/A",
+                    help="Year-over-year earnings growth.")
+        
             st.divider()
-
+        
+            # ── Signals and warnings ──────────────────────
             if fund_result["Signals"]:
                 st.caption("✅ Fundamental Strengths")
                 for sig in fund_result["Signals"]:
                     st.markdown(f"- {sig}")
+        
             if fund_result["Warnings"]:
                 st.caption("⚠️ Fundamental Risks")
                 for warn in fund_result["Warnings"]:
                     st.markdown(f"- {warn}")
-            st.caption(f"📅 Data: {fund_data.get('fetched_at','N/A')} | Source: Yahoo Finance")
+        
+            # ── Data freshness note ───────────────────────
+            st.caption(
+                f"📅 Data fetched: {fund_data.get('fetched_at', 'N/A')} | "
+                "Source: Yahoo Finance (yfinance). "
+                "Fundamental data updates quarterly. Use as direction, not exact values."
+            )
 
         st.divider()
 
-        # ── Sentiment Intelligence ────────────────
+        # ════════════════════════════════════════════════
+        # SENTIMENT INTELLIGENCE SECTION
+        # ════════════════════════════════════════════════
+
         st.subheader("📰 Sentiment Intelligence")
         st.caption("What is the news saying about this stock right now?")
-
+        
         if not sentiment_result["news_available"]:
-            st.info("ℹ️ No recent news found. Composite score uses neutral 50 for this dimension.")
+            st.info(
+                "ℹ️ No recent news found for this stock. "
+                "This can happen when news APIs are rate-limited or the stock has low media coverage. "
+                "The composite score uses a neutral 50 for this dimension. "
+                "You can manually enter headlines below to analyse them."
+            )
         else:
-            sent_label   = sentiment_result["label"]
-            sent_score_v = sentiment_result["score_0_100"]
+            # ── Sentiment banner ──────────────────────────
+            sent_label    = sentiment_result["label"]
+            sent_score_v  = sentiment_result["score_0_100"]
+            sent_avg      = sentiment_result["avg_score"]
+        
             if "VERY BULLISH" in sent_label:
                 st.success(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
             elif "BULLISH" in sent_label:
@@ -1176,23 +1290,35 @@ with tab4:
                 st.error(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
             else:
                 st.info(f"### News Sentiment: {sent_label}  |  Score: {sent_score_v}/100")
-
+        
+            # ── Sentiment breakdown metrics ────────────────
             sm1, sm2, sm3, sm4 = st.columns(4)
             sm1.metric("Headlines Analysed", sentiment_result["total_headlines"])
-            sm2.metric("Bullish Headlines",  sentiment_result["bullish_count"])
-            sm3.metric("Bearish Headlines",  sentiment_result["bearish_count"])
-            sm4.metric("Neutral Headlines",  sentiment_result["neutral_count"])
+            sm2.metric("Bullish Headlines",  sentiment_result["bullish_count"],
+                    help="Headlines with positive financial language")
+            sm3.metric("Bearish Headlines",  sentiment_result["bearish_count"],
+                    help="Headlines with negative financial language")
+            sm4.metric("Neutral Headlines",  sentiment_result["neutral_count"],
+                    help="Headlines with no strong directional signal")
+        
             st.divider()
-
+        
+            # ── Scored headlines table ─────────────────────
+            st.caption("📋 Headline by Headline Sentiment Breakdown")
+            st.caption("Each headline scored: +1.0 = very bullish, 0 = neutral, -1.0 = very bearish")
+        
             if sentiment_result["scored_headlines"]:
-                headlines_df         = pd.DataFrame(sentiment_result["scored_headlines"])
-                headlines_df_display = headlines_df[["Headline", "Sentiment", "Score"]].copy()
-
+                headlines_df = pd.DataFrame(sentiment_result["scored_headlines"])
+        
+                # Show only the most useful columns
+                display_cols = ["Headline", "Sentiment", "Score"]
+                headlines_df_display = headlines_df[display_cols].copy()
+        
                 def color_sentiment(val):
-                    if "BULLISH" in str(val): return "color: green"
-                    if "BEARISH" in str(val): return "color: red"
+                    if "BULLISH" in str(val):  return "color: green"
+                    if "BEARISH" in str(val):  return "color: red"
                     return "color: gray"
-
+        
                 def color_score(val):
                     try:
                         f = float(val)
@@ -1201,18 +1327,28 @@ with tab4:
                     except Exception:
                         pass
                     return "color: gray"
-
+        
                 st.dataframe(
                     headlines_df_display.style
                         .map(color_sentiment, subset=["Sentiment"])
                         .map(color_score,     subset=["Score"]),
                     use_container_width=True, hide_index=True
                 )
-            st.caption(f"📅 {sentiment_result.get('fetched_at','N/A')} | Sources: Yahoo Finance + ET RSS + BS RSS + GNews")
-
-        # ── Manual Headline Tester ────────────────
+        
+            st.caption(
+                f"📅 Fetched: {sentiment_result.get('fetched_at', 'N/A')} | "
+                "Source: Google News RSS via GNews. "
+                "Scored using Financial Lexicon (60%) + TextBlob NLP (40%)."
+            )
+        
+        # ── Manual headline analyser ──────────────────────
         st.divider()
         st.caption("🔍 Manual Sentiment Tester — Paste your own headlines to analyse")
+        st.caption(
+            "Copy headlines from Moneycontrol, ET Markets, or any news source. "
+            "One headline per line."
+        )
+        
         manual_input = st.text_area(
             "Paste headlines here (one per line):",
             placeholder=(
@@ -1223,11 +1359,13 @@ with tab4:
             height=120,
             key="manual_headlines_input"
         )
+        
         if st.button("🔍 Analyse My Headlines", key="analyse_manual_headlines"):
             if manual_input.strip():
-                lines         = [l.strip() for l in manual_input.strip().split('\n') if l.strip()]
+                lines = [l.strip() for l in manual_input.strip().split('\n') if l.strip()]
                 from strategies.sentiment_engine import demo_sentiment
                 manual_result = demo_sentiment(lines)
+        
                 if manual_result["total_headlines"] > 0:
                     if "BULLISH" in manual_result["label"]:
                         st.success(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
@@ -1235,83 +1373,98 @@ with tab4:
                         st.error(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
                     else:
                         st.info(f"Manual Sentiment: **{manual_result['label']}** | Score: {manual_result['score_0_100']}/100")
+        
                     manual_df = pd.DataFrame(manual_result["scored_headlines"])[["Headline","Sentiment","Score"]]
                     st.dataframe(manual_df, use_container_width=True, hide_index=True)
             else:
-                st.warning("Please paste at least one headline.")
-
-        # ── Market Sentiment Banner ───────────────
+                st.warning("Please paste at least one headline to analyse.")
+        
+        
+        # ════════════════════════════════════════════════
+        # CHANGE 5 (optional but recommended) — Market Sentiment banner in Tab 1
+        #
+        # In Tab 1 (Dashboard), after the Market Regime banner
+        # (the st.caption("👆 Full analysis in...") line),
+        # add this block to show overall market sentiment:
+        # ════════════════════════════════════════════════
+        
+        # ── Market Sentiment Mini Banner (Tab 1) ──────────
         market_sent = fetch_market_sentiment_cached()
         if market_sent["news_available"]:
             sent_lbl = market_sent["label"]
-            st.divider()
             if "BULLISH" in sent_lbl:
-                st.success(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | {market_sent['total_headlines']} headlines")
+                st.success(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | Based on {market_sent['total_headlines']} news items")
             elif "BEARISH" in sent_lbl:
-                st.error(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | {market_sent['total_headlines']} headlines")
+                st.error(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | Based on {market_sent['total_headlines']} news items")
             else:
                 st.info(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100)")
 
         st.divider()
 
-        # ── Verdict ───────────────────────────────
+        # ════════════════════════════════════════
+        # VERDICT
+        # ════════════════════════════════════════
         st.subheader("⚖️ Final Verdict")
         st.markdown(explanation["verdict"])
+ 
         st.divider()
-
-        # ── Signal History ────────────────────────
+ 
+        # ════════════════════════════════════════
+        # SIGNAL HISTORY — LAST 30 DAYS
+        # ════════════════════════════════════════
         st.subheader("📅 Signal History — Last 30 Trading Days")
+        st.caption("What has the Combined Signal been saying over the past 30 days?")
+ 
         recent = explanation["recent_history"]
-
+ 
         def color_hist_signal(val):
             if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
             if "BUY"         in str(val): return "color: lightgreen"
             if "STRONG SELL" in str(val): return "color: red; font-weight: bold"
             if "SELL"        in str(val): return "color: orange"
             return "color: gray"
-
+ 
         if not recent.empty:
             st.dataframe(
                 recent.style.map(color_hist_signal, subset=["Signal"]),
                 use_container_width=True
             )
-
+ 
+        # Download full report
         st.divider()
-
-        # ── Quick Buy Panel ───────────────────────
-        st.subheader("💰 Quick Trade")
-        st.caption("Score looks good? Trade directly from this page")
-        render_quick_buy_panel(score_stock, "score")
-
-        st.divider()
-
-        # ── Download Report ───────────────────────
         report_text = f"""
 TRADING OS — STOCK ANALYSIS REPORT
 Stock: {score_stock}
 Date:  {datetime.now().strftime('%d %b %Y %I:%M %p')}
-
+ 
 SIGNAL: {final_signal}
 COMPOSITE SCORE: {composite}/100
 CONFIDENCE: {score_result['Confidence']}
 REGIME: {score_regime}
-
+ 
 SIGNAL RARITY:
 - Occurrences in 6 months: {rarity['occurrences']} / {rarity['total_days']} days
 - Frequency: {rarity['rarity_pct']}% of days
 - Last seen: {rarity['last_occurrence']} ({rarity['days_since_last']} days ago)
 - Rarity rating: {rarity['rarity_label']}
-
+ 
 ENTRY LEVELS:
 - Entry: Rs {risk['entry_price']}
 - Stop Loss ({risk['stop_pct']}%): Rs {risk['stop_price']}
 - Target ({risk['target_pct']}%): Rs {risk['target_price']}
 - Risk:Reward: 1:{risk['risk_reward']}
 - Suggested Position: {risk['position_pct']}%
-
+ 
 VERDICT:
 {explanation['verdict']}
         """.strip()
+
+        # ── Quick Buy from Stock Score ────────────
+        st.divider()
+        st.subheader("💰 Quick Trade")
+        st.caption("Score looks good? Trade directly from this page")
+        render_quick_buy_panel(score_stock, "score")
+        st.divider()
 
         st.download_button(
             label     = f"⬇️ Download Analysis Report — {score_stock}",
@@ -1319,34 +1472,33 @@ VERDICT:
             file_name = f"analysis_{score_stock}_{datetime.now().strftime('%Y%m%d')}.txt",
             mime      = "text/plain"
         )
-
+ 
     else:
         st.info("👆 Select a stock and click Analyse & Explain")
         st.caption(
-            "This runs all 4 strategies, calculates the composite score, "
-            "analyses 6 months of history for signal rarity, "
-            "and explains exactly why the signal was generated."
+            "This will run all 4 strategies, calculate the composite score, "
+            "analyse 6 months of history to measure signal rarity, "
+            "and explain exactly why the signal was generated — in plain English."
         )
+ 
+        # Preview
         st.divider()
         st.subheader("📖 What This Analysis Shows")
         preview = [
-            {"Section": "Signal Banner",       "Shows": "Current combined signal with color coding"},
-            {"Section": "Signal Rarity",       "Shows": "How often this signal occurred in last 6 months"},
-            {"Section": "Strategy Breakdown",  "Shows": "Why each of 4 strategies voted BUY / SELL / HOLD"},
-            {"Section": "Score Breakdown",     "Shows": "How each dimension (8 total) contributed to 0-100 score"},
-            {"Section": "Entry & Risk Levels", "Shows": "Exact stop loss, target and risk-reward prices"},
-            {"Section": "Fundamental",         "Shows": "Business health: P/E, ROE, growth, debt"},
-            {"Section": "Sentiment",           "Shows": "News headlines analysed from 4 sources"},
-            {"Section": "Quick Trade",         "Shows": "Buy/Sell button directly on this page"},
-            {"Section": "Final Verdict",       "Shows": "Plain English summary with regime context"},
-            {"Section": "Download Report",     "Shows": "Full analysis as downloadable text file"},
+            {"Section": "Signal Banner",        "Shows": "Current combined signal with color coding"},
+            {"Section": "Signal Rarity",        "Shows": "How often this signal occurred in last 6 months"},
+            {"Section": "Strategy Breakdown",   "Shows": "Why each of 4 strategies voted BUY / SELL / HOLD"},
+            {"Section": "Score Breakdown",      "Shows": "How each dimension contributed to 0-100 score"},
+            {"Section": "Entry & Risk Levels",  "Shows": "Exact stop loss, target and risk-reward prices"},
+            {"Section": "Final Verdict",        "Shows": "Plain English summary with regime context"},
+            {"Section": "Signal History",       "Shows": "Last 30 days of combined signals for this stock"},
+            {"Section": "Download Report",      "Shows": "Full analysis as downloadable text file"},
         ]
         st.dataframe(pd.DataFrame(preview), use_container_width=True, hide_index=True)
-
+ 
 
 # ════════════════════════════════════════════════
 # TAB 5: RELATIVE STRENGTH RANKING
-# FIX: Quick buy panel added
 # ════════════════════════════════════════════════
 with tab5:
 
@@ -1355,12 +1507,13 @@ with tab5:
     st.divider()
 
     if st.button("🏆 Rank All Stocks by Relative Strength", use_container_width=True):
-        with st.spinner("Fetching 6 months of data for all stocks..."):
+        with st.spinner("Fetching 6 months of data for all stocks... this takes ~60 seconds"):
             rs_df = fetch_rs_ranking()
 
         if rs_df.empty:
             st.error("Could not fetch data — try again.")
         else:
+            # ── Top performers ────────────────────
             st.subheader("🥇 Market Leaders — Outperforming NIFTY")
             top_df = get_top_rs_stocks(rs_df, n=3)
             if not top_df.empty:
@@ -1368,64 +1521,44 @@ with tab5:
 
             st.divider()
 
+            # ── Full ranking ──────────────────────
             st.subheader("📋 Full Ranking Table")
-            st.caption("Click any row to select that stock → buy panel appears below ↓")
+            st.caption("Sorted by composite RS score — higher = stronger vs NIFTY")
 
             def color_rs(val):
-                if "STRONG"    in str(val): return "color: green; font-weight: bold"
-                if "ABOVE"     in str(val): return "color: lightgreen"
-                if "BELOW"     in str(val): return "color: orange"
-                if "WEAK"      in str(val): return "color: red"
+                if "STRONG"  in str(val): return "color: green; font-weight: bold"
+                if "ABOVE"   in str(val): return "color: lightgreen"
+                if "BELOW"   in str(val): return "color: orange"
+                if "WEAK"    in str(val): return "color: red"
                 if "BENCHMARK" in str(val): return "color: gray"
                 return ""
 
-            # Plain dataframe for click-select to work
-            sel_rs = st.dataframe(
-                rs_df,
-                use_container_width=True, hide_index=True,
-                on_select="rerun", selection_mode="single-row",
-                key="sel_rs_full"
+            st.dataframe(
+                rs_df.style.map(color_rs, subset=["RS Rating"]),
+                use_container_width=True, hide_index=True
             )
-            if sel_rs.selection.rows:
-                picked = rs_df.iloc[sel_rs.selection.rows[0]]
-                # RS ranking table has Stock or Name column
-                stock_col = "Stock" if "Stock" in rs_df.columns else rs_df.columns[0]
-                picked_name = picked[stock_col]
-                if picked_name in STOCK_NAMES:
-                    st.session_state["shared_stock"]  = picked_name
-                    st.session_state["rs_trade_stock"] = picked_name
 
             st.divider()
 
+            # ── Bottom performers ─────────────────
             st.subheader("⚠️ Market Laggards — Underperforming NIFTY")
+            st.caption("Avoid trading these stocks — they are weak relative to market")
             bottom_df = get_bottom_rs_stocks(rs_df, n=3)
             if not bottom_df.empty:
                 st.dataframe(bottom_df, use_container_width=True, hide_index=True)
 
             st.divider()
 
-            # ── Quick Buy Panel ───────────────────
+            # ── Quick Buy from RS Ranking ─────────
+            st.divider()
             st.subheader("💰 Quick Trade from RS Ranking")
-            st.caption("Click any row above to auto-select, or choose from dropdown below")
-
-            default_rs = st.session_state.get(
-                "rs_trade_stock",
-                st.session_state.get("shared_stock", STOCK_NAMES[0])
-            )
-            if default_rs not in STOCK_NAMES:
-                default_rs = STOCK_NAMES[0]
-
+            st.caption("Found a strong RS stock? Trade directly here")
             rs_trade_stock = st.selectbox(
-                "Stock to trade:",
+                "Select stock to trade:",
                 options=STOCK_NAMES,
-                index=STOCK_NAMES.index(default_rs),
-                key="rs_trade_stock_select"
+                key="rs_trade_stock"
             )
-            st.session_state["rs_trade_stock"] = rs_trade_stock
-            st.session_state["shared_stock"]   = rs_trade_stock
-
             render_quick_buy_panel(rs_trade_stock, "rs")
-
             st.divider()
 
             st.download_button(
@@ -1435,7 +1568,7 @@ with tab5:
             )
     else:
         st.info("👆 Click the button to rank all stocks — takes about 60 seconds")
-        st.caption("Fetches 6 months of data for all stocks + NIFTY to calculate relative performance")
+        st.caption("This fetches 6 months of data for all stocks + NIFTY to calculate relative performance")
 
 
 # ════════════════════════════════════════════════
@@ -1446,100 +1579,162 @@ with tab6:
     st.title("🔬 Strategy Backtesting")
     st.caption("Test strategies on historical data — safely, before risking real money")
     st.divider()
-
+ 
+    # ── Strategy selector ─────────────────────────
     st.subheader("⚙️ Backtest Settings")
+ 
     bc1, bc2, bc3 = st.columns(3)
     with bc1:
-        bt_stock = st.selectbox("Select Stock:", options=STOCK_NAMES, key="bt_stock_v2")
+        bt_stock = st.selectbox(
+            "Select Stock:",
+            options=STOCK_NAMES,
+            key="bt_stock_v2"
+        )
     with bc2:
         bt_period = st.selectbox(
-            "Select Period:", options=["3mo", "6mo", "1y", "2y"],
-            index=2, key="bt_period_v2",
-            format_func=lambda x: {"3mo":"3 Months","6mo":"6 Months","1y":"1 Year","2y":"2 Years"}[x]
+            "Select Period:",
+            options=["3mo", "6mo", "1y", "2y"],
+            index=2,
+            key="bt_period_v2",
+            format_func=lambda x: {
+                "3mo": "3 Months",
+                "6mo": "6 Months",
+                "1y":  "1 Year",
+                "2y":  "2 Years"
+            }[x]
         )
     with bc3:
         bt_strategy = st.selectbox(
             "Select Strategy:",
-            options=["Combined Signal","MA + RSI","EMA Crossover","Bollinger Bands","MACD"],
+            options=[
+                "Combined Signal",      # ← NEW — shown first as recommended
+                "MA + RSI",
+                "EMA Crossover",
+                "Bollinger Bands",
+                "MACD",
+            ],
             key="bt_strategy_v2"
         )
-
+ 
+    # ── Strategy description ──────────────────────
     strategy_descriptions = {
-        "Combined Signal":  "🎯 All 4 strategies vote together — most realistic test.",
-        "MA + RSI":         "📈 MA20 for trend, RSI for entry timing.",
-        "EMA Crossover":    "⚡ Fast EMA(9) crosses Slow EMA(21).",
-        "Bollinger Bands":  "📉 Mean reversion at band extremes with RSI confirmation.",
-        "MACD":             "📊 MACD line crosses signal line.",
+        "Combined Signal":  "🎯 All 4 strategies vote together — most realistic test. Buys on consensus, sells on reversal.",
+        "MA + RSI":         "📈 Classic trend + momentum combination. MA20 for trend, RSI for entry timing.",
+        "EMA Crossover":    "⚡ Fast EMA(9) crosses Slow EMA(21). Good for trending markets.",
+        "Bollinger Bands":  "📉 Mean reversion at band extremes with RSI confirmation. Good for sideways markets.",
+        "MACD":             "📊 Momentum crossover strategy. MACD line crosses signal line.",
     }
     st.caption(f"ℹ️ {strategy_descriptions.get(bt_strategy, '')}")
+ 
     st.divider()
-
+ 
     if st.button("🚀 Run Backtest", use_container_width=True):
         with st.spinner(f"Running {bt_strategy} backtest for {bt_stock}..."):
-
+ 
             raw_data = yf.download(
-                tickers=WATCHLIST[bt_stock], period=bt_period,
-                interval="1d", progress=False
+                tickers=WATCHLIST[bt_stock],
+                period=bt_period,
+                interval="1d",
+                progress=False
             )
             raw_data.columns = [col[0] for col in raw_data.columns]
-
+ 
+            # ── Run selected strategy ─────────────
             if bt_strategy == "Combined Signal":
                 bt_summary, bt_equity, bt_trades = run_combined_backtest(raw_data.copy())
+ 
             elif bt_strategy == "MA + RSI":
-                result     = run_backtest(symbol=WATCHLIST[bt_stock], stock_name=bt_stock, period=bt_period)
+                result     = run_backtest(
+                    symbol     = WATCHLIST[bt_stock],
+                    stock_name = bt_stock,
+                    period     = bt_period
+                )
                 bt_summary = result[0]
                 bt_equity  = result[1]
                 bt_trades  = result[2] if len(result) > 2 else pd.DataFrame()
+ 
             elif bt_strategy == "EMA Crossover":
-                ema_bt = calculate_ema_signals(raw_data.copy()).dropna()
-                bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_bt)
+                ema_data             = calculate_ema_signals(raw_data.copy())
+                ema_data             = ema_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_ema_backtest(ema_data)
+ 
             elif bt_strategy == "Bollinger Bands":
-                bb_bt = analyze_bollinger(raw_data.copy()).dropna()
-                bt_summary, bt_equity, bt_trades = run_bollinger_backtest(bb_bt)
+                bb_data              = analyze_bollinger(raw_data.copy())
+                bb_data              = bb_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_bollinger_backtest(bb_data)
+ 
             elif bt_strategy == "MACD":
-                macd_bt = analyze_macd(raw_data.copy()).dropna()
-                bt_summary, bt_equity, bt_trades = run_macd_backtest(macd_bt)
-
+                macd_bt_data         = analyze_macd(raw_data.copy())
+                macd_bt_data         = macd_bt_data.dropna()
+                bt_summary, bt_equity, bt_trades = run_macd_backtest(macd_bt_data)
+ 
+        # ── Results ───────────────────────────────
         if bt_summary is None:
             st.error("Could not fetch data — try again.")
         else:
             st.subheader(f"📊 {bt_strategy} Results — {bt_stock}")
+ 
+            # Show note if present (e.g. no trades generated)
             if "Note" in bt_summary:
                 st.info(f"ℹ️ {bt_summary['Note']}")
-
+ 
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Trades", bt_summary["Total Trades"])
-            m2.metric("Win Rate",     bt_summary["Win Rate"])
-            m3.metric("Total P&L",    bt_summary["Total P&L"])
-            m4.metric("Total Return", bt_summary.get("Total Return", "N/A"))
-
+            m1.metric("Total Trades",  bt_summary["Total Trades"])
+            m2.metric("Win Rate",      bt_summary["Win Rate"])
+            m3.metric("Total P&L",     bt_summary["Total P&L"])
+            m4.metric("Total Return",  bt_summary.get("Total Return", "N/A"))
+ 
             m5, m6, m7, m8 = st.columns(4)
-            m5.metric("Best Trade",    bt_summary.get("Best Trade",   "N/A"))
-            m6.metric("Worst Trade",   bt_summary.get("Worst Trade",  "N/A"))
+            m5.metric("Best Trade",    bt_summary.get("Best Trade", "N/A"))
+            m6.metric("Worst Trade",   bt_summary.get("Worst Trade", "N/A"))
             m7.metric("Max Drawdown",  bt_summary.get("Max Drawdown", "N/A"))
             m8.metric("Final Capital", bt_summary["Final Capital"])
-
+ 
+            # ── Extra metrics for Combined Signal ─
             if bt_strategy == "Combined Signal":
                 st.divider()
+                st.caption("📋 Combined Signal Entry Breakdown")
                 ce1, ce2, ce3 = st.columns(3)
-                ce1.metric("Strong Buy Entries", bt_summary.get("Strong Buy Entries", 0))
-                ce2.metric("Weak Buy Entries",   bt_summary.get("Weak Buy Entries",   0))
-                ce3.metric("Winning Trades",     bt_summary.get("Winning Trades",     0))
-
+                ce1.metric(
+                    "Strong Buy Entries",
+                    bt_summary.get("Strong Buy Entries", 0),
+                    help="3-4 strategies agreed — full 10% position"
+                )
+                ce2.metric(
+                    "Weak Buy Entries",
+                    bt_summary.get("Weak Buy Entries", 0),
+                    help="Exactly 2 strategies agreed — half 5% position"
+                )
+                ce3.metric(
+                    "Winning Trades",
+                    bt_summary.get("Winning Trades", 0),
+                )
+ 
             st.divider()
+ 
+            # ── Equity Curve ──────────────────────
             st.subheader("📈 Equity Curve")
             if 'Equity' in bt_equity.columns:
                 st.line_chart(bt_equity['Equity'], use_container_width=True)
-
+ 
             st.divider()
+ 
+            # ── Trade Breakdown ───────────────────
             if not bt_trades.empty:
                 st.subheader("📋 Trade by Trade Breakdown")
-
+ 
                 def color_result_bt(val):
                     if "WIN"  in str(val): return "color: green"
                     if "LOSS" in str(val): return "color: red"
                     return ""
-
+ 
+                # Show Entry Type column for Combined Signal
+                if bt_strategy == "Combined Signal" and "Entry Type" in bt_trades.columns:
+                    st.caption(
+                        "Entry Type: STRONG BUY = 3-4 strategies agreed (10% position) | "
+                        "BUY = 2 strategies agreed (5% position)"
+                    )
+ 
                 st.dataframe(
                     bt_trades.style.map(color_result_bt, subset=["Result"]),
                     use_container_width=True
@@ -1551,7 +1746,7 @@ with tab6:
                     mime      = "text/csv"
                 )
             else:
-                st.info("No trades generated — signals never reached the BUY threshold.")
+                st.info("No trades generated in this period — signals never reached the BUY threshold.")
     else:
         st.info("👆 Select stock, period and strategy, then click Run Backtest")
         st.caption("💡 Try 'Combined Signal' first — it's the most realistic test of your full system")
@@ -1571,7 +1766,7 @@ with tab7:
         cmp_stock = st.selectbox("Select Stock:", options=STOCK_NAMES, key="cmp_stock")
     with cc2:
         cmp_period = st.selectbox(
-            "Select Period:", options=["3mo","6mo","1y","2y"],
+            "Select Period:", options=["3mo", "6mo", "1y", "2y"],
             index=2, key="cmp_period",
             format_func=lambda x: {"3mo":"3 Months","6mo":"6 Months","1y":"1 Year","2y":"2 Years"}[x]
         )
@@ -1633,20 +1828,10 @@ with tab8:
     st.title("📋 System Logs")
     st.divider()
 
-    # ── Trade log explanation ─────────────────────
-    st.info(
-        "ℹ️ **About Trade Logs:** Trade history is stored in `logs/paper_trades.csv` "
-        "on your local machine. On Streamlit Cloud, this file resets every time the "
-        "app redeploys because cloud storage is temporary. Your local logs are always "
-        "safe. To preserve cloud logs permanently, Supabase integration is planned for "
-        "Milestone 24 (Zerodha Integration)."
-    )
-    st.divider()
-
     st.subheader("📜 Trade History")
     trades_df = load_trades()
     if trades_df.empty:
-        st.info("No trades yet! Use the BUY buttons on Dashboard, Scanner, RS Ranking, or Stock Score tabs.")
+        st.info("No trades yet!")
     else:
         st.dataframe(
             trades_df.sort_values('Timestamp', ascending=False),
@@ -1684,6 +1869,8 @@ with tab8:
 
     # ── Watchlist Manager ─────────────────────────
     st.subheader("📋 Watchlist Manager")
+    st.caption("Your current watchlist loaded from watchlist.csv")
+
     wl_df = load_watchlist(active_only=False)
     if not wl_df.empty:
         st.dataframe(wl_df, use_container_width=True, hide_index=True)
@@ -1692,7 +1879,7 @@ with tab8:
             data=wl_df.to_csv(index=False),
             file_name="watchlist.csv", mime="text/csv"
         )
-        st.caption("💡 To add/remove stocks: download CSV, edit it, replace watchlist.csv in your repo")
+        st.caption("💡 To add/remove stocks: download the CSV, edit it, then replace watchlist.csv in your repo")
 
     wl_summary = get_watchlist_summary()
     w1, w2, w3 = st.columns(3)
@@ -1702,16 +1889,28 @@ with tab8:
 
     st.divider()
 
-    # ── Settings Panel ────────────────────────────
+    # ════════════════════════════════════════════
+    # SETTINGS PANEL
+    # ════════════════════════════════════════════
     st.subheader("⚙️ Strategy Settings")
+    st.caption("These settings control all backtesting and trading logic")
+
+    # Load current settings
     current_settings = get_settings()
     source = current_settings.get("_source", "defaults")
 
+    # Show where settings are coming from
     if source == "Google Sheet":
-        st.success("✅ Settings loaded from Google Sheet")
+        st.success("✅ Settings loaded from Google Sheet — edit the sheet to change values")
     else:
         st.info("ℹ️ Using default settings — set up Google Sheet for remote control")
+        st.caption(
+            "To control settings from Google Sheets: "
+            "open config/settings_loader.py and add your Google Sheet URL"
+        )
 
+    # Display current settings in a clean table
+    settings_display = []
     settings_labels = {
         "STOP_LOSS_PCT":      ("Stop Loss",              "%",  100),
         "TARGET_PROFIT_PCT":  ("Profit Target",          "%",  100),
@@ -1725,34 +1924,58 @@ with tab8:
         "MACD_MOMENTUM_EXIT": ("MACD Momentum Exit",     "%",  100),
         "STARTING_CAPITAL":   ("Starting Capital",       "₹",  1),
     }
-    settings_display = []
+
     for key, (label, unit, multiplier) in settings_labels.items():
-        value   = current_settings.get(key, DEFAULT_SETTINGS.get(key, "N/A"))
+        value = current_settings.get(key, DEFAULT_SETTINGS.get(key, "N/A"))
         default = DEFAULT_SETTINGS.get(key, "N/A")
+
+        # Format display value
         if unit == "%" and multiplier == 100:
-            dv = f"{round(float(value)*100,1)}%"
-            dd = f"{round(float(default)*100,1)}%"
+            display_value   = f"{round(float(value) * 100, 1)}%"
+            display_default = f"{round(float(default) * 100, 1)}%"
         elif unit == "₹":
-            dv = f"₹{int(value):,}"
-            dd = f"₹{int(default):,}"
+            display_value   = f"₹{int(value):,}"
+            display_default = f"₹{int(default):,}"
         else:
-            dv = str(value)
-            dd = str(default)
+            display_value   = str(value)
+            display_default = str(default)
+
+        # Flag if different from default
+        changed = str(value) != str(default)
+
         settings_display.append({
-            "Setting":       label,
-            "Current Value": dv,
-            "Default":       dd,
-            "Changed":       "✏️ Modified" if str(value) != str(default) else "—",
+            "Setting":         label,
+            "Current Value":   display_value,
+            "Default":         display_default,
+            "Changed":         "✏️ Modified" if changed else "—",
         })
-    st.dataframe(pd.DataFrame(settings_display), use_container_width=True, hide_index=True)
 
+    st.dataframe(
+        pd.DataFrame(settings_display),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # ── Key metrics display ───────────────────────
+    st.caption("📊 Key Trading Parameters at a Glance")
     sv1, sv2, sv3, sv4 = st.columns(4)
-    sv1.metric("Stop Loss",      f"{round(current_settings['STOP_LOSS_PCT']*100,1)}%")
-    sv2.metric("Profit Target",  f"{round(current_settings['TARGET_PROFIT_PCT']*100,1)}%")
-    sv3.metric("Trailing Stop",  f"{round(current_settings['TRAILING_STOP_PCT']*100,1)}%" if current_settings['USE_TRAILING_STOP'] else "OFF")
-    sv4.metric("Max Position",   f"{round(current_settings['MAX_POSITION_PCT']*100,1)}%")
+    sv1.metric(
+        "Stop Loss",
+        f"{round(current_settings['STOP_LOSS_PCT'] * 100, 1)}%"
+    )
+    sv2.metric(
+        "Profit Target",
+        f"{round(current_settings['TARGET_PROFIT_PCT'] * 100, 1)}%"
+    )
+    sv3.metric(
+        "Trailing Stop",
+        f"{round(current_settings['TRAILING_STOP_PCT'] * 100, 1)}%" if current_settings['USE_TRAILING_STOP'] else "OFF"
+    )
+    sv4.metric(
+        "Max Position",
+        f"{round(current_settings['MAX_POSITION_PCT'] * 100, 1)}%"
+    )
 
-
-# ── Footer ────────────────────────────────────────
+# ── Footer ─────────────────────────────────────────
 st.divider()
 st.caption("📌 Data: Yahoo Finance | Refreshes every 5 min | Not financial advice")
