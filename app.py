@@ -522,15 +522,116 @@ with tab1:
 
     # ── Portfolio ─────────────────────────────────
     st.subheader("📂 Current Portfolio")
-    portfolio_df = get_portfolio_summary(current_prices)
+ 
+    # Build combined_signals dict so portfolio suggestions are signal-aware
+    # We already have combined signal for the selected stock — collect for all held stocks
+    portfolio_raw = load_portfolio()
+    portfolio_combined_signals = {}
+ 
+    if not portfolio_raw.empty:
+        for held_stock in portfolio_raw['Stock'].tolist():
+            try:
+                held_symbol   = WATCHLIST.get(held_stock)
+                if held_symbol:
+                    held_data     = fetch_stock_data(held_symbol)
+                    held_analyzed = analyze_stock(held_data.copy())
+                    held_ema      = calculate_ema_signals(held_data.copy())
+                    held_bb       = analyze_bollinger(held_data.copy())
+                    held_macd     = analyze_macd(held_data.copy())
+                    held_combined = build_combined_summary(
+                        ma_signal   = held_analyzed.iloc[-1]['Signal'],
+                        ema_signal  = held_ema.iloc[-1]['EMA_Signal'],
+                        bb_signal   = held_bb.iloc[-1]['BB_Signal'],
+                        macd_signal = held_macd.iloc[-1]['MACD_Crossover'],
+                    )
+                    portfolio_combined_signals[held_stock] = held_combined["Final Signal"]
+            except Exception:
+                # If data fetch fails for a held stock, skip — suggestion uses price logic only
+                pass
+ 
+    portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_signals)
+ 
     if portfolio_df.empty:
         st.info("No open positions yet — click BUY above to start!")
     else:
-        def color_pnl(val):
-            return f"color: {'green' if val >= 0 else 'red'}"
+        # ── Summary metrics above the table ──────────
+        # Find the TOTAL row for headline metrics
+        total_row = portfolio_df[portfolio_df['Stock'] == '📊 TOTAL']
+        if not total_row.empty:
+            t = total_row.iloc[0]
+            total_pnl_val = float(t['P&L ₹'])
+            total_pnl_pct = float(t['P&L %'])
+            total_invested = float(t['Invested ₹'])
+            total_value    = float(t['Value ₹'])
+ 
+            pm1, pm2, pm3, pm4 = st.columns(4)
+            pm1.metric(
+                "Total Invested",
+                f"₹{total_invested:,.0f}"
+            )
+            pm2.metric(
+                "Current Value",
+                f"₹{total_value:,.0f}",
+                delta=f"₹{total_pnl_val:+,.0f}"
+            )
+            pm3.metric(
+                "Total P&L ₹",
+                f"₹{total_pnl_val:+,.0f}",
+                delta=None
+            )
+            pm4.metric(
+                "Total P&L %",
+                f"{total_pnl_pct:+.2f}%",
+                delta=None
+            )
+            st.write("")
+ 
+        # ── Color coding for the table ────────────────
+        def color_pnl_val(val):
+            """Green for positive P&L, red for negative."""
+            try:
+                f = float(val)
+                if f > 0:  return "color: green; font-weight: bold"
+                if f < 0:  return "color: red; font-weight: bold"
+            except Exception:
+                pass
+            return ""
+ 
+        def color_suggestion(val):
+            """Color the suggestion column by action type."""
+            s = str(val)
+            if "SELL (Stop"    in s: return "color: red; font-weight: bold"
+            if "SELL (Take"    in s: return "color: green; font-weight: bold"
+            if "SELL (Signal"  in s: return "color: orange; font-weight: bold"
+            if "ADD"           in s: return "color: green; font-weight: bold"
+            if "HOLD (Near"    in s: return "color: goldenrod"
+            if "HOLD (Monitor" in s: return "color: orange"
+            if "HOLD"          in s: return "color: gray"
+            if "Profit"        in s: return "color: green; font-weight: bold"
+            if "Loss"          in s: return "color: red; font-weight: bold"
+            return ""
+ 
+        def color_total_row(row):
+            """Bold the TOTAL row."""
+            if row['Stock'] == '📊 TOTAL':
+                return ['font-weight: bold; background-color: #1a1a2e'] * len(row)
+            return [''] * len(row)
+ 
         st.dataframe(
-            portfolio_df.style.map(color_pnl, subset=["P&L", "P&L %"]),
-            use_container_width=True
+            portfolio_df.style
+                .map(color_pnl_val,    subset=["P&L ₹", "P&L %"])
+                .map(color_suggestion, subset=["Suggestion"])
+                .apply(color_total_row, axis=1),
+            use_container_width=True,
+            hide_index=True
+        )
+ 
+        # ── Legend ───────────────────────────────────
+        st.caption(
+            "🟢 ADD = Strong signal + you hold < max position  |  "
+            "✅ SELL (Take Profit) = Target hit  |  "
+            "🔴 SELL (Stop Loss) = Stop breached  |  "
+            "🟡 HOLD = No action needed"
         )
 
     st.divider()
