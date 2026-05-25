@@ -26,6 +26,7 @@ from strategies.paper_trader import (
     execute_paper_sell,
     get_portfolio_summary,
     load_trades,
+    load_portfolio,
     get_current_capital,
     STARTING_CAPITAL
 )
