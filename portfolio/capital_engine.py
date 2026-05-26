@@ -15,9 +15,12 @@
 #   - own max position size
 #   - own performance tracking
 #
-# DATA STORAGE:
-#   logs/bucket_trades.csv   — all bucket trades
-#   logs/bucket_state.csv    — current bucket snapshots
+# DATA STORAGE — TWO LAYERS:
+#   Primary  : Supabase (cloud PostgreSQL) — survives Cloud restarts
+#   Fallback : logs/bucket_trades.csv + logs/bucket_state.csv (local)
+#
+#   Both layers written on every save. Supabase used on Cloud,
+#   CSV used on laptop. See supabase_setup.sql for table scripts.
 #
 # HOW IT WORKS:
 #   - BUY  → deducts from bucket's available cash
@@ -32,6 +35,13 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# ── Supabase client ───────────────────────────────
+try:
+    from config.supabase_client import get_client as _get_supabase_client
+except ImportError:
+    def _get_supabase_client():
+        return None
 
 # ── File paths ────────────────────────────────────
 BASE_DIR          = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -92,38 +102,46 @@ BUCKET_CONFIG = {
 
 # ════════════════════════════════════════════════
 # BUCKET STATE MANAGEMENT
-# Reads/writes bucket_state.csv to persist state
-# across sessions (until Supabase in M34)
+# Two-layer storage: Supabase (primary) → CSV (fallback)
+# Supabase table: bucket_state  (upsert on bucket column)
+# Supabase table: bucket_trades (append only)
 # ════════════════════════════════════════════════
+
+def _make_default_state():
+    """Build the default starting state dict for all buckets."""
+    state = {}
+    for bucket_name, cfg in BUCKET_CONFIG.items():
+        starting = round(TOTAL_CAPITAL * cfg["allocation_pct"], 2)
+        state[bucket_name] = {
+            "Starting_Capital": starting,
+            "Available_Cash":   starting,
+            "Deployed_Capital": 0.0,
+            "Total_PNL":        0.0,
+            "Total_Trades":     0,
+            "Winning_Trades":   0,
+            "Last_Updated":     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+    return state
+
 
 def _initialize_bucket_state():
     """
-    Create the initial bucket state CSV if it doesn't exist.
-    Called once on first run — sets up all three buckets
-    with their starting capital from BUCKET_CONFIG.
+    Create initial bucket state on first run.
+    Writes to both Supabase and CSV so both start populated.
     """
-    rows = []
-    for bucket_name, cfg in BUCKET_CONFIG.items():
-        starting = round(TOTAL_CAPITAL * cfg["allocation_pct"], 2)
-        rows.append({
-            "Bucket":          bucket_name,
-            "Starting_Capital":starting,
-            "Available_Cash":  starting,
-            "Deployed_Capital":0.0,
-            "Total_PNL":       0.0,
-            "Total_Trades":    0,
-            "Winning_Trades":  0,
-            "Last_Updated":    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        })
-    df = pd.DataFrame(rows)
-    df.to_csv(BUCKET_STATE_FILE, index=False)
-    return df
+    state = _make_default_state()
+    save_bucket_state(state)   # writes to Supabase + CSV
+    return state
 
 
 def load_bucket_state():
     """
     Load current state of all three buckets.
-    Creates the file with initial values if it doesn't exist.
+
+    Priority:
+      1. Supabase — persists across Cloud restarts
+      2. Local CSV — works on laptop
+      3. Defaults  — first run with no data anywhere
 
     Returns a dict keyed by bucket name:
     {
@@ -132,25 +150,58 @@ def load_bucket_state():
         "Intraday":  { ... },
     }
     """
-    if not os.path.exists(BUCKET_STATE_FILE):
-        _initialize_bucket_state()
+    df = None
 
-    df = pd.read_csv(BUCKET_STATE_FILE)
+    # ── Layer 1: Supabase ─────────────────────────
+    client = _get_supabase_client()
+    if client:
+        try:
+            response = client.table("bucket_state").select("*").execute()
+            if response.data:
+                df = pd.DataFrame(response.data)
+                # Supabase returns lowercase column names
+                df = df.rename(columns={
+                    "bucket":           "Bucket",
+                    "starting_capital": "Starting_Capital",
+                    "available_cash":   "Available_Cash",
+                    "deployed_capital": "Deployed_Capital",
+                    "total_pnl":        "Total_PNL",
+                    "total_trades":     "Total_Trades",
+                    "winning_trades":   "Winning_Trades",
+                    "last_updated":     "Last_Updated",
+                })
+        except Exception as e:
+            print(f"Supabase bucket_state load failed: {e} — using CSV")
 
-    # Convert to dict keyed by bucket name for easy access
+    # ── Layer 2: CSV fallback ─────────────────────
+    if df is None:
+        if os.path.exists(BUCKET_STATE_FILE):
+            try:
+                df = pd.read_csv(BUCKET_STATE_FILE)
+            except Exception:
+                pass
+
+    # ── Layer 3: Defaults (first run) ────────────
+    if df is None or df.empty:
+        return _make_default_state()
+
+    # Convert to dict
     state = {}
     for _, row in df.iterrows():
-        state[row["Bucket"]] = {
-            "Starting_Capital": float(row["Starting_Capital"]),
-            "Available_Cash":   float(row["Available_Cash"]),
-            "Deployed_Capital": float(row["Deployed_Capital"]),
-            "Total_PNL":        float(row["Total_PNL"]),
-            "Total_Trades":     int(row["Total_Trades"]),
-            "Winning_Trades":   int(row["Winning_Trades"]),
-            "Last_Updated":     row["Last_Updated"],
-        }
+        try:
+            state[str(row["Bucket"])] = {
+                "Starting_Capital": float(row["Starting_Capital"]),
+                "Available_Cash":   float(row["Available_Cash"]),
+                "Deployed_Capital": float(row["Deployed_Capital"]),
+                "Total_PNL":        float(row["Total_PNL"]),
+                "Total_Trades":     int(float(row["Total_Trades"])),
+                "Winning_Trades":   int(float(row["Winning_Trades"])),
+                "Last_Updated":     str(row["Last_Updated"]),
+            }
+        except Exception:
+            continue
 
-    # Add any missing buckets (in case config was updated)
+    # Add any missing buckets
     for bucket_name, cfg in BUCKET_CONFIG.items():
         if bucket_name not in state:
             starting = round(TOTAL_CAPITAL * cfg["allocation_pct"], 2)
@@ -169,8 +220,9 @@ def load_bucket_state():
 
 def save_bucket_state(state):
     """
-    Save the updated bucket state back to CSV.
+    Save bucket state to Supabase (primary) and CSV (fallback).
     Called after every BUY or SELL.
+    Supabase upserts on bucket name so there is never a duplicate row.
     """
     rows = []
     for bucket_name, data in state.items():
@@ -179,19 +231,57 @@ def save_bucket_state(state):
         row["Last_Updated"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         rows.append(row)
 
-    pd.DataFrame(rows).to_csv(BUCKET_STATE_FILE, index=False)
+    # ── Layer 1: Supabase ─────────────────────────
+    client = _get_supabase_client()
+    if client:
+        try:
+            records = [
+                {
+                    "bucket":           r["Bucket"],
+                    "starting_capital": r["Starting_Capital"],
+                    "available_cash":   r["Available_Cash"],
+                    "deployed_capital": r["Deployed_Capital"],
+                    "total_pnl":        r["Total_PNL"],
+                    "total_trades":     r["Total_Trades"],
+                    "winning_trades":   r["Winning_Trades"],
+                    "last_updated":     r["Last_Updated"],
+                }
+                for r in rows
+            ]
+            client.table("bucket_state").upsert(
+                records, on_conflict="bucket"
+            ).execute()
+        except Exception as e:
+            print(f"Supabase bucket_state save failed: {e} — saved to CSV only")
+
+    # ── Layer 2: CSV (always) ─────────────────────
+    try:
+        pd.DataFrame(rows).to_csv(BUCKET_STATE_FILE, index=False)
+    except Exception as e:
+        print(f"CSV bucket_state save failed: {e}")
 
 
 def reset_bucket_state():
     """
     Reset ALL buckets back to starting capital.
-    USE WITH CARE — this clears all paper trading history.
-    Called only when user explicitly resets the system.
+    USE WITH CARE — clears ALL trade history from Supabase AND CSV.
+    Called only when user explicitly resets from the dashboard.
     """
-    if os.path.exists(BUCKET_STATE_FILE):
-        os.remove(BUCKET_STATE_FILE)
-    if os.path.exists(BUCKET_TRADES_FILE):
-        os.remove(BUCKET_TRADES_FILE)
+    # ── Clear Supabase ────────────────────────────
+    client = _get_supabase_client()
+    if client:
+        try:
+            # Delete all rows from both tables
+            client.table("bucket_trades").delete().neq("bucket", "").execute()
+            client.table("bucket_state").delete().neq("bucket", "").execute()
+        except Exception as e:
+            print(f"Supabase reset failed: {e}")
+
+    # ── Clear CSV files ───────────────────────────
+    for f in [BUCKET_STATE_FILE, BUCKET_TRADES_FILE]:
+        if os.path.exists(f):
+            os.remove(f)
+
     return _initialize_bucket_state()
 
 
@@ -203,35 +293,93 @@ def reset_bucket_state():
 
 def _log_bucket_trade(bucket, action, stock, price, quantity, value, pnl=None):
     """
-    Log a trade to bucket_trades.csv.
-    This is the bucket-aware audit trail — separate from old paper_trades.csv.
-    Both files are maintained for backward compatibility.
+    Log a trade to Supabase (primary) and bucket_trades.csv (fallback).
+    Append-only — each trade becomes a new row, never updated.
     """
-    entry = {
-        "Timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        "Bucket":    bucket,
-        "Action":    action,
-        "Stock":     stock,
-        "Price":     round(price, 2),
-        "Quantity":  quantity,
-        "Value":     round(value, 2),
-        "PNL":       round(pnl, 2) if pnl is not None else "",
-    }
-    df = pd.DataFrame([entry])
-    if os.path.exists(BUCKET_TRADES_FILE):
-        df.to_csv(BUCKET_TRADES_FILE, mode='a', header=False, index=False)
-    else:
-        df.to_csv(BUCKET_TRADES_FILE, mode='w', header=True, index=False)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    pnl_val   = round(pnl, 2) if pnl is not None else None
+
+    # ── Layer 1: Supabase ─────────────────────────
+    client = _get_supabase_client()
+    if client:
+        try:
+            client.table("bucket_trades").insert({
+                "timestamp": timestamp,
+                "bucket":    bucket,
+                "action":    action,
+                "stock":     stock,
+                "price":     round(price, 2),
+                "quantity":  quantity,
+                "value":     round(value, 2),
+                "pnl":       pnl_val,
+            }).execute()
+        except Exception as e:
+            print(f"Supabase bucket_trades insert failed: {e} — saved to CSV only")
+
+    # ── Layer 2: CSV (always) ─────────────────────
+    try:
+        entry = {
+            "Timestamp": timestamp,
+            "Bucket":    bucket,
+            "Action":    action,
+            "Stock":     stock,
+            "Price":     round(price, 2),
+            "Quantity":  quantity,
+            "Value":     round(value, 2),
+            "PNL":       pnl_val if pnl_val is not None else "",
+        }
+        df = pd.DataFrame([entry])
+        if os.path.exists(BUCKET_TRADES_FILE):
+            df.to_csv(BUCKET_TRADES_FILE, mode='a', header=False, index=False)
+        else:
+            df.to_csv(BUCKET_TRADES_FILE, mode='w', header=True, index=False)
+    except Exception as e:
+        print(f"CSV bucket_trades save failed: {e}")
 
 
 def load_bucket_trades():
-    """Load full bucket trade history."""
+    """
+    Load full bucket trade history.
+    Tries Supabase first, falls back to CSV.
+    """
+    COLS = ["Timestamp", "Bucket", "Action", "Stock",
+            "Price", "Quantity", "Value", "PNL"]
+
+    # ── Layer 1: Supabase ─────────────────────────
+    client = _get_supabase_client()
+    if client:
+        try:
+            response = (
+                client.table("bucket_trades")
+                .select("*")
+                .order("timestamp", desc=False)
+                .execute()
+            )
+            if response.data:
+                df = pd.DataFrame(response.data)
+                df = df.rename(columns={
+                    "timestamp": "Timestamp",
+                    "bucket":    "Bucket",
+                    "action":    "Action",
+                    "stock":     "Stock",
+                    "price":     "Price",
+                    "quantity":  "Quantity",
+                    "value":     "Value",
+                    "pnl":       "PNL",
+                })
+                return df[[c for c in COLS if c in df.columns]]
+            return pd.DataFrame(columns=COLS)
+        except Exception as e:
+            print(f"Supabase bucket_trades load failed: {e} — using CSV")
+
+    # ── Layer 2: CSV fallback ─────────────────────
     if os.path.exists(BUCKET_TRADES_FILE):
-        return pd.read_csv(BUCKET_TRADES_FILE)
-    return pd.DataFrame(columns=[
-        "Timestamp", "Bucket", "Action", "Stock",
-        "Price", "Quantity", "Value", "PNL"
-    ])
+        try:
+            return pd.read_csv(BUCKET_TRADES_FILE)
+        except Exception:
+            pass
+
+    return pd.DataFrame(columns=COLS)
 
 
 # ════════════════════════════════════════════════
