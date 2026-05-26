@@ -96,6 +96,20 @@ from strategies.sentiment_engine import (
     get_market_sentiment,
 )
 
+from portfolio.capital_engine import (
+    get_bucket_summary,
+    get_portfolio_totals,
+    get_bucket_trade_history,
+    get_open_positions_by_bucket,
+    bucket_buy,
+    bucket_sell,
+    check_position_limit,
+    get_bucket_available_cash,
+    BUCKET_CONFIG,
+    TOTAL_CAPITAL,
+    reset_bucket_state,
+)
+
 # ── Page configuration ───────────────────────────
 st.set_page_config(
     page_title="Firoj Khan's Trading OS",
@@ -258,7 +272,7 @@ def fetch_market_sentiment_cached():
 
 
 # ── Navigation Tabs ───────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📊 Dashboard",
     "🌡️ Market Regime",
     "📡 Scanner",
@@ -266,7 +280,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📈 RS Ranking",
     "🔬 Backtesting",
     "📊 Strategy Comparison",
-    "📋 Logs"
+    "📋 Logs",
+    "🪣 Portfolio Buckets"
 ])
 
 # ════════════════════════════════════════════════
@@ -2081,6 +2096,326 @@ with tab8:
         "Max Position",
         f"{round(current_settings['MAX_POSITION_PCT'] * 100, 1)}%"
     )
+
+# ════════════════════════════════════════════════
+# TAB 9: PORTFOLIO BUCKETS — Milestone 24
+# ════════════════════════════════════════════════
+with tab9:
+ 
+    st.title("🪣 Portfolio Buckets — Capital Allocation Engine")
+    st.caption("Three independent capital pools — each with its own strategy, risk rules, and performance tracking")
+    st.divider()
+ 
+    # ── Portfolio-level headline metrics ──────────
+    totals = get_portfolio_totals()
+ 
+    t1, t2, t3, t4, t5 = st.columns(5)
+    t1.metric(
+        "Total Capital",
+        f"₹{totals['total_starting']:,.0f}"
+    )
+    t2.metric(
+        "Available Cash",
+        f"₹{totals['total_available']:,.0f}",
+    )
+    t3.metric(
+        "Deployed",
+        f"₹{totals['total_deployed']:,.0f}",
+    )
+    t4.metric(
+        "Total P&L",
+        f"₹{totals['total_pnl']:+,.0f}",
+        delta=f"{totals['total_return_pct']:+.2f}%"
+    )
+    t5.metric(
+        "Overall Win Rate",
+        f"{totals['overall_win_rate']}%",
+        delta=f"{totals['total_trades']} trades"
+    )
+ 
+    st.divider()
+ 
+    # ── Bucket summary cards ──────────────────────
+    st.subheader("🪣 Bucket Overview")
+    st.caption("Each bucket is completely independent — different capital, strategy, and rules")
+ 
+    bucket_summary = get_bucket_summary()
+ 
+    if bucket_summary:
+        # Display as three side-by-side cards
+        cols = st.columns(3)
+        bucket_colors = {
+            "Long-Term": "🟢",
+            "Swing":     "🔵",
+            "Intraday":  "🟠",
+        }
+ 
+        for i, bucket_data in enumerate(bucket_summary):
+            with cols[i]:
+                bname  = bucket_data["Bucket"]
+                cfg    = BUCKET_CONFIG[bname]
+                icon   = bucket_colors.get(bname, "⚪")
+                pnl_val= bucket_data["Total P&L ₹"]
+                pnl_sign = "+" if pnl_val >= 0 else ""
+ 
+                st.markdown(f"### {icon} {bname}")
+                st.caption(cfg["description"])
+ 
+                # Capital bar
+                avail   = bucket_data["Available ₹"]
+                deployed= bucket_data["Deployed ₹"]
+                start   = bucket_data["Starting ₹"]
+                util_pct= round(deployed / start * 100) if start > 0 else 0
+ 
+                st.progress(
+                    min(util_pct / 100, 1.0),
+                    text=f"Deployed: {util_pct}% of ₹{start:,.0f}"
+                )
+ 
+                m1, m2 = st.columns(2)
+                m1.metric("Available",   f"₹{avail:,.0f}")
+                m2.metric("Deployed",    f"₹{deployed:,.0f}")
+ 
+                m3, m4 = st.columns(2)
+                m3.metric("P&L",         f"₹{pnl_sign}{pnl_val:,.0f}")
+                m4.metric("Return",      bucket_data["Return %"])
+ 
+                m5, m6 = st.columns(2)
+                m5.metric("Win Rate",    bucket_data["Win Rate"])
+                m6.metric("Positions",   bucket_data["Open Positions"])
+ 
+                st.caption(
+                    f"Min score: {cfg['min_score']}/100 | "
+                    f"Max per stock: {int(cfg['max_position_pct']*100)}% | "
+                    f"Hold: {cfg['min_holding_days']}–{cfg['max_holding_days']} days"
+                )
+ 
+    st.divider()
+ 
+    # ── Bucket summary table ──────────────────────
+    st.subheader("📋 Bucket Comparison Table")
+    if bucket_summary:
+        display_df = pd.DataFrame(bucket_summary)[[
+            "Bucket", "Style", "Starting ₹", "Available ₹",
+            "Deployed ₹", "Utilization", "Open Positions",
+            "Total P&L ₹", "Return %", "Win Rate", "Total Trades"
+        ]]
+ 
+        def color_pnl_bucket(val):
+            try:
+                f = float(str(val).replace("₹","").replace(",",""))
+                if f > 0: return "color: green; font-weight: bold"
+                if f < 0: return "color: red; font-weight: bold"
+            except Exception:
+                pass
+            return ""
+ 
+        def color_return(val):
+            s = str(val)
+            if s.startswith("+"): return "color: green"
+            if s.startswith("-"): return "color: red"
+            return ""
+ 
+        st.dataframe(
+            display_df.style
+                .map(color_pnl_bucket, subset=["Total P&L ₹"])
+                .map(color_return,     subset=["Return %"]),
+            use_container_width=True,
+            hide_index=True
+        )
+ 
+    st.divider()
+ 
+    # ── Manual bucket trade panel ─────────────────
+    st.subheader("💰 Manual Bucket Trade")
+    st.caption(
+        "Trade directly from a specific bucket. "
+        "In future milestones this will happen automatically — "
+        "for now you can test it manually."
+    )
+ 
+    tc1, tc2, tc3 = st.columns(3)
+    with tc1:
+        trade_bucket = st.selectbox(
+            "Select Bucket:",
+            options=list(BUCKET_CONFIG.keys()),
+            key="bucket_trade_bucket"
+        )
+    with tc2:
+        trade_stock = st.selectbox(
+            "Select Stock:",
+            options=STOCK_NAMES,
+            key="bucket_trade_stock"
+        )
+    with tc3:
+        # Show current price for selected stock
+        try:
+            bt_symbol = WATCHLIST.get(trade_stock)
+            bt_data   = fetch_stock_data(bt_symbol)
+            bt_price  = round(float(bt_data['Close'].iloc[-1]), 2)
+        except Exception:
+            bt_price  = 0.0
+ 
+        st.metric("Current Price", f"₹{bt_price}")
+ 
+    # Show bucket constraints as guidance
+    if trade_bucket and bt_price > 0:
+        cfg         = BUCKET_CONFIG[trade_bucket]
+        avail_cash  = get_bucket_available_cash(trade_bucket)
+        can_add, open_c, max_p = check_position_limit(trade_bucket)
+ 
+        gc1, gc2, gc3, gc4 = st.columns(4)
+        gc1.metric("Available in Bucket", f"₹{avail_cash:,.0f}")
+        gc2.metric("Open Positions",      f"{open_c}/{max_p}")
+        gc3.metric("Min Score Required",  f"{cfg['min_score']}/100")
+        gc4.metric("Max Per Stock",       f"{int(cfg['max_position_pct']*100)}%")
+ 
+        if not can_add:
+            st.error(f"🛑 {trade_bucket} bucket is at max positions ({open_c}/{max_p}). Sell something first.")
+ 
+    st.write("")
+    bc1, bc2 = st.columns(2)
+ 
+    with bc1:
+        if st.button(
+            f"🟢 BUY {trade_stock} from {trade_bucket} Bucket",
+            use_container_width=True,
+            key="bucket_buy_btn"
+        ):
+            if bt_price > 0:
+                result = bucket_buy(
+                    bucket_name     = trade_bucket,
+                    stock_name      = trade_stock,
+                    price           = bt_price,
+                    composite_score = None   # No score check for manual trades
+                )
+                if result["status"] == "EXECUTED":
+                    st.success(
+                        f"✅ Bought {result['quantity']} shares of {trade_stock} "
+                        f"@ ₹{result['price']} from {trade_bucket} bucket | "
+                        f"Cash left: ₹{result['cash_left']:,.0f}"
+                    )
+                else:
+                    st.error(f"🛑 Rejected: {result['reason']}")
+            else:
+                st.error("Could not fetch price. Try again.")
+ 
+    with bc2:
+        if st.button(
+            f"🔴 SELL {trade_stock} from {trade_bucket} Bucket",
+            use_container_width=True,
+            key="bucket_sell_btn"
+        ):
+            if bt_price > 0:
+                result = bucket_sell(
+                    bucket_name = trade_bucket,
+                    stock_name  = trade_stock,
+                    price       = bt_price,
+                )
+                if result["status"] == "EXECUTED":
+                    pnl_icon = "✅" if result["pnl"] >= 0 else "❌"
+                    st.success(
+                        f"{pnl_icon} Sold {result['quantity']} shares of {trade_stock} "
+                        f"@ ₹{result['price']} | "
+                        f"P&L: ₹{result['pnl']:+,.0f} ({result['pnl_pct']:+.1f}%) | "
+                        f"Cash now: ₹{result['cash_now']:,.0f}"
+                    )
+                else:
+                    st.error(f"🛑 Rejected: {result['reason']}")
+            else:
+                st.error("Could not fetch price. Try again.")
+ 
+    st.divider()
+ 
+    # ── Open positions per bucket ─────────────────
+    st.subheader("📂 Open Positions by Bucket")
+    any_open = False
+    for bname in BUCKET_CONFIG.keys():
+        open_stocks = get_open_positions_by_bucket(bname)
+        if open_stocks:
+            any_open = True
+            icon = bucket_colors.get(bname, "⚪")
+            st.markdown(f"**{icon} {bname}:** {', '.join(open_stocks)}")
+ 
+    if not any_open:
+        st.info("No open positions in any bucket yet. Use the trade panel above to test.")
+ 
+    st.divider()
+ 
+    # ── Bucket trade history ──────────────────────
+    st.subheader("📋 Bucket Trade History")
+ 
+    hist_bucket = st.selectbox(
+        "Filter by bucket:",
+        options=["All Buckets"] + list(BUCKET_CONFIG.keys()),
+        key="hist_bucket_filter"
+    )
+ 
+    history_df = get_bucket_trade_history(
+        None if hist_bucket == "All Buckets" else hist_bucket
+    )
+ 
+    if history_df.empty:
+        st.info("No bucket trades yet. Use the trade panel above to start.")
+    else:
+        def color_action(val):
+            if val == "BUY":  return "color: green"
+            if val == "SELL": return "color: red"
+            return ""
+ 
+        def color_pnl_hist(val):
+            try:
+                f = float(val)
+                if f > 0: return "color: green"
+                if f < 0: return "color: red"
+            except Exception:
+                pass
+            return ""
+ 
+        st.dataframe(
+            history_df.sort_values("Timestamp", ascending=False)
+                .style
+                .map(color_action,   subset=["Action"])
+                .map(color_pnl_hist, subset=["PNL"]),
+            use_container_width=True,
+            hide_index=True
+        )
+ 
+        st.download_button(
+            label     = "⬇️ Download Bucket Trade History",
+            data      = history_df.to_csv(index=False),
+            file_name = "bucket_trades.csv",
+            mime      = "text/csv"
+        )
+ 
+    st.divider()
+ 
+    # ── Bucket configuration reference ───────────
+    with st.expander("⚙️ Bucket Configuration Reference"):
+        st.caption("These settings control how each bucket behaves. Edit capital_engine.py to change them.")
+        cfg_rows = []
+        for bname, cfg in BUCKET_CONFIG.items():
+            cfg_rows.append({
+                "Bucket":           bname,
+                "Allocation":       f"{int(cfg['allocation_pct']*100)}% = ₹{TOTAL_CAPITAL*cfg['allocation_pct']:,.0f}",
+                "Max Positions":    cfg["max_positions"],
+                "Max Per Stock":    f"{int(cfg['max_position_pct']*100)}%",
+                "Min Score":        f"{cfg['min_score']}/100",
+                "Hold Period":      f"{cfg['min_holding_days']}–{cfg['max_holding_days']} days",
+                "Strategy Style":   cfg["strategy_style"],
+            })
+        st.dataframe(pd.DataFrame(cfg_rows), use_container_width=True, hide_index=True)
+ 
+    # ── Danger zone — reset ───────────────────────
+    st.divider()
+    with st.expander("⚠️ Danger Zone — Reset All Buckets"):
+        st.warning(
+            "This will reset ALL bucket capital and trade history back to starting values. "
+            "This cannot be undone. Use only when starting fresh."
+        )
+        if st.button("🗑️ Reset All Bucket Data", key="reset_buckets"):
+            reset_bucket_state()
+            st.success("✅ All buckets reset to starting capital. Refresh the page.")
 
 # ── Footer ─────────────────────────────────────────
 st.divider()
