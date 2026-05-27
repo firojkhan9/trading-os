@@ -1,3 +1,4 @@
+# Core data + dashboard
 pandas
 yfinance
 streamlit
@@ -6,3 +7,14 @@ requests
 python-dotenv
 loguru
 supabase
+
+# Backtesting
+# backtrader   # Uncomment when needed
+ 
+# Sentiment Analysis (NEW in Milestone 23)
+gnews          # Google News RSS wrapper — free, no API key
+textblob       # NLP sentiment library — free, no API key
+feedparser     # RSS feed parser — backup news source
+ 
+# Already used in the project
+requests

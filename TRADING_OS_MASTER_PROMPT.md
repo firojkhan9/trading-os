@@ -592,14 +592,8 @@ When assisting with this project:
 
 *(Update this section at the start of each conversation)*
 
-Last completed milestone: **Milestone 23 — Sentiment Analysis Engine**
-
-Current bugs/fixes in progress:
-- Scanner results reset on row click → FIXED (session_state)
-- Sentiment engine returning no news → FIXED (5 sources + diagnostics)
-- Backtest "no trades" confusion → FIXED (better explanation + 5y option)
-
-Next planned milestone: **Milestone 24 — Capital Allocation Engine**
+Last completed milestone: Milestone 24 — Capital Allocation Engine
+Next planned milestone:   Milestone 25 — Position Lifecycle Manager
 
 ---
 

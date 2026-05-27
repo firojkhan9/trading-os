@@ -105,7 +105,6 @@ from portfolio.capital_engine import (
     bucket_sell,
     check_position_limit,
     get_bucket_available_cash,
-    suggest_bucket,
     BUCKET_CONFIG,
     TOTAL_CAPITAL,
     reset_bucket_state,
@@ -157,161 +156,63 @@ if "shared_stock" not in st.session_state:
     st.session_state["shared_stock"] = STOCK_NAMES[0]
 
 
-def render_quick_buy_panel(
-    stock_name,
-    tab_key_prefix,
-    composite_score=None,
-    combined_signal=None,
-    buy_votes=None,
-    regime=None,
-):
+def render_quick_buy_panel(stock_name, tab_key_prefix):
     """
-    Unified smart trade panel — used on Dashboard, Scanner,
-    Stock Score, and RS Ranking tabs.
-
-    All trades go through the bucket system (capital_engine).
-    The panel auto-suggests a bucket based on the signal and score,
-    and lets the user override it before executing.
-
+    Reusable buy/sell panel shown on Scanner, RS Ranking, Stock Score tabs.
     stock_name      : e.g. "RELIANCE"
-    tab_key_prefix  : unique key prefix to avoid Streamlit widget conflicts
-    composite_score : 0-100 score (optional — shown as context)
-    combined_signal : e.g. "STRONG BUY" (optional — used for suggestion)
-    buy_votes       : int 0-4 (optional — used for suggestion)
-    regime          : market regime string (optional)
+    tab_key_prefix  : unique string like "scanner", "rs", "score"
+                      prevents Streamlit duplicate widget key errors.
     """
-    symbol = WATCHLIST.get(stock_name)
+    symbol        = WATCHLIST.get(stock_name)
     if not symbol:
         st.warning("Stock not found in watchlist.")
         return
 
-    # ── Fetch latest price ────────────────────────
+    # Fetch latest price
     try:
-        quick_data  = fetch_stock_data(symbol)
-        quick_price = round(float(quick_data['Close'].iloc[-1]), 2)
+        quick_data    = fetch_stock_data(symbol)
+        quick_price   = round(float(quick_data['Close'].iloc[-1]), 2)
     except Exception:
         st.error("Could not fetch price. Try again.")
         return
 
-    # ── Get regime if not passed ───────────────────
-    if regime is None:
-        try:
-            regime_info = fetch_regime_analysis()
-            regime = regime_info.get("regime", "UNKNOWN")
-        except Exception:
-            regime = "UNKNOWN"
+    current_capital = get_current_capital()
+    buy_risk        = run_full_risk_check(stock_name, quick_price, "BUY")
+    sell_risk       = run_full_risk_check(stock_name, quick_price, "CHECK")
 
-    # ── Smart bucket suggestion ───────────────────
-    suggestion = suggest_bucket(
-        composite_score=composite_score,
-        combined_signal=combined_signal,
-        buy_votes=buy_votes,
-        regime=regime,
-    )
-    suggested  = suggestion["suggested_bucket"]
-    alts       = suggestion["alternatives"]
-    confidence = suggestion["confidence"]
-    reason     = suggestion["reason"]
+    st.markdown(f"**💰 Quick Trade — {stock_name} @ ₹{quick_price}**")
+    cap1, cap2 = st.columns(2)
+    cap1.metric("Available Cash", f"₹{current_capital:,}")
+    cap2.metric("Price",          f"₹{quick_price}")
 
-    # ── Header ────────────────────────────────────
-    st.markdown(f"**💰 Trade — {stock_name} @ ₹{quick_price}**")
+    for block   in buy_risk["blocks"]:   st.error(block)
+    for warning in sell_risk["warnings"]:st.warning(warning)
 
-    # ── Suggestion banner ─────────────────────────
-    if suggested:
-        conf_icon = "🟢" if confidence == "HIGH" else ("🟡" if confidence == "MEDIUM" else "🔴")
-        st.info(
-            f"{conf_icon} **Suggested: {suggested} Bucket** — {reason}"
-        )
-    else:
-        st.warning(f"⚠️ {reason}")
-
-    # ── Bucket selector (pre-filled with suggestion) ──
-    bucket_options = list(BUCKET_CONFIG.keys())
-    default_bucket = suggested if suggested in bucket_options else bucket_options[1]  # Swing default
-    default_idx    = bucket_options.index(default_bucket)
-
-    col_sel, col_info = st.columns([2, 1])
-    with col_sel:
-        selected_bucket = st.selectbox(
-            "Select bucket to trade from:",
-            options=bucket_options,
-            index=default_idx,
-            key=f"bucket_sel_{tab_key_prefix}_{stock_name}",
-            help="Long-Term=weeks/months | Swing=days/weeks | Intraday=same day"
-        )
-    with col_info:
-        avail_cash = get_bucket_available_cash(selected_bucket)
-        can_add, open_c, max_p = check_position_limit(selected_bucket)
-        st.metric("Bucket Cash", f"₹{avail_cash:,.0f}")
-        st.caption(f"Positions: {open_c}/{max_p}")
-
-    # ── Bucket config reference ────────────────────
-    cfg = BUCKET_CONFIG[selected_bucket]
-    st.caption(
-        f"📋 {selected_bucket}: min score {cfg['min_score']}/100 | "
-        f"max {int(cfg['max_position_pct']*100)}% per stock | "
-        f"hold {cfg['min_holding_days']}–{cfg['max_holding_days']} days"
-    )
-
-    # ── Score warning if below threshold ──────────
-    if composite_score is not None:
-        min_score = cfg["min_score"]
-        if composite_score < min_score:
-            st.warning(
-                f"⚠️ Score {composite_score}/100 is below {selected_bucket} "
-                f"minimum ({min_score}/100). Trade will be rejected unless "
-                f"you switch to a lower-threshold bucket."
-            )
-
-    # ── Bear market block ─────────────────────────
-    if "BEAR" in str(regime).upper() and "WEAK" not in str(regime).upper():
-        st.error("🐻 BEAR MARKET — New buys not recommended. Protect capital.")
-
-    # ── Execute buttons ───────────────────────────
     col_b, col_s = st.columns(2)
-
     with col_b:
         if st.button(
-            f"🟢 BUY {stock_name} → {selected_bucket}",
+            f"🟢 BUY {stock_name}",
             key=f"buy_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
-            disabled=(not can_add),
+            disabled=not buy_risk["approved"]
         ):
-            result = bucket_buy(
-                bucket_name     = selected_bucket,
-                stock_name      = stock_name,
-                price           = quick_price,
-                composite_score = composite_score,   # None = skip score check
-            )
-            if result["status"] == "EXECUTED":
-                st.success(
-                    f"✅ Bought {result['quantity']} shares @ ₹{result['price']} "
-                    f"from {selected_bucket} bucket | "
-                    f"Cash left: ₹{result['cash_left']:,.0f}"
-                )
+            result = execute_paper_buy(stock_name, quick_price)
+            if result['status'] == "EXECUTED":
+                st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']} | Cash left: ₹{result['capital']:,}")
             else:
-                st.error(f"🛑 {result['reason']}")
-
+                st.warning(f"⚠️ {result['reason']}")
     with col_s:
         if st.button(
-            f"🔴 SELL {stock_name} ← {selected_bucket}",
+            f"🔴 SELL {stock_name}",
             key=f"sell_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
         ):
-            result = bucket_sell(
-                bucket_name = selected_bucket,
-                stock_name  = stock_name,
-                price       = quick_price,
-            )
-            if result["status"] == "EXECUTED":
-                pnl_icon = "✅" if result["pnl"] >= 0 else "❌"
-                st.success(
-                    f"{pnl_icon} Sold {result['quantity']} @ ₹{result['price']} "
-                    f"from {selected_bucket} | "
-                    f"P&L: ₹{result['pnl']:+,.0f} ({result['pnl_pct']:+.1f}%)"
-                )
+            result = execute_paper_sell(stock_name, quick_price)
+            if result['status'] == "EXECUTED":
+                pnl_icon = "✅" if result['pnl'] >= 0 else "❌"
+                st.success(f"{pnl_icon} Sold {result['quantity']} @ ₹{result['price']} | P&L: ₹{result['pnl']} ({result['pnl_pct']}%)")
             else:
-                st.error(f"🛑 {result['reason']}")
+                st.warning(f"⚠️ {result['reason']}")
 
 # ── Fetch functions ───────────────────────────────
 @st.cache_data(ttl=300)
@@ -588,27 +489,49 @@ with tab1:
     mc7.metric("Days Since Cross", macd_summary["Days Since Cross"])
     st.divider()
 
-    # ── Trade Panel ───────────────────────────────
-    st.subheader(f"💰 Trade — {selected_stock}")
-
-    # Show portfolio-level cash summary across all buckets
-    totals = get_portfolio_totals()
-    cap1, cap2, cap3, cap4 = st.columns(4)
-    cap1.metric("Total Capital",    f"₹{totals['total_starting']:,.0f}")
-    cap2.metric("Available (all)",  f"₹{totals['total_available']:,.0f}")
-    cap3.metric("Deployed (all)",   f"₹{totals['total_deployed']:,.0f}")
-    cap4.metric("Portfolio P&L",    f"₹{totals['total_pnl']:+,.0f}",
-                delta=f"{totals['total_return_pct']:+.2f}%")
+    # ── Paper Trading ─────────────────────────────
+    st.subheader(f"💰 Paper Trading — {selected_stock}")
+    current_capital = get_current_capital()
+    total_invested  = STARTING_CAPITAL - current_capital
+    cap1, cap2, cap3 = st.columns(3)
+    cap1.metric("Starting Capital", f"₹{STARTING_CAPITAL:,}")
+    cap2.metric("Available Cash",   f"₹{current_capital:,}")
+    cap3.metric("Total Invested",   f"₹{total_invested:,}")
     st.write("")
 
-    render_quick_buy_panel(
-        stock_name      = selected_stock,
-        tab_key_prefix  = "dashboard",
-        composite_score = None,
-        combined_signal = combined["Final Signal"],
-        buy_votes       = combined["Strategies Buy"],
-        regime          = regime,
-    )
+    buy_risk  = run_full_risk_check(selected_stock, latest_close, "BUY")
+    sell_risk = run_full_risk_check(selected_stock, latest_close, "CHECK")
+    for block in buy_risk["blocks"]:
+        st.error(block)
+    for warning in sell_risk["warnings"]:
+        st.warning(warning)
+    if "BEAR" in regime and "WEAK" not in regime:
+        st.error("🐻 BEAR MARKET — New buys not recommended. Protect capital.")
+
+    col_buy, col_sell = st.columns(2)
+    with col_buy:
+        if st.button(
+            f"🟢 BUY {selected_stock} @ ₹{latest_close}",
+            use_container_width=True, disabled=not buy_risk["approved"]
+        ):
+            result = execute_paper_buy(selected_stock, latest_close)
+            if result['status'] == "EXECUTED":
+                st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']}")
+                st.info(f"💰 Remaining: ₹{result['capital']:,}")
+            else:
+                st.warning(f"⚠️ {result['reason']}")
+    with col_sell:
+        if st.button(
+            f"🔴 SELL {selected_stock} @ ₹{latest_close}",
+            use_container_width=True
+        ):
+            result = execute_paper_sell(selected_stock, latest_close)
+            if result['status'] == "EXECUTED":
+                pnl_color = "✅" if result['pnl'] >= 0 else "❌"
+                st.success(f"{pnl_color} Sold {result['quantity']} @ ₹{result['price']}")
+                st.info(f"P&L: ₹{result['pnl']} ({result['pnl_pct']}%) | Cash: ₹{result['capital']:,}")
+            else:
+                st.warning(f"⚠️ {result['reason']}")
 
     st.divider()
 
@@ -1038,28 +961,7 @@ with tab3:
                 options=STOCK_NAMES,
                 key="scanner_trade_stock"
             )
-            # Pull signal and score from scan results for smart suggestion
-            scanner_score  = None
-            scanner_signal = None
-            scanner_votes  = None
-            if not full_df.empty:
-                match = full_df[full_df["Stock"] == scanner_trade_stock]
-                if not match.empty:
-                    scanner_score  = match.iloc[0].get("Score", None)
-                    scanner_signal = match.iloc[0].get("Combined Signal", None)
-                    scanner_votes  = match.iloc[0].get("Buy Votes", None)
-                    try:
-                        scanner_score = int(float(scanner_score)) if scanner_score else None
-                        scanner_votes = int(float(scanner_votes)) if scanner_votes else None
-                    except Exception:
-                        scanner_score = None
-            render_quick_buy_panel(
-                scanner_trade_stock, "scanner",
-                composite_score=scanner_score,
-                combined_signal=scanner_signal,
-                buy_votes=scanner_votes,
-                regime=scan_regime,
-            )
+            render_quick_buy_panel(scanner_trade_stock, "scanner")
             st.divider()
 
             # ── Download ──────────────────────────
@@ -1682,13 +1584,7 @@ VERDICT:
         st.divider()
         st.subheader("💰 Quick Trade")
         st.caption("Score looks good? Trade directly from this page")
-        render_quick_buy_panel(
-            score_stock, "score",
-            composite_score = composite,
-            combined_signal = final_signal,
-            buy_votes       = explanation["buy_votes"],
-            regime          = score_regime,
-        )
+        render_quick_buy_panel(score_stock, "score")
         st.divider()
 
         st.download_button(
@@ -1783,11 +1679,7 @@ with tab5:
                 options=STOCK_NAMES,
                 key="rs_trade_stock"
             )
-            render_quick_buy_panel(
-                rs_trade_stock, "rs",
-                # No score/signal available from RS tab — suggestion will use regime only
-                regime=regime,
-            )
+            render_quick_buy_panel(rs_trade_stock, "rs")
             st.divider()
 
             st.download_button(
