@@ -37,74 +37,211 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ── Supabase client ───────────────────────────────
-try:
-    from config.supabase_client import get_client as _get_supabase_client
-except ImportError:
-    def _get_supabase_client():
-        return None
+# Use the EXACT same import pattern as paper_trader.py.
+# Direct import — no try/except that swallows real errors.
+# If secrets are missing → get_client() returns None → CSV fallback.
+from config.supabase_client import get_client as _get_supabase_client
 
 # ── File paths ────────────────────────────────────
-BASE_DIR          = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOGS_DIR          = os.path.join(BASE_DIR, "logs")
-BUCKET_TRADES_FILE= os.path.join(LOGS_DIR, "bucket_trades.csv")
-BUCKET_STATE_FILE = os.path.join(LOGS_DIR, "bucket_state.csv")
+BASE_DIR           = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGS_DIR           = os.path.join(BASE_DIR, "logs")
+BUCKET_TRADES_FILE = os.path.join(LOGS_DIR, "bucket_trades.csv")
+BUCKET_STATE_FILE  = os.path.join(LOGS_DIR, "bucket_state.csv")
 
-# Create logs folder if it doesn't exist
 os.makedirs(LOGS_DIR, exist_ok=True)
 
 
 # ════════════════════════════════════════════════
 # BUCKET CONFIGURATION
-# Change these numbers here OR override via
-# Google Sheets settings in the future.
 # ════════════════════════════════════════════════
 
-# Total paper trading capital
 TOTAL_CAPITAL = 500000   # ₹5,00,000
 
-# Bucket allocation as % of total capital
 BUCKET_CONFIG = {
     "Long-Term": {
         "allocation_pct":   0.60,        # 60% = ₹3,00,000
-        "max_positions":    5,           # max stocks held at once
+        "max_positions":    5,
         "max_position_pct": 0.12,        # max 12% of bucket per stock
         "min_score":        70,          # min composite score to enter
-        "min_holding_days": 20,          # don't sell before 20 days
-        "max_holding_days": 365,         # force review after 1 year
+        "min_holding_days": 20,
+        "max_holding_days": 365,
         "strategy_style":   "FUNDAMENTAL+TREND",
         "description":      "Long-term investing — fundamentals + trend + RS",
-        "color":            "#00cc66",   # green
+        "color":            "#00cc66",
+        # Signal indicators that suggest Long-Term
+        "signal_keywords":  ["STRONG BUY"],
+        "min_buy_votes":    3,           # needs 3-4 strategies to agree
     },
     "Swing": {
         "allocation_pct":   0.30,        # 30% = ₹1,50,000
         "max_positions":    5,
-        "max_position_pct": 0.10,        # max 10% of bucket per stock
-        "min_score":        60,          # slightly lower threshold
-        "min_holding_days": 2,           # can exit after 2 days
-        "max_holding_days": 15,          # force exit after 15 days
+        "max_position_pct": 0.10,
+        "min_score":        60,
+        "min_holding_days": 2,
+        "max_holding_days": 15,
         "strategy_style":   "MOMENTUM+EMA+MACD",
         "description":      "Swing trading — momentum + EMA + MACD + RS",
-        "color":            "#3399ff",   # blue
+        "color":            "#3399ff",
+        "signal_keywords":  ["BUY", "STRONG BUY"],
+        "min_buy_votes":    2,
     },
     "Intraday": {
         "allocation_pct":   0.10,        # 10% = ₹50,000
         "max_positions":    3,
-        "max_position_pct": 0.33,        # max 33% of bucket per trade
+        "max_position_pct": 0.33,
         "min_score":        55,
-        "min_holding_days": 0,           # same-day exit
-        "max_holding_days": 1,           # must exit by end of day
+        "min_holding_days": 0,
+        "max_holding_days": 1,
         "strategy_style":   "VWAP+VOLUME+ATR",
         "description":      "Intraday trading — VWAP + volume + ATR (future)",
-        "color":            "#ff9900",   # orange
+        "color":            "#ff9900",
+        "signal_keywords":  ["BUY"],
+        "min_buy_votes":    1,
     },
 }
 
 
 # ════════════════════════════════════════════════
+# SMART BUCKET SUGGESTION
+# Given a signal and score, suggest which bucket
+# is most appropriate and explain why.
+# ════════════════════════════════════════════════
+
+def suggest_bucket(
+    composite_score=None,
+    combined_signal=None,
+    buy_votes=None,
+    regime=None,
+    holding_preference=None,
+):
+    """
+    Suggest the most appropriate bucket for a trade.
+    Returns a dict with:
+      - suggested_bucket : "Long-Term" / "Swing" / "Intraday" / None
+      - reason           : plain English explanation
+      - confidence       : "HIGH" / "MEDIUM" / "LOW"
+      - alternatives     : other valid buckets
+
+    Logic (checked in priority order):
+      1. User preference overrides everything if provided
+      2. If regime is BEAR → no suggestion (protect capital)
+      3. Score >= 70 + STRONG BUY + 3+ votes → Long-Term
+      4. Score >= 60 + BUY + 2+ votes        → Swing
+      5. Score >= 55 + BUY + 1+ vote         → Intraday
+      6. Below all thresholds                → no suggestion
+
+    composite_score : int 0-100
+    combined_signal : str e.g. "STRONG BUY" or "BUY"
+    buy_votes       : int 0-4 (how many strategies say BUY)
+    regime          : str e.g. "BULL" / "BEAR" / "SIDEWAYS"
+    holding_preference : "long" / "swing" / "intraday" / None
+    """
+    # ── 0. Defaults ───────────────────────────────
+    score   = composite_score or 0
+    signal  = str(combined_signal or "").upper()
+    votes   = buy_votes or 0
+    regime_ = str(regime or "").upper()
+
+    # ── 1. User preference shortcut ───────────────
+    if holding_preference == "long":
+        if score >= BUCKET_CONFIG["Long-Term"]["min_score"]:
+            return {
+                "suggested_bucket": "Long-Term",
+                "reason":           "You selected Long-Term. Score meets minimum threshold.",
+                "confidence":       "HIGH" if score >= 70 else "MEDIUM",
+                "alternatives":     ["Swing"],
+            }
+    elif holding_preference == "intraday":
+        return {
+            "suggested_bucket": "Intraday",
+            "reason":           "You selected Intraday.",
+            "confidence":       "MEDIUM",
+            "alternatives":     [],
+        }
+
+    # ── 2. Bear market → no new longs ─────────────
+    if "BEAR" in regime_ and "WEAK" not in regime_:
+        return {
+            "suggested_bucket": None,
+            "reason":           (
+                "Market is in BEAR regime. "
+                "No new longs recommended — protect capital."
+            ),
+            "confidence":       "HIGH",
+            "alternatives":     [],
+        }
+
+    # ── 3. Long-Term: high score + strong conviction ──
+    if (
+        score >= BUCKET_CONFIG["Long-Term"]["min_score"] and
+        "STRONG BUY" in signal and
+        votes >= BUCKET_CONFIG["Long-Term"]["min_buy_votes"]
+    ):
+        alts = []
+        if score >= BUCKET_CONFIG["Swing"]["min_score"]:
+            alts.append("Swing")
+        return {
+            "suggested_bucket": "Long-Term",
+            "reason": (
+                f"Score {score}/100 is strong, {votes}/4 strategies agree, "
+                f"STRONG BUY signal — good candidate for a longer hold."
+            ),
+            "confidence": "HIGH" if score >= 75 else "MEDIUM",
+            "alternatives": alts,
+        }
+
+    # ── 4. Swing: decent score + majority agree ────
+    if (
+        score >= BUCKET_CONFIG["Swing"]["min_score"] and
+        ("BUY" in signal) and
+        votes >= BUCKET_CONFIG["Swing"]["min_buy_votes"]
+    ):
+        alts = []
+        if score >= BUCKET_CONFIG["Long-Term"]["min_score"]:
+            alts.append("Long-Term")
+        return {
+            "suggested_bucket": "Swing",
+            "reason": (
+                f"Score {score}/100, {votes}/4 strategies agree, "
+                f"BUY signal — suited for a swing trade (days to weeks)."
+            ),
+            "confidence": "HIGH" if votes >= 3 else "MEDIUM",
+            "alternatives": alts,
+        }
+
+    # ── 5. Intraday: weak signal, score borderline ─
+    if (
+        score >= BUCKET_CONFIG["Intraday"]["min_score"] and
+        "BUY" in signal and
+        votes >= BUCKET_CONFIG["Intraday"]["min_buy_votes"]
+    ):
+        return {
+            "suggested_bucket": "Intraday",
+            "reason": (
+                f"Score {score}/100 and {votes}/4 strategies agree — "
+                f"signal is not strong enough for overnight hold, "
+                f"but may work as an intraday trade."
+            ),
+            "confidence": "LOW",
+            "alternatives": [],
+        }
+
+    # ── 6. No clear suggestion ─────────────────────
+    return {
+        "suggested_bucket": None,
+        "reason": (
+            f"Score {score}/100, {votes}/4 strategies agree — "
+            f"signal is too weak for any bucket. "
+            f"Wait for a stronger setup."
+        ),
+        "confidence": "LOW",
+        "alternatives": [],
+    }
+
+
+# ════════════════════════════════════════════════
 # BUCKET STATE MANAGEMENT
 # Two-layer storage: Supabase (primary) → CSV (fallback)
-# Supabase table: bucket_state  (upsert on bucket column)
-# Supabase table: bucket_trades (append only)
 # ════════════════════════════════════════════════
 
 def _make_default_state():
@@ -125,12 +262,9 @@ def _make_default_state():
 
 
 def _initialize_bucket_state():
-    """
-    Create initial bucket state on first run.
-    Writes to both Supabase and CSV so both start populated.
-    """
+    """Create initial bucket state on first run."""
     state = _make_default_state()
-    save_bucket_state(state)   # writes to Supabase + CSV
+    save_bucket_state(state)
     return state
 
 
@@ -142,13 +276,6 @@ def load_bucket_state():
       1. Supabase — persists across Cloud restarts
       2. Local CSV — works on laptop
       3. Defaults  — first run with no data anywhere
-
-    Returns a dict keyed by bucket name:
-    {
-        "Long-Term": { "Starting_Capital": 300000, "Available_Cash": 285000, ... },
-        "Swing":     { ... },
-        "Intraday":  { ... },
-    }
     """
     df = None
 
@@ -159,7 +286,6 @@ def load_bucket_state():
             response = client.table("bucket_state").select("*").execute()
             if response.data:
                 df = pd.DataFrame(response.data)
-                # Supabase returns lowercase column names
                 df = df.rename(columns={
                     "bucket":           "Bucket",
                     "starting_capital": "Starting_Capital",
@@ -185,7 +311,6 @@ def load_bucket_state():
     if df is None or df.empty:
         return _make_default_state()
 
-    # Convert to dict
     state = {}
     for _, row in df.iterrows():
         try:
@@ -222,7 +347,6 @@ def save_bucket_state(state):
     """
     Save bucket state to Supabase (primary) and CSV (fallback).
     Called after every BUY or SELL.
-    Supabase upserts on bucket name so there is never a duplicate row.
     """
     rows = []
     for bucket_name, data in state.items():
@@ -264,20 +388,16 @@ def save_bucket_state(state):
 def reset_bucket_state():
     """
     Reset ALL buckets back to starting capital.
-    USE WITH CARE — clears ALL trade history from Supabase AND CSV.
-    Called only when user explicitly resets from the dashboard.
+    USE WITH CARE — clears ALL trade history.
     """
-    # ── Clear Supabase ────────────────────────────
     client = _get_supabase_client()
     if client:
         try:
-            # Delete all rows from both tables
             client.table("bucket_trades").delete().neq("bucket", "").execute()
             client.table("bucket_state").delete().neq("bucket", "").execute()
         except Exception as e:
             print(f"Supabase reset failed: {e}")
 
-    # ── Clear CSV files ───────────────────────────
     for f in [BUCKET_STATE_FILE, BUCKET_TRADES_FILE]:
         if os.path.exists(f):
             os.remove(f)
@@ -287,8 +407,6 @@ def reset_bucket_state():
 
 # ════════════════════════════════════════════════
 # BUCKET TRADE LOGGING
-# Every trade logged separately from the old
-# paper_trades.csv — bucket-aware audit trail
 # ════════════════════════════════════════════════
 
 def _log_bucket_trade(bucket, action, stock, price, quantity, value, pnl=None):
@@ -345,7 +463,6 @@ def load_bucket_trades():
     COLS = ["Timestamp", "Bucket", "Action", "Stock",
             "Price", "Quantity", "Value", "PNL"]
 
-    # ── Layer 1: Supabase ─────────────────────────
     client = _get_supabase_client()
     if client:
         try:
@@ -372,7 +489,6 @@ def load_bucket_trades():
         except Exception as e:
             print(f"Supabase bucket_trades load failed: {e} — using CSV")
 
-    # ── Layer 2: CSV fallback ─────────────────────
     if os.path.exists(BUCKET_TRADES_FILE):
         try:
             return pd.read_csv(BUCKET_TRADES_FILE)
@@ -384,14 +500,10 @@ def load_bucket_trades():
 
 # ════════════════════════════════════════════════
 # CAPITAL CHECKS
-# Before any trade, check if bucket can take it
 # ════════════════════════════════════════════════
 
 def get_bucket_available_cash(bucket_name):
-    """
-    How much cash is available in this bucket right now.
-    This is what's left after all open positions are accounted for.
-    """
+    """How much cash is available in this bucket right now."""
     state = load_bucket_state()
     if bucket_name not in state:
         return 0.0
@@ -400,36 +512,29 @@ def get_bucket_available_cash(bucket_name):
 
 def get_max_position_size(bucket_name, price):
     """
-    Calculate the maximum number of shares we can buy
-    in this bucket for this stock.
-
-    Respects both:
-    1. max_position_pct (% of bucket's starting capital)
-    2. available_cash (can't spend more than we have)
-
+    Calculate max shares we can buy in this bucket.
+    Respects max_position_pct AND available_cash.
     Returns (quantity, spend_amount, reason_if_rejected)
     """
-    state  = load_bucket_state()
-    cfg    = BUCKET_CONFIG.get(bucket_name, {})
+    state = load_bucket_state()
+    cfg   = BUCKET_CONFIG.get(bucket_name, {})
 
     if bucket_name not in state:
         return 0, 0, f"Bucket '{bucket_name}' not found"
 
-    available   = state[bucket_name]["Available_Cash"]
-    starting    = state[bucket_name]["Starting_Capital"]
-    max_pct     = cfg.get("max_position_pct", 0.10)
+    available = state[bucket_name]["Available_Cash"]
+    starting  = state[bucket_name]["Starting_Capital"]
+    max_pct   = cfg.get("max_position_pct", 0.10)
+    max_spend = round(starting * max_pct, 2)
+    actual    = min(max_spend, available)
 
-    # Max spend = max_position_pct of starting capital
-    max_spend   = round(starting * max_pct, 2)
+    if actual < price:
+        return 0, 0, (
+            f"Insufficient cash in {bucket_name} bucket "
+            f"(₹{available:,.0f} available, price ₹{price:,.0f})"
+        )
 
-    # Can't spend more than available
-    actual_spend = min(max_spend, available)
-
-    if actual_spend < price:
-        return 0, 0, f"Insufficient cash in {bucket_name} bucket (₹{available:,.0f} available, price ₹{price:,.0f})"
-
-    quantity = int(actual_spend // price)
-
+    quantity = int(actual // price)
     if quantity == 0:
         return 0, 0, f"Price ₹{price:,.0f} too high for position size in {bucket_name}"
 
@@ -448,11 +553,10 @@ def check_position_limit(bucket_name):
     if trades_df.empty:
         return True, 0, max_pos
 
-    # Count stocks that have been bought but not yet sold in this bucket
     bucket_trades = trades_df[trades_df["Bucket"] == bucket_name]
     buys  = set(bucket_trades[bucket_trades["Action"] == "BUY"]["Stock"].tolist())
     sells = set(bucket_trades[bucket_trades["Action"] == "SELL"]["Stock"].tolist())
-    open_positions = buys - sells   # bought but not sold
+    open_positions = buys - sells
 
     open_count = len(open_positions)
     can_trade  = open_count < max_pos
@@ -461,14 +565,13 @@ def check_position_limit(bucket_name):
 
 
 def check_score_threshold(bucket_name, composite_score):
-    """
-    Check if a stock's composite score meets this bucket's minimum.
-    Returns (approved: bool, min_required: int, reason: str)
-    """
-    cfg         = BUCKET_CONFIG.get(bucket_name, {})
-    min_score   = cfg.get("min_score", 60)
-    approved    = composite_score >= min_score
-    reason      = "" if approved else f"Score {composite_score}/100 below {bucket_name} minimum ({min_score})"
+    """Check if stock's score meets this bucket's minimum."""
+    cfg       = BUCKET_CONFIG.get(bucket_name, {})
+    min_score = cfg.get("min_score", 60)
+    approved  = composite_score >= min_score
+    reason    = "" if approved else (
+        f"Score {composite_score}/100 below {bucket_name} minimum ({min_score})"
+    )
     return approved, min_score, reason
 
 
@@ -479,27 +582,16 @@ def check_score_threshold(bucket_name, composite_score):
 def bucket_buy(bucket_name, stock_name, price, composite_score=None):
     """
     Execute a paper BUY from a specific bucket.
+    Saves to both Supabase and CSV.
 
-    Checks (in order):
-    1. Bucket exists and has cash
-    2. Position limit not exceeded
-    3. Score threshold met (if score provided)
-    4. Position size calculation
-    5. Execute and update state
-
-    Returns a result dict with status and details.
+    composite_score: pass None to skip score check (manual trades).
     """
     state = load_bucket_state()
 
-    # ── Check 1: Bucket exists ────────────────────
     if bucket_name not in state:
-        return {
-            "status":  "REJECTED",
-            "reason":  f"Unknown bucket: {bucket_name}",
-            "bucket":  bucket_name,
-        }
+        return {"status": "REJECTED", "reason": f"Unknown bucket: {bucket_name}"}
 
-    # ── Check 2: Already holding this stock ───────
+    # Already holding this stock in this bucket?
     trades_df = load_bucket_trades()
     if not trades_df.empty:
         b_trades = trades_df[trades_df["Bucket"] == bucket_name]
@@ -507,42 +599,35 @@ def bucket_buy(bucket_name, stock_name, price, composite_score=None):
         sells = set(b_trades[b_trades["Action"] == "SELL"]["Stock"].tolist())
         if stock_name in (buys - sells):
             return {
-                "status":  "REJECTED",
-                "reason":  f"Already holding {stock_name} in {bucket_name} bucket",
-                "bucket":  bucket_name,
+                "status": "REJECTED",
+                "reason": f"Already holding {stock_name} in {bucket_name} bucket",
             }
 
-    # ── Check 3: Position limit ───────────────────
+    # Position limit
     can_trade, open_count, max_pos = check_position_limit(bucket_name)
     if not can_trade:
         return {
-            "status":  "REJECTED",
-            "reason":  f"{bucket_name} bucket at max positions ({open_count}/{max_pos})",
-            "bucket":  bucket_name,
+            "status": "REJECTED",
+            "reason": f"{bucket_name} bucket at max positions ({open_count}/{max_pos})",
         }
 
-    # ── Check 4: Score threshold ──────────────────
+    # Score threshold (optional)
     if composite_score is not None:
         approved, min_score, reason = check_score_threshold(bucket_name, composite_score)
         if not approved:
             return {
-                "status":  "REJECTED",
-                "reason":  reason,
-                "bucket":  bucket_name,
-                "score":   composite_score,
+                "status":    "REJECTED",
+                "reason":    reason,
+                "score":     composite_score,
                 "min_score": min_score,
             }
 
-    # ── Check 5: Position size ────────────────────
+    # Position size
     quantity, spend, err = get_max_position_size(bucket_name, price)
     if quantity == 0:
-        return {
-            "status":  "REJECTED",
-            "reason":  err,
-            "bucket":  bucket_name,
-        }
+        return {"status": "REJECTED", "reason": err}
 
-    # ── Execute BUY ───────────────────────────────
+    # Execute
     state[bucket_name]["Available_Cash"]   = round(
         state[bucket_name]["Available_Cash"] - spend, 2
     )
@@ -569,29 +654,19 @@ def bucket_buy(bucket_name, stock_name, price, composite_score=None):
 def bucket_sell(bucket_name, stock_name, price):
     """
     Execute a paper SELL from a specific bucket.
-
-    Finds the original BUY trade to calculate P&L.
-    Updates bucket state with proceeds and P&L.
-
-    Returns a result dict with status, P&L, and details.
+    Finds the original BUY to calculate P&L.
+    Saves to both Supabase and CSV.
     """
     state     = load_bucket_state()
     trades_df = load_bucket_trades()
 
     if bucket_name not in state:
-        return {
-            "status": "REJECTED",
-            "reason": f"Unknown bucket: {bucket_name}",
-        }
+        return {"status": "REJECTED", "reason": f"Unknown bucket: {bucket_name}"}
 
     if trades_df.empty:
-        return {
-            "status": "REJECTED",
-            "reason": f"No trades found in {bucket_name} bucket",
-        }
+        return {"status": "REJECTED", "reason": f"No trades found in {bucket_name}"}
 
-    # Find the most recent BUY for this stock in this bucket
-    b_trades    = trades_df[
+    b_trades = trades_df[
         (trades_df["Bucket"] == bucket_name) &
         (trades_df["Stock"]  == stock_name)  &
         (trades_df["Action"] == "BUY")
@@ -603,18 +678,15 @@ def bucket_sell(bucket_name, stock_name, price):
             "reason": f"No open position in {stock_name} in {bucket_name} bucket",
         }
 
-    # Get the most recent BUY
     buy_row   = b_trades.iloc[-1]
     buy_price = float(buy_row["Price"])
     quantity  = int(buy_row["Quantity"])
     buy_value = float(buy_row["Value"])
 
-    # Calculate P&L
     sell_value = round(quantity * price, 2)
     pnl        = round(sell_value - buy_value, 2)
     pnl_pct    = round((pnl / buy_value) * 100, 2)
 
-    # Update bucket state
     state[bucket_name]["Available_Cash"]   = round(
         state[bucket_name]["Available_Cash"] + sell_value, 2
     )
@@ -631,33 +703,27 @@ def bucket_sell(bucket_name, stock_name, price):
     _log_bucket_trade(bucket_name, "SELL", stock_name, price, quantity, sell_value, pnl)
 
     return {
-        "status":    "EXECUTED",
-        "action":    "SELL",
-        "bucket":    bucket_name,
-        "stock":     stock_name,
-        "price":     round(price, 2),
-        "quantity":  quantity,
-        "value":     sell_value,
-        "pnl":       pnl,
-        "pnl_pct":   pnl_pct,
-        "cash_now":  state[bucket_name]["Available_Cash"],
+        "status":   "EXECUTED",
+        "action":   "SELL",
+        "bucket":   bucket_name,
+        "stock":    stock_name,
+        "price":    round(price, 2),
+        "quantity": quantity,
+        "value":    sell_value,
+        "pnl":      pnl,
+        "pnl_pct":  pnl_pct,
+        "cash_now": state[bucket_name]["Available_Cash"],
     }
 
 
 # ════════════════════════════════════════════════
-# PORTFOLIO SUMMARY — for dashboard display
+# PORTFOLIO SUMMARY
 # ════════════════════════════════════════════════
 
 def get_bucket_summary():
     """
-    Get a full summary of all three buckets for dashboard display.
-
-    Returns a list of dicts — one per bucket — with:
-    - Name, starting capital, available cash, deployed capital
-    - Total P&L (₹ and %)
-    - Win rate
-    - Utilization % (how much of bucket is deployed)
-    - Open position count
+    Full summary of all three buckets for dashboard display.
+    Returns a list of dicts — one per bucket.
     """
     state     = load_bucket_state()
     trades_df = load_bucket_trades()
@@ -673,16 +739,10 @@ def get_bucket_summary():
         total_tr   = data.get("Total_Trades",     0)
         winning_tr = data.get("Winning_Trades",   0)
 
-        # Utilization = % of starting capital currently deployed
         utilization = round((deployed / starting * 100), 1) if starting > 0 else 0
+        win_rate    = round((winning_tr / total_tr * 100), 1) if total_tr > 0 else 0
+        pnl_pct     = round((total_pnl / starting * 100), 2) if starting > 0 else 0
 
-        # Win rate
-        win_rate = round((winning_tr / total_tr * 100), 1) if total_tr > 0 else 0
-
-        # Return % vs starting capital
-        pnl_pct = round((total_pnl / starting * 100), 2) if starting > 0 else 0
-
-        # Open positions count
         open_count = 0
         if not trades_df.empty:
             b_trades = trades_df[trades_df["Bucket"] == bucket_name]
@@ -708,12 +768,9 @@ def get_bucket_summary():
 
 
 def get_portfolio_totals():
-    """
-    Get aggregate totals across all three buckets.
-    Used for the headline metrics at top of Portfolio Buckets tab.
-    """
-    state   = load_bucket_state()
-    totals  = {
+    """Aggregate totals across all three buckets."""
+    state  = load_bucket_state()
+    totals = {
         "total_starting":  0,
         "total_available": 0,
         "total_deployed":  0,
@@ -742,14 +799,10 @@ def get_portfolio_totals():
 
 
 def get_open_positions_by_bucket(bucket_name):
-    """
-    Get list of currently open positions in a specific bucket.
-    Returns list of stock names.
-    """
+    """Return list of currently open stock names in a bucket."""
     trades_df = load_bucket_trades()
     if trades_df.empty:
         return []
-
     b_trades = trades_df[trades_df["Bucket"] == bucket_name]
     buys     = set(b_trades[b_trades["Action"] == "BUY"]["Stock"].tolist())
     sells    = set(b_trades[b_trades["Action"] == "SELL"]["Stock"].tolist())
@@ -757,43 +810,10 @@ def get_open_positions_by_bucket(bucket_name):
 
 
 def get_bucket_trade_history(bucket_name=None):
-    """
-    Get trade history for a specific bucket, or all buckets.
-    Returns a DataFrame filtered by bucket if specified.
-    """
+    """Trade history for a specific bucket, or all buckets."""
     df = load_bucket_trades()
     if df.empty:
         return df
     if bucket_name:
         return df[df["Bucket"] == bucket_name].copy()
     return df
-
-
-def suggest_bucket_for_stock(composite_score, holding_period_preference="swing"):
-    """
-    Given a stock's composite score and preferred holding period,
-    suggest which bucket is most appropriate.
-
-    This is a helper used by the orchestrator (Milestone 31).
-    For now it uses simple rules — will become more sophisticated later.
-
-    Returns bucket name string.
-    """
-    if holding_period_preference == "long":
-        # Long-term: needs high score + fundamentals
-        if composite_score >= BUCKET_CONFIG["Long-Term"]["min_score"]:
-            return "Long-Term"
-        else:
-            return None  # Not good enough for any bucket
-
-    elif holding_period_preference == "intraday":
-        return "Intraday"
-
-    else:
-        # Default: swing trading
-        if composite_score >= BUCKET_CONFIG["Swing"]["min_score"]:
-            return "Swing"
-        elif composite_score >= BUCKET_CONFIG["Long-Term"]["min_score"]:
-            return "Long-Term"
-        else:
-            return None  # Below all thresholds — no trade
