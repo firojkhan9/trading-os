@@ -34,7 +34,7 @@ import os
 import sys
 from datetime import datetime
 
-
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ── Supabase client ───────────────────────────────
 # Use the EXACT same import pattern as paper_trader.py.
@@ -43,7 +43,7 @@ from datetime import datetime
 from config.supabase_client import get_client as _get_supabase_client
 
 # ── File paths ────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR           = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGS_DIR           = os.path.join(BASE_DIR, "logs")
 BUCKET_TRADES_FILE = os.path.join(LOGS_DIR, "bucket_trades.csv")
 BUCKET_STATE_FILE  = os.path.join(LOGS_DIR, "bucket_state.csv")
