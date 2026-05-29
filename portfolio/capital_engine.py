@@ -55,11 +55,11 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 # BUCKET CONFIGURATION
 # ════════════════════════════════════════════════
 
-TOTAL_CAPITAL = 500000   # ₹5,00,000
+TOTAL_CAPITAL = 600000   # ₹6,00,000
 
 BUCKET_CONFIG = {
     "Long-Term": {
-        "allocation_pct":   0.60,        # 60% = ₹3,00,000
+        "allocation_pct":   0.60,        # 60% = ₹3,60,000
         "max_positions":    5,
         "max_position_pct": 0.12,        # max 12% of bucket per stock
         "min_score":        70,          # min composite score to enter
@@ -73,7 +73,7 @@ BUCKET_CONFIG = {
         "min_buy_votes":    3,           # needs 3-4 strategies to agree
     },
     "Swing": {
-        "allocation_pct":   0.30,        # 30% = ₹1,50,000
+        "allocation_pct":   0.30,        # 30% = ₹1,80,000
         "max_positions":    5,
         "max_position_pct": 0.10,
         "min_score":        60,
@@ -86,7 +86,7 @@ BUCKET_CONFIG = {
         "min_buy_votes":    2,
     },
     "Intraday": {
-        "allocation_pct":   0.10,        # 10% = ₹50,000
+        "allocation_pct":   0.10,        # 10% = ₹60,000
         "max_positions":    3,
         "max_position_pct": 0.33,
         "min_score":        55,

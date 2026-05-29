@@ -276,7 +276,6 @@ def render_quick_buy_panel(
                     f"from {selected_bucket} bucket | "
                     f"Cash left: ₹{result['cash_left']:,.0f}"
                 )
-                st.rerun()
             else:
                 st.error(f"🛑 {result['reason']}")
  
@@ -298,7 +297,6 @@ def render_quick_buy_panel(
                     f"from {selected_bucket} bucket | "
                     f"P&L: ₹{result['pnl']:+,.0f} ({result['pnl_pct']:+.1f}%)"
                 )
-                st.rerun()
             else:
                 st.error(f"🛑 {result['reason']}")
 
@@ -581,12 +579,12 @@ with tab1:
     # ── Trade Panel ───────────────────────────────
     st.subheader(f"💰 Trade — {selected_stock}")
  
-    # Show total capital across all 3 buckets
+    # Show total capital across all 3 buckets (₹6,00,000 total)
     totals = get_portfolio_totals()
     cap1, cap2, cap3, cap4 = st.columns(4)
     cap1.metric("Total Capital",   f"₹{totals['total_starting']:,.0f}")
-    cap2.metric("Total Available", f"₹{totals['total_available']:,.0f}")
-    cap3.metric("Total Deployed",  f"₹{totals['total_deployed']:,.0f}")
+    cap2.metric("Available Cash",  f"₹{totals['total_available']:,.0f}")
+    cap3.metric("Deployed",        f"₹{totals['total_deployed']:,.0f}")
     cap4.metric("Portfolio P&L",   f"₹{totals['total_pnl']:+,.0f}",
                 delta=f"{totals['total_return_pct']:+.2f}%")
     st.write("")
