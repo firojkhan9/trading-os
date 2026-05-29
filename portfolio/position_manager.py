@@ -44,11 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Same pattern as paper_trader.py.
 # Returns client if secrets are configured, None otherwise.
 # When None → CSV fallback activates silently.
-try:
-    from config.supabase_client import get_client as _get_supabase_client
-except ImportError:
-    def _get_supabase_client():
-        return None
+from config.supabase_client import get_client as _get_supabase_client
 
 # ── File path ─────────────────────────────────────
 BASE_DIR       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -105,6 +105,7 @@ from portfolio.capital_engine import (
     bucket_sell,
     check_position_limit,
     get_bucket_available_cash,
+    suggest_bucket,
     BUCKET_CONFIG,
     TOTAL_CAPITAL,
     reset_bucket_state,
@@ -156,63 +157,150 @@ if "shared_stock" not in st.session_state:
     st.session_state["shared_stock"] = STOCK_NAMES[0]
 
 
-def render_quick_buy_panel(stock_name, tab_key_prefix):
+def render_quick_buy_panel(
+    stock_name,
+    tab_key_prefix,
+    composite_score=None,
+    combined_signal=None,
+    buy_votes=None,
+    regime=None,
+):
     """
-    Reusable buy/sell panel shown on Scanner, RS Ranking, Stock Score tabs.
+    Unified smart trade panel — used on all tabs.
+    All trades go through the bucket system (portfolio/capital_engine.py).
+    Auto-suggests a fund type (bucket) based on score + signal + regime.
+    User sees the suggestion but can override with the dropdown.
+ 
     stock_name      : e.g. "RELIANCE"
-    tab_key_prefix  : unique string like "scanner", "rs", "score"
-                      prevents Streamlit duplicate widget key errors.
+    tab_key_prefix  : unique key prefix to avoid Streamlit widget conflicts
+    composite_score : 0-100 (optional — used for suggestion + threshold check)
+    combined_signal : e.g. "STRONG BUY 🟢🟢" (optional)
+    buy_votes       : int 0-4 (optional)
+    regime          : market regime string (optional)
     """
-    symbol        = WATCHLIST.get(stock_name)
+    symbol = WATCHLIST.get(stock_name)
     if not symbol:
         st.warning("Stock not found in watchlist.")
         return
-
-    # Fetch latest price
+ 
+    # ── Fetch latest price ────────────────────────
     try:
-        quick_data    = fetch_stock_data(symbol)
-        quick_price   = round(float(quick_data['Close'].iloc[-1]), 2)
+        quick_data  = fetch_stock_data(symbol)
+        quick_price = round(float(quick_data['Close'].iloc[-1]), 2)
     except Exception:
         st.error("Could not fetch price. Try again.")
         return
-
-    current_capital = get_current_capital()
-    buy_risk        = run_full_risk_check(stock_name, quick_price, "BUY")
-    sell_risk       = run_full_risk_check(stock_name, quick_price, "CHECK")
-
-    st.markdown(f"**💰 Quick Trade — {stock_name} @ ₹{quick_price}**")
-    cap1, cap2 = st.columns(2)
-    cap1.metric("Available Cash", f"₹{current_capital:,}")
-    cap2.metric("Price",          f"₹{quick_price}")
-
-    for block   in buy_risk["blocks"]:   st.error(block)
-    for warning in sell_risk["warnings"]:st.warning(warning)
-
+ 
+    # ── Fetch regime if not passed in ─────────────
+    if regime is None:
+        try:
+            regime_info = fetch_regime_analysis()
+            regime = regime_info.get("regime", "UNKNOWN")
+        except Exception:
+            regime = "UNKNOWN"
+ 
+    # ── Get smart bucket suggestion ───────────────
+    suggestion = suggest_bucket(
+        composite_score=composite_score,
+        combined_signal=combined_signal,
+        buy_votes=buy_votes,
+        regime=regime,
+    )
+    suggested  = suggestion["suggested_bucket"]
+    confidence = suggestion["confidence"]
+    reason     = suggestion["reason"]
+ 
+    # ── Header ────────────────────────────────────
+    st.markdown(f"**💰 Trade — {stock_name} @ ₹{quick_price}**")
+ 
+    # ── Suggestion banner ─────────────────────────
+    if suggested:
+        conf_icon = "🟢" if confidence == "HIGH" else ("🟡" if confidence == "MEDIUM" else "🔴")
+        st.info(f"{conf_icon} **Suggested fund type: {suggested}** — {reason}")
+    elif "BEAR" in str(regime).upper() and "WEAK" not in str(regime).upper():
+        st.error("🐻 BEAR MARKET — New buys not recommended. Protect capital.")
+    else:
+        st.warning(f"⚠️ {reason}")
+ 
+    # ── Fund type selector (pre-filled with suggestion) ──
+    bucket_options = list(BUCKET_CONFIG.keys())   # Long-Term, Swing, Intraday
+    default_idx    = bucket_options.index(suggested) if suggested in bucket_options else 1
+ 
+    sel_col, info_col = st.columns([2, 1])
+    with sel_col:
+        selected_bucket = st.selectbox(
+            "Fund type:",
+            options=bucket_options,
+            index=default_idx,
+            key=f"bucket_sel_{tab_key_prefix}_{stock_name}",
+            help=(
+                "Long-Term → weeks/months, score ≥70, 3+ strategies agree  |  "
+                "Swing → days/weeks, score ≥60, 2+ strategies agree  |  "
+                "Intraday → same day, score ≥55"
+            ),
+        )
+    with info_col:
+        avail_cash = get_bucket_available_cash(selected_bucket)
+        can_add, open_c, max_p = check_position_limit(selected_bucket)
+        st.metric("Available", f"₹{avail_cash:,.0f}")
+        st.caption(f"{open_c}/{max_p} positions open")
+ 
+    # ── Warn if score below bucket threshold ──────
+    cfg = BUCKET_CONFIG[selected_bucket]
+    if composite_score is not None and composite_score < cfg["min_score"]:
+        st.warning(
+            f"⚠️ Score {composite_score}/100 is below {selected_bucket} "
+            f"minimum ({cfg['min_score']}/100). "
+            f"Consider switching to a lower bucket."
+        )
+ 
+    # ── Execute buttons ───────────────────────────
     col_b, col_s = st.columns(2)
+ 
     with col_b:
         if st.button(
-            f"🟢 BUY {stock_name}",
+            f"🟢 BUY {stock_name} → {selected_bucket}",
             key=f"buy_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
-            disabled=not buy_risk["approved"]
+            disabled=not can_add,
         ):
-            result = execute_paper_buy(stock_name, quick_price)
-            if result['status'] == "EXECUTED":
-                st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']} | Cash left: ₹{result['capital']:,}")
+            result = bucket_buy(
+                bucket_name     = selected_bucket,
+                stock_name      = stock_name,
+                price           = quick_price,
+                composite_score = composite_score,
+            )
+            if result["status"] == "EXECUTED":
+                st.success(
+                    f"✅ Bought {result['quantity']} shares @ ₹{result['price']} "
+                    f"from {selected_bucket} bucket | "
+                    f"Cash left: ₹{result['cash_left']:,.0f}"
+                )
+                st.rerun()
             else:
-                st.warning(f"⚠️ {result['reason']}")
+                st.error(f"🛑 {result['reason']}")
+ 
     with col_s:
         if st.button(
-            f"🔴 SELL {stock_name}",
+            f"🔴 SELL {stock_name} ← {selected_bucket}",
             key=f"sell_{tab_key_prefix}_{stock_name}",
             use_container_width=True,
         ):
-            result = execute_paper_sell(stock_name, quick_price)
-            if result['status'] == "EXECUTED":
-                pnl_icon = "✅" if result['pnl'] >= 0 else "❌"
-                st.success(f"{pnl_icon} Sold {result['quantity']} @ ₹{result['price']} | P&L: ₹{result['pnl']} ({result['pnl_pct']}%)")
+            result = bucket_sell(
+                bucket_name = selected_bucket,
+                stock_name  = stock_name,
+                price       = quick_price,
+            )
+            if result["status"] == "EXECUTED":
+                pnl_icon = "✅" if result["pnl"] >= 0 else "❌"
+                st.success(
+                    f"{pnl_icon} Sold {result['quantity']} @ ₹{result['price']} "
+                    f"from {selected_bucket} bucket | "
+                    f"P&L: ₹{result['pnl']:+,.0f} ({result['pnl_pct']:+.1f}%)"
+                )
+                st.rerun()
             else:
-                st.warning(f"⚠️ {result['reason']}")
+                st.error(f"🛑 {result['reason']}")
 
 # ── Fetch functions ───────────────────────────────
 @st.cache_data(ttl=300)
@@ -490,48 +578,26 @@ with tab1:
     st.divider()
 
     # ── Paper Trading ─────────────────────────────
-    st.subheader(f"💰 Paper Trading — {selected_stock}")
-    current_capital = get_current_capital()
-    total_invested  = STARTING_CAPITAL - current_capital
-    cap1, cap2, cap3 = st.columns(3)
-    cap1.metric("Starting Capital", f"₹{STARTING_CAPITAL:,}")
-    cap2.metric("Available Cash",   f"₹{current_capital:,}")
-    cap3.metric("Total Invested",   f"₹{total_invested:,}")
+    # ── Trade Panel ───────────────────────────────
+    st.subheader(f"💰 Trade — {selected_stock}")
+ 
+    # Show total capital across all 3 buckets
+    totals = get_portfolio_totals()
+    cap1, cap2, cap3, cap4 = st.columns(4)
+    cap1.metric("Total Capital",   f"₹{totals['total_starting']:,.0f}")
+    cap2.metric("Total Available", f"₹{totals['total_available']:,.0f}")
+    cap3.metric("Total Deployed",  f"₹{totals['total_deployed']:,.0f}")
+    cap4.metric("Portfolio P&L",   f"₹{totals['total_pnl']:+,.0f}",
+                delta=f"{totals['total_return_pct']:+.2f}%")
     st.write("")
-
-    buy_risk  = run_full_risk_check(selected_stock, latest_close, "BUY")
-    sell_risk = run_full_risk_check(selected_stock, latest_close, "CHECK")
-    for block in buy_risk["blocks"]:
-        st.error(block)
-    for warning in sell_risk["warnings"]:
-        st.warning(warning)
-    if "BEAR" in regime and "WEAK" not in regime:
-        st.error("🐻 BEAR MARKET — New buys not recommended. Protect capital.")
-
-    col_buy, col_sell = st.columns(2)
-    with col_buy:
-        if st.button(
-            f"🟢 BUY {selected_stock} @ ₹{latest_close}",
-            use_container_width=True, disabled=not buy_risk["approved"]
-        ):
-            result = execute_paper_buy(selected_stock, latest_close)
-            if result['status'] == "EXECUTED":
-                st.success(f"✅ Bought {result['quantity']} shares @ ₹{result['price']}")
-                st.info(f"💰 Remaining: ₹{result['capital']:,}")
-            else:
-                st.warning(f"⚠️ {result['reason']}")
-    with col_sell:
-        if st.button(
-            f"🔴 SELL {selected_stock} @ ₹{latest_close}",
-            use_container_width=True
-        ):
-            result = execute_paper_sell(selected_stock, latest_close)
-            if result['status'] == "EXECUTED":
-                pnl_color = "✅" if result['pnl'] >= 0 else "❌"
-                st.success(f"{pnl_color} Sold {result['quantity']} @ ₹{result['price']}")
-                st.info(f"P&L: ₹{result['pnl']} ({result['pnl_pct']}%) | Cash: ₹{result['capital']:,}")
-            else:
-                st.warning(f"⚠️ {result['reason']}")
+ 
+    render_quick_buy_panel(
+        stock_name      = selected_stock,
+        tab_key_prefix  = "dashboard",
+        combined_signal = combined["Final Signal"],
+        buy_votes       = combined["Strategies Buy"],
+        regime          = regime,
+    )
 
     st.divider()
 
