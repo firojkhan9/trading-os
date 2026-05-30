@@ -599,3 +599,4 @@ Next planned milestone:   Milestone 25 — Position Lifecycle Manager
 
 *Trading OS v4.0 — Firoj Khan*
 *"Survive first. Profit second. Automate third."*
+Dont give full python file if patches can be done. Only give full file when it is fully new.
