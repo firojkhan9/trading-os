@@ -432,7 +432,8 @@ def _log_bucket_trade(bucket, action, stock, price, quantity, value, pnl=None):
                 "pnl":       pnl_val,
             }).execute()
         except Exception as e:
-            print(f"Supabase bucket_trades insert failed: {e} — saved to CSV only")
+            st.error(f"BUCKET TRADE ERROR: {e}")
+            print(f"Supabase bucket_trades insert failed: {e}")
 
     # ── Layer 2: CSV (always) ─────────────────────
     try:
