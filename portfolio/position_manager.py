@@ -44,7 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Same pattern as paper_trader.py.
 # Returns client if secrets are configured, None otherwise.
 # When None → CSV fallback activates silently.
-from config.supabase_client import get_client as _get_supabase_client
+from config.supabase_client import get_client
 
 # ── File path ─────────────────────────────────────
 BASE_DIR       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -181,7 +181,7 @@ def load_lifecycle():
     column holds numbers in some rows and empty strings in others.
     """
     # ── Layer 1: Supabase ─────────────────────────
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             response = (
@@ -224,7 +224,7 @@ def save_lifecycle(df):
     - CSV is also a downloadable backup of your cloud data
     """
     # ── Layer 1: Supabase ─────────────────────────
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             records = []

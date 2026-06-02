@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Use the EXACT same import pattern as paper_trader.py.
 # Direct import — no try/except that swallows real errors.
 # If secrets are missing → get_client() returns None → CSV fallback.
-from config.supabase_client import get_client as _get_supabase_client
+from config.supabase_client import get_client
 
 # ── File paths ────────────────────────────────────
 BASE_DIR           = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -267,6 +267,77 @@ def _initialize_bucket_state():
     save_bucket_state(state)
     return state
 
+def load_portfolio_from_bucket_trades() -> pd.DataFrame:
+    """
+    Derive open positions from bucket_trades.
+    BUY accumulates quantity. SELL reduces it.
+    Returns DataFrame with columns: Stock, Buy_Price, Quantity, Buy_Value, Buy_Date
+    """
+    cols = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"]
+    empty = pd.DataFrame(columns=cols)
+
+    try:
+        client = get_client()
+        if not client:
+            return None  # triggers fallback in load_portfolio()
+
+        response = client.table("bucket_trades").select("*").execute()
+        trades = response.data or []
+    except Exception as e:
+        print(f"⚠️ load_portfolio_from_bucket_trades fetch error: {e}")
+        return None  # triggers fallback
+
+    if not trades:
+        return empty
+
+    # Sort by timestamp ascending so buys/sells apply in order
+    trades = sorted(trades, key=lambda x: x.get("timestamp", ""))
+
+    holdings = {}  # stock -> {Buy_Price, Quantity, Buy_Value, Buy_Date}
+
+    for t in trades:
+        stock  = t.get("stock", "")
+        action = (t.get("action") or "").upper()
+        qty    = int(t.get("quantity") or 0)
+        price  = float(t.get("price") or 0)
+        ts     = t.get("timestamp", "")
+
+        if not stock or qty <= 0:
+            continue
+
+        if action == "BUY":
+            if stock not in holdings:
+                holdings[stock] = {
+                    "Stock":     stock,
+                    "Buy_Price": price,
+                    "Quantity":  qty,
+                    "Buy_Value": price * qty,
+                    "Buy_Date":  ts,
+                }
+            else:
+                h = holdings[stock]
+                new_qty   = h["Quantity"] + qty
+                new_value = h["Buy_Value"] + (price * qty)
+                h["Quantity"]  = new_qty
+                h["Buy_Value"] = new_value
+                h["Buy_Price"] = new_value / new_qty  # weighted avg cost
+
+        elif action == "SELL":
+            if stock in holdings:
+                holdings[stock]["Quantity"] -= qty
+                if holdings[stock]["Quantity"] <= 0:
+                    del holdings[stock]
+                else:
+                    # Recalculate Buy_Value proportionally
+                    h = holdings[stock]
+                    h["Buy_Value"] = h["Buy_Price"] * h["Quantity"]
+
+    if not holdings:
+        return empty
+
+    df = pd.DataFrame(list(holdings.values()))
+    df = df[cols]
+    return df
 
 def load_bucket_state():
     """
@@ -280,7 +351,7 @@ def load_bucket_state():
     df = None
 
     # ── Layer 1: Supabase ─────────────────────────
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             response = client.table("bucket_state").select("*").execute()
@@ -356,7 +427,7 @@ def save_bucket_state(state):
         rows.append(row)
 
     # ── Layer 1: Supabase ─────────────────────────
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             records = [
@@ -390,7 +461,7 @@ def reset_bucket_state():
     Reset ALL buckets back to starting capital.
     USE WITH CARE — clears ALL trade history.
     """
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             client.table("bucket_trades").delete().neq("bucket", "").execute()
@@ -418,7 +489,7 @@ def _log_bucket_trade(bucket, action, stock, price, quantity, value, pnl=None):
     pnl_val   = round(pnl, 2) if pnl is not None else None
 
     # ── Layer 1: Supabase ─────────────────────────
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             client.table("bucket_trades").insert({
@@ -432,8 +503,7 @@ def _log_bucket_trade(bucket, action, stock, price, quantity, value, pnl=None):
                 "pnl":       pnl_val,
             }).execute()
         except Exception as e:
-            st.error(f"BUCKET TRADE ERROR: {e}")
-            print(f"Supabase bucket_trades insert failed: {e}")
+            print(f"Supabase bucket_trades insert failed: {e} — saved to CSV only")
 
     # ── Layer 2: CSV (always) ─────────────────────
     try:
@@ -464,7 +534,7 @@ def load_bucket_trades():
     COLS = ["Timestamp", "Bucket", "Action", "Stock",
             "Price", "Quantity", "Value", "PNL"]
 
-    client = _get_supabase_client()
+    client = get_client()
     if client:
         try:
             response = (

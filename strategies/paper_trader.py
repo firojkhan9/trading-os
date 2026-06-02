@@ -97,11 +97,20 @@ def load_trades():
 
 def load_portfolio():
     """
-    Load current open positions.
-    Tries Supabase first, falls back to CSV.
+    Load current open positions derived from bucket_trades.
+    Falls back to paper_portfolio (Supabase), then CSV.
     """
-    client = get_client()
+    # --- Primary: derive open positions from bucket_trades ---
+    try:
+        from capital_engine import load_portfolio_from_bucket_trades
+        df = load_portfolio_from_bucket_trades()
+        if df is not None:
+            return df
+    except Exception as e:
+        print(f"⚠️ bucket_trades portfolio load failed: {e}")
 
+    # --- Fallback 1: paper_portfolio in Supabase ---
+    client = get_client()
     if client:
         try:
             response = (
@@ -125,7 +134,7 @@ def load_portfolio():
         except Exception as e:
             print(f"⚠️ Supabase portfolio load failed: {e}")
 
-    # CSV fallback
+    # --- Fallback 2: CSV ---
     if os.path.exists(PORTFOLIO_FILE):
         try:
             return pd.read_csv(PORTFOLIO_FILE)
@@ -133,7 +142,6 @@ def load_portfolio():
             pass
 
     return pd.DataFrame(columns=["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"])
-
 
 def get_current_capital():
     """
