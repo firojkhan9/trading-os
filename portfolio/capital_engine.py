@@ -270,37 +270,29 @@ def _initialize_bucket_state():
 def load_portfolio_from_bucket_trades() -> pd.DataFrame:
     """
     Derive open positions from bucket_trades.
-    BUY accumulates quantity. SELL reduces it.
+    Uses load_bucket_trades() which already handles Supabase + CSV fallback.
     Returns DataFrame with columns: Stock, Buy_Price, Quantity, Buy_Value, Buy_Date
     """
-    cols = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"]
+    cols  = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"]
     empty = pd.DataFrame(columns=cols)
 
     try:
-        client = get_client()
-        if not client:
-            return None  # triggers fallback in load_portfolio()
-
-        response = client.table("bucket_trades").select("*").execute()
-        trades = response.data or []
+        trades_df = load_bucket_trades()  # already works — reuse it
     except Exception as e:
-        print(f"⚠️ load_portfolio_from_bucket_trades fetch error: {e}")
-        return None  # triggers fallback
+        print(f"⚠️ load_portfolio_from_bucket_trades error: {e}")
+        return None
 
-    if not trades:
+    if trades_df.empty:
         return empty
 
-    # Sort by timestamp ascending so buys/sells apply in order
-    trades = sorted(trades, key=lambda x: x.get("timestamp", ""))
+    holdings = {}
 
-    holdings = {}  # stock -> {Buy_Price, Quantity, Buy_Value, Buy_Date}
-
-    for t in trades:
-        stock  = t.get("stock", "")
-        action = (t.get("action") or "").upper()
-        qty    = int(t.get("quantity") or 0)
-        price  = float(t.get("price") or 0)
-        ts     = t.get("timestamp", "")
+    for _, t in trades_df.iterrows():
+        stock  = str(t.get("Stock", "") or "")
+        action = str(t.get("Action", "") or "").upper()
+        qty    = int(t.get("Quantity") or 0)
+        price  = float(t.get("Price") or 0)
+        ts     = str(t.get("Timestamp", "") or "")
 
         if not stock or qty <= 0:
             continue
@@ -320,7 +312,7 @@ def load_portfolio_from_bucket_trades() -> pd.DataFrame:
                 new_value = h["Buy_Value"] + (price * qty)
                 h["Quantity"]  = new_qty
                 h["Buy_Value"] = new_value
-                h["Buy_Price"] = new_value / new_qty  # weighted avg cost
+                h["Buy_Price"] = new_value / new_qty
 
         elif action == "SELL":
             if stock in holdings:
@@ -328,16 +320,13 @@ def load_portfolio_from_bucket_trades() -> pd.DataFrame:
                 if holdings[stock]["Quantity"] <= 0:
                     del holdings[stock]
                 else:
-                    # Recalculate Buy_Value proportionally
                     h = holdings[stock]
                     h["Buy_Value"] = h["Buy_Price"] * h["Quantity"]
 
     if not holdings:
         return empty
 
-    df = pd.DataFrame(list(holdings.values()))
-    df = df[cols]
-    return df
+    return pd.DataFrame(list(holdings.values()))[cols]
 
 def load_bucket_state():
     """
