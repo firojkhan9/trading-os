@@ -96,53 +96,11 @@ def load_trades():
 
 
 def load_portfolio():
-    """
-    Load current open positions derived from bucket_trades.
-    Falls back to paper_portfolio (Supabase), then CSV.
-    """
-    # --- Primary: derive open positions from bucket_trades ---
-    try:
-        from capital_engine import load_portfolio_from_bucket_trades
-        df = load_portfolio_from_bucket_trades()
-        print(f"DEBUG >>> type={type(df)}, value=\n{df}")
-        if df is not None:
-            return df
-    except Exception as e:
-        print(f"⚠️ bucket_trades portfolio load failed: {e}")
-
-    # --- Fallback 1: paper_portfolio in Supabase ---
-    client = get_client()
-    if client:
-        try:
-            response = (
-                client.table("paper_portfolio")
-                .select("*")
-                .execute()
-            )
-            if response.data:
-                df = pd.DataFrame(response.data)
-                df = df.rename(columns={
-                    "stock":     "Stock",
-                    "buy_price": "Buy_Price",
-                    "quantity":  "Quantity",
-                    "buy_value": "Buy_Value",
-                    "buy_date":  "Buy_Date",
-                })
-                cols = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"]
-                df = df[[c for c in cols if c in df.columns]]
-                return df
-            return pd.DataFrame(columns=["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"])
-        except Exception as e:
-            print(f"⚠️ Supabase portfolio load failed: {e}")
-
-    # --- Fallback 2: CSV ---
-    if os.path.exists(PORTFOLIO_FILE):
-        try:
-            return pd.read_csv(PORTFOLIO_FILE)
-        except Exception:
-            pass
-
-    return pd.DataFrame(columns=["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"])
+    from portfolio.capital_engine import load_portfolio_from_bucket_trades
+    df = load_portfolio_from_bucket_trades()
+    if df is not None:
+        return df
+    return pd.DataFrame(columns=["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date", "Bucket"])
 
 def get_current_capital():
     """
