@@ -268,16 +268,11 @@ def _initialize_bucket_state():
     return state
 
 def load_portfolio_from_bucket_trades() -> pd.DataFrame:
-    """
-    Derive open positions from bucket_trades.
-    Uses load_bucket_trades() which already handles Supabase + CSV fallback.
-    Returns DataFrame with columns: Stock, Buy_Price, Quantity, Buy_Value, Buy_Date
-    """
-    cols  = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date"]
+    cols  = ["Stock", "Buy_Price", "Quantity", "Buy_Value", "Buy_Date", "Bucket"]  # ADD Bucket
     empty = pd.DataFrame(columns=cols)
 
     try:
-        trades_df = load_bucket_trades()  # already works — reuse it
+        trades_df = load_bucket_trades()
     except Exception as e:
         print(f"⚠️ load_portfolio_from_bucket_trades error: {e}")
         return None
@@ -293,6 +288,7 @@ def load_portfolio_from_bucket_trades() -> pd.DataFrame:
         qty    = int(t.get("Quantity") or 0)
         price  = float(t.get("Price") or 0)
         ts     = str(t.get("Timestamp", "") or "")
+        bucket = str(t.get("Bucket", "") or "")  # ADD THIS
 
         if not stock or qty <= 0:
             continue
@@ -305,6 +301,7 @@ def load_portfolio_from_bucket_trades() -> pd.DataFrame:
                     "Quantity":  qty,
                     "Buy_Value": price * qty,
                     "Buy_Date":  ts,
+                    "Bucket":    bucket,  # ADD THIS
                 }
             else:
                 h = holdings[stock]
