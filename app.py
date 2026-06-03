@@ -632,6 +632,7 @@ if portfolio_raw is not None and not portfolio_raw.empty:
             pass
 
     # Remove the debug lines and call get_portfolio_summary normally
+    st.subheader("📂 Current Portfolio")
     portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
  
     if portfolio_df.empty:
