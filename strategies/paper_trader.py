@@ -104,6 +104,7 @@ def load_portfolio():
     try:
         from capital_engine import load_portfolio_from_bucket_trades
         df = load_portfolio_from_bucket_trades()
+        print(f"DEBUG >>> type={type(df)}, value=\n{df}")
         if df is not None:
             return df
     except Exception as e:
