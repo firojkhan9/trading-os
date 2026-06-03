@@ -631,7 +631,7 @@ with tab1:
                 pass
  
     # ── Build portfolio dataframe ─────────────────
-    from capital_engine import load_portfolio_from_bucket_trades
+    from portfolio.capital_engine import load_portfolio_from_bucket_trades
     _test = load_portfolio_from_bucket_trades()
     st.write("DEBUG PORTFOLIO:", _test)
     portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
