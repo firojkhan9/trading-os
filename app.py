@@ -605,36 +605,34 @@ with tab1:
     # ── Collect live signals for held stocks ──────
     # So the Suggestion column can say ADD/SELL based
     # on the actual current strategy signal, not just price.
-    portfolio_raw            = load_portfolio()
-    portfolio_combined_sigs  = {}
- 
-    if not portfolio_raw.empty:
-        for held_stock in portfolio_raw['Stock'].tolist():
-            try:
-                held_symbol = WATCHLIST.get(held_stock)
-                if held_symbol:
-                    held_data     = fetch_stock_data(held_symbol)
-                    held_analyzed = analyze_stock(held_data.copy())
-                    held_ema      = calculate_ema_signals(held_data.copy())
-                    held_bb       = analyze_bollinger(held_data.copy())
-                    held_macd     = analyze_macd(held_data.copy())
-                    held_combined = build_combined_summary(
-                        ma_signal   = held_analyzed.iloc[-1]['Signal'],
-                        ema_signal  = held_ema.iloc[-1]['EMA_Signal'],
-                        bb_signal   = held_bb.iloc[-1]['BB_Signal'],
-                        macd_signal = held_macd.iloc[-1]['MACD_Crossover'],
-                    )
-                    portfolio_combined_sigs[held_stock] = held_combined["Final Signal"]
-            except Exception:
-                # If fetch fails for a held stock, skip signal — suggestion
-                # will fall back to price-only logic, which is safe.
-                pass
- 
-    # ── Build portfolio dataframe ─────────────────
-    from portfolio.capital_engine import load_portfolio_from_bucket_trades
-    _test = load_portfolio_from_bucket_trades()
-    st.write("DEBUG PORTFOLIO:", _test)
-    portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
+    # AFTER — single source of truth
+from portfolio.capital_engine import load_portfolio_from_bucket_trades
+
+portfolio_raw           = load_portfolio_from_bucket_trades()
+portfolio_combined_sigs = {}
+
+if portfolio_raw is not None and not portfolio_raw.empty:
+    for held_stock in portfolio_raw['Stock'].tolist():
+        try:
+            held_symbol = WATCHLIST.get(held_stock)
+            if held_symbol:
+                held_data     = fetch_stock_data(held_symbol)
+                held_analyzed = analyze_stock(held_data.copy())
+                held_ema      = calculate_ema_signals(held_data.copy())
+                held_bb       = analyze_bollinger(held_data.copy())
+                held_macd     = analyze_macd(held_data.copy())
+                held_combined = build_combined_summary(
+                    ma_signal   = held_analyzed.iloc[-1]['Signal'],
+                    ema_signal  = held_ema.iloc[-1]['EMA_Signal'],
+                    bb_signal   = held_bb.iloc[-1]['BB_Signal'],
+                    macd_signal = held_macd.iloc[-1]['MACD_Crossover'],
+                )
+                portfolio_combined_sigs[held_stock] = held_combined["Final Signal"]
+        except Exception:
+            pass
+
+# Remove the debug lines and call get_portfolio_summary normally
+portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
  
     if portfolio_df.empty:
         st.info("No open positions yet — click BUY above to start!")
