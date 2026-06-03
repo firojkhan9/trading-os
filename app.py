@@ -631,8 +631,8 @@ if portfolio_raw is not None and not portfolio_raw.empty:
         except Exception:
             pass
 
-# Remove the debug lines and call get_portfolio_summary normally
-portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
+    # Remove the debug lines and call get_portfolio_summary normally
+    portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
  
     if portfolio_df.empty:
         st.info("No open positions yet — click BUY above to start!")
