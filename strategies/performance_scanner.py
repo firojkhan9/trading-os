@@ -44,16 +44,27 @@ def days_to_yf_period(days):
 def fetch_stock_for_scan(symbol, period="1y", min_rows=5):
     """
     Fetch stock data for scanning.
-    min_rows=5 (was 30 — too strict, caused NIFTY to fail on short periods).
+    Drops null Close rows so midnight/weekend empty candles
+    don't corrupt price calculations.
     """
     try:
         data = yf.download(
             tickers=symbol, period=period,
-            interval="1d", progress=False
+            interval="1d", progress=False,
+            auto_adjust=True
         )
-        if data.empty or len(data) < min_rows:
+        if data.empty:
             return None
+
         data.columns = [col[0] for col in data.columns]
+
+        # Drop rows where Close is null or zero
+        data = data.dropna(subset=["Close"])
+        data = data[data["Close"] > 0]
+
+        if len(data) < min_rows:
+            return None
+
         return data
     except Exception:
         return None

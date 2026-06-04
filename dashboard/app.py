@@ -147,14 +147,26 @@ def fetch_all_stocks():
 
 @st.cache_data(ttl=300)
 def fetch_stock_data(symbol):
-    data = yf.download(
-        tickers=symbol,
-        period="30d",
-        interval="1d",
-        progress=False
-    )
-    data.columns = [col[0] for col in data.columns]
-    return data
+    try:
+        data = yf.download(
+            tickers=symbol,
+            period="60d",        # fetch more days so indicators have enough rows
+            interval="1d",
+            progress=False,
+            auto_adjust=True
+        )
+        if data.empty:
+            return pd.DataFrame()
+
+        data.columns = [col[0] for col in data.columns]
+
+        # Drop null or zero Close rows
+        data = data.dropna(subset=["Close"])
+        data = data[data["Close"] > 0]
+
+        return data
+    except Exception:
+        return pd.DataFrame()
 
 
 # ── Navigation Tabs ───────────────────────────────

@@ -874,3 +874,37 @@ def get_bucket_trade_history(bucket_name=None):
     if bucket_name:
         return df[df["Bucket"] == bucket_name].copy()
     return df
+
+
+def save_last_known_prices(prices: dict):
+    """Save last known good prices to bucket_state as a backup."""
+    client = get_client()
+    if not client:
+        return
+    try:
+        records = [
+            {"bucket": f"__price__{stock}", "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             "available_cash": price}
+            for stock, price in prices.items()
+            if price and price > 0
+        ]
+        # reuse bucket_state table — prefix __price__ to avoid collision
+        client.table("bucket_state").upsert(records, on_conflict="bucket").execute()
+    except Exception as e:
+        print(f"⚠️ save_last_known_prices failed: {e}")
+
+def load_last_known_prices() -> dict:
+    """Load last known prices saved before midnight."""
+    client = get_client()
+    if not client:
+        return {}
+    try:
+        response = client.table("bucket_state").select("*").execute()
+        prices = {}
+        for row in (response.data or []):
+            if str(row.get("bucket", "")).startswith("__price__"):
+                stock = row["bucket"].replace("__price__", "")
+                prices[stock] = float(row.get("available_cash") or 0)
+        return prices
+    except Exception:
+        return {}    

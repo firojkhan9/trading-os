@@ -303,7 +303,7 @@ def render_quick_buy_panel(
 # ── Fetch functions ───────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_all_stocks():
-    summary = []
+    summary  = []
     watchlist = get_watchlist_dict()
     for name, symbol in watchlist.items():
         try:
@@ -314,11 +314,23 @@ def fetch_all_stocks():
             if data.empty:
                 continue
             data.columns = [col[0] for col in data.columns]
+
+            # Drop rows where Close is null
+            data = data.dropna(subset=["Close"])
+            if data.empty:
+                continue
+
             latest_close = round(float(data['Close'].iloc[-1]), 2)
             oldest_close = round(float(data['Close'].iloc[0]), 2)
-            change_pct   = round(((latest_close - oldest_close) / oldest_close) * 100, 2)
-            day_high     = round(float(data['High'].iloc[-1]), 2)
-            day_low      = round(float(data['Low'].iloc[-1]), 2)
+
+            # Skip if price is zero or invalid
+            if latest_close <= 0 or oldest_close <= 0:
+                continue
+
+            change_pct = round(((latest_close - oldest_close) / oldest_close) * 100, 2)
+            day_high   = round(float(data['High'].iloc[-1]), 2)
+            day_low    = round(float(data['Low'].iloc[-1]), 2)
+
             summary.append({
                 "Stock":      name,
                 "Close (₹)":  latest_close,
@@ -326,8 +338,9 @@ def fetch_all_stocks():
                 "Day High":   day_high,
                 "Day Low":    day_low,
             })
-        except Exception as e:
-            st.warning(f"Could not fetch {name}: {e}")
+        except Exception:
+            continue  # silent skip — don't show warning for every stock at midnight
+
     return pd.DataFrame(summary)
 
 
@@ -488,9 +501,25 @@ with tab1:
     # ── Risk Alerts ───────────────────────────────
     st.subheader("🛡️ Risk Alerts")
     current_prices = {}
+    # Load last known prices as fallback
+    from portfolio.capital_engine import load_last_known_prices, save_last_known_prices
+    last_known = load_last_known_prices()
+
     if not summary_df.empty:
         for _, row in summary_df.iterrows():
-            current_prices[row['Stock']] = row['Close (₹)']
+            stock = row['Stock']
+            price = row.get('Close (₹)')
+            if price and float(price) > 0:
+                current_prices[stock] = float(price)
+            elif stock in last_known:
+                current_prices[stock] = last_known[stock]
+
+        # Save good prices back for next midnight
+        save_last_known_prices(current_prices)
+
+    elif last_known:
+        # summary_df itself is empty — full fallback
+        current_prices = last_known
 
     alerts = get_risk_summary(current_prices)
     if not alerts:
@@ -898,147 +927,157 @@ with tab3:
     st.divider()
 
     if st.button("🔍 Scan All Stocks", use_container_width=True, key="run_scan"):
-
         with st.spinner(f"Scanning all {len(STOCK_NAMES)} stocks over {period_label}... this takes ~60 seconds"):
-
-            # Get current regime for scoring
             regime_info  = fetch_regime_analysis()
             scan_regime  = regime_info["regime"]
-
-            # Run the scan
             full_df, best_return_df, worst_return_df, best_score_df = scan_all_stocks(
                 watchlist_dict = WATCHLIST,
                 period_days    = period_days,
                 regime         = scan_regime,
             )
-
         if full_df.empty:
             st.error("Could not fetch data — try again.")
         else:
+            # Store results so they survive BUY button clicks
+            st.session_state["scan_full_df"]        = full_df
+            st.session_state["scan_best_return_df"] = best_return_df
+            st.session_state["scan_worst_return_df"]= worst_return_df
+            st.session_state["scan_best_score_df"]  = best_score_df
+            st.session_state["scan_regime"]         = scan_regime
 
-            # ── Regime context ────────────────────
-            if "BULL" in scan_regime and "WEAK" not in scan_regime:
-                st.success(f"🌡️ Market Regime during scan: **{scan_regime}**")
-            elif "BEAR" in scan_regime and "WEAK" not in scan_regime:
-                st.error(f"🌡️ Market Regime during scan: **{scan_regime}**")
-            else:
-                st.warning(f"🌡️ Market Regime during scan: **{scan_regime}**")
+    # Display results from session_state (persists across reruns)
+    if "scan_full_df" in st.session_state:
+        full_df        = st.session_state["scan_full_df"]
+        best_return_df = st.session_state["scan_best_return_df"]
+        worst_return_df= st.session_state["scan_worst_return_df"]
+        best_score_df  = st.session_state["scan_best_score_df"]
+        scan_regime    = st.session_state["scan_regime"]
 
-            st.divider()
+    
 
-            # ── Best performers ───────────────────
-            st.subheader(f"🚀 Best Performers — Last {period_label}")
-            st.caption("Stocks with highest price return in this period")
+        # ── Regime context ────────────────────
+        if "BULL" in scan_regime and "WEAK" not in scan_regime:
+            st.success(f"🌡️ Market Regime during scan: **{scan_regime}**")
+        elif "BEAR" in scan_regime and "WEAK" not in scan_regime:
+            st.error(f"🌡️ Market Regime during scan: **{scan_regime}**")
+        else:
+            st.warning(f"🌡️ Market Regime during scan: **{scan_regime}**")
 
-            if not best_return_df.empty:
-                def color_return_best(val):
-                    v = str(val)
-                    if v.startswith('-'):  return "color: red"
-                    if v != "N/A" and v != "0%": return "color: green"
-                    return ""
-                col_name = f"{period_days}D Return"
-                if col_name in best_return_df.columns:
-                    st.dataframe(
-                        best_return_df.style.map(color_return_best, subset=[col_name]),
-                        use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.dataframe(best_return_df, use_container_width=True, hide_index=True)
+        st.divider()
 
-            st.divider()
+        # ── Best performers ───────────────────
+        st.subheader(f"🚀 Best Performers — Last {period_label}")
+        st.caption("Stocks with highest price return in this period")
 
-            # ── Worst performers ──────────────────
-            st.subheader(f"⚠️ Worst Performers — Last {period_label}")
-            st.caption("Stocks with lowest price return — avoid or monitor for recovery")
-
-            if not worst_return_df.empty:
-                def color_return_worst(val):
-                    v = str(val)
-                    if v.startswith('-'): return "color: red; font-weight: bold"
-                    if v != "N/A":       return "color: green"
-                    return ""
-                col_name = f"{period_days}D Return"
-                if col_name in worst_return_df.columns:
-                    st.dataframe(
-                        worst_return_df.style.map(color_return_worst, subset=[col_name]),
-                        use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.dataframe(worst_return_df, use_container_width=True, hide_index=True)
-
-            st.divider()
-
-            # ── Best scores ───────────────────────
-            st.subheader("💯 Best Intelligence Scores Right Now")
-            st.caption("Stocks with highest composite score — strongest buy opportunities")
-
-            if not best_score_df.empty:
-                def color_action(val):
-                    if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
-                    if "BUY"         in str(val): return "color: lightgreen"
-                    if "AVOID"       in str(val): return "color: red"
-                    if "HOLD"        in str(val): return "color: orange"
-                    return ""
+        if not best_return_df.empty:
+            def color_return_best(val):
+                v = str(val)
+                if v.startswith('-'):  return "color: red"
+                if v != "N/A" and v != "0%": return "color: green"
+                return ""
+            col_name = f"{period_days}D Return"
+            if col_name in best_return_df.columns:
                 st.dataframe(
-                    best_score_df.style.map(color_action, subset=["Action"]),
+                    best_return_df.style.map(color_return_best, subset=[col_name]),
                     use_container_width=True, hide_index=True
                 )
+            else:
+                st.dataframe(best_return_df, use_container_width=True, hide_index=True)
 
-            st.divider()
+        st.divider()
 
-            # ── Full scan table ───────────────────
-            st.subheader("📋 Full Scan — All Stocks")
-            st.caption("Complete scan results sorted by composite score")
+        # ── Worst performers ──────────────────
+        st.subheader(f"⚠️ Worst Performers — Last {period_label}")
+        st.caption("Stocks with lowest price return — avoid or monitor for recovery")
 
-            def color_signal_scan(val):
+        if not worst_return_df.empty:
+            def color_return_worst(val):
+                v = str(val)
+                if v.startswith('-'): return "color: red; font-weight: bold"
+                if v != "N/A":       return "color: green"
+                return ""
+            col_name = f"{period_days}D Return"
+            if col_name in worst_return_df.columns:
+                st.dataframe(
+                    worst_return_df.style.map(color_return_worst, subset=[col_name]),
+                    use_container_width=True, hide_index=True
+                )
+            else:
+                st.dataframe(worst_return_df, use_container_width=True, hide_index=True)
+
+        st.divider()
+
+        # ── Best scores ───────────────────────
+        st.subheader("💯 Best Intelligence Scores Right Now")
+        st.caption("Stocks with highest composite score — strongest buy opportunities")
+
+        if not best_score_df.empty:
+            def color_action(val):
                 if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
                 if "BUY"         in str(val): return "color: lightgreen"
-                if "STRONG SELL" in str(val): return "color: red; font-weight: bold"
-                if "SELL"        in str(val): return "color: orange"
+                if "AVOID"       in str(val): return "color: red"
+                if "HOLD"        in str(val): return "color: orange"
                 return ""
-
-            def color_rs_scan(val):
-                if "STRONG" in str(val): return "color: green; font-weight: bold"
-                if "ABOVE"  in str(val): return "color: lightgreen"
-                if "BELOW"  in str(val): return "color: orange"
-                if "WEAK"   in str(val): return "color: red"
-                return ""
-
-            style_cols = {}
-            if "Combined Signal" in full_df.columns:
-                style_cols["Combined Signal"] = color_signal_scan
-            if "RS Rating" in full_df.columns:
-                style_cols["RS Rating"] = color_rs_scan
-
-            styled = full_df.style
-            for col, func in style_cols.items():
-                styled = styled.map(func, subset=[col])
-
-            st.dataframe(styled, use_container_width=True, hide_index=True)
-
-            st.divider()
-
-            # ── Quick Buy Panel ───────────────────
-            st.divider()
-            st.subheader("💰 Quick Trade from Scanner")
-            st.caption("Select a stock from the scan results and trade directly here")
-            scanner_trade_stock = st.selectbox(
-                "Select stock to trade:",
-                options=STOCK_NAMES,
-                key="scanner_trade_stock"
-            )
-            render_quick_buy_panel(scanner_trade_stock, "scanner")
-            st.divider()
-
-            # ── Download ──────────────────────────
-            st.download_button(
-                label     = f"⬇️ Download Scan Results ({period_label})",
-                data      = full_df.to_csv(index=False),
-                file_name = f"scan_{period_label.replace(' ', '_')}.csv",
-                mime      = "text/csv"
+            st.dataframe(
+                best_score_df.style.map(color_action, subset=["Action"]),
+                use_container_width=True, hide_index=True
             )
 
-    else:
+        st.divider()
+
+        # ── Full scan table ───────────────────
+        st.subheader("📋 Full Scan — All Stocks")
+        st.caption("Complete scan results sorted by composite score")
+
+        def color_signal_scan(val):
+            if "STRONG BUY"  in str(val): return "color: green; font-weight: bold"
+            if "BUY"         in str(val): return "color: lightgreen"
+            if "STRONG SELL" in str(val): return "color: red; font-weight: bold"
+            if "SELL"        in str(val): return "color: orange"
+            return ""
+
+        def color_rs_scan(val):
+            if "STRONG" in str(val): return "color: green; font-weight: bold"
+            if "ABOVE"  in str(val): return "color: lightgreen"
+            if "BELOW"  in str(val): return "color: orange"
+            if "WEAK"   in str(val): return "color: red"
+            return ""
+
+        style_cols = {}
+        if "Combined Signal" in full_df.columns:
+            style_cols["Combined Signal"] = color_signal_scan
+        if "RS Rating" in full_df.columns:
+            style_cols["RS Rating"] = color_rs_scan
+
+        styled = full_df.style
+        for col, func in style_cols.items():
+            styled = styled.map(func, subset=[col])
+
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+
+        st.divider()
+
+        # ── Quick Buy Panel ───────────────────
+        st.divider()
+        st.subheader("💰 Quick Trade from Scanner")
+        st.caption("Select a stock from the scan results and trade directly here")
+        scanner_trade_stock = st.selectbox(
+            "Select stock to trade:",
+            options=STOCK_NAMES,
+            key="scanner_trade_stock"
+        )
+        render_quick_buy_panel(scanner_trade_stock, "scanner")
+        st.divider()
+
+        # ── Download ──────────────────────────
+        st.download_button(
+            label     = f"⬇️ Download Scan Results ({period_label})",
+            data      = full_df.to_csv(index=False),
+            file_name = f"scan_{period_label.replace(' ', '_')}.csv",
+            mime      = "text/csv"
+        )
+
+    elif "scan_full_df" not in st.session_state:
         st.info(f"👆 Select a period and click Scan All Stocks")
         st.caption("The scanner will fetch data for all stocks, calculate signals, scores and relative performance — all in one view")
 
