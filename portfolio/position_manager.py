@@ -954,3 +954,114 @@ def get_state_color(state):
         "REJECTED":     "color: darkred",
     }
     return colors.get(str(state).upper(), "")
+
+def backfill_lifecycle_from_trades():
+    """
+    One-time utility — creates lifecycle records for positions
+    that were opened BEFORE the lifecycle system was added.
+
+    Scans bucket_trades for all open positions (BUY without matching SELL)
+    and creates an ENTERED lifecycle record for each missing one.
+
+    Safe to run multiple times — skips any that already exist.
+    Returns list of stocks that were backfilled.
+    """
+    from portfolio.capital_engine import load_bucket_trades
+
+    trades_df   = load_bucket_trades()
+    lc_df       = load_lifecycle()
+    backfilled  = []
+
+    if trades_df.empty:
+        return backfilled
+
+    # Find all open positions across all buckets
+    for bucket_name in ["Long-Term", "Swing", "Intraday"]:
+        b_trades = trades_df[trades_df["Bucket"] == bucket_name]
+        if b_trades.empty:
+            continue
+
+        buys  = b_trades[b_trades["Action"] == "BUY"]
+        sells = set(b_trades[b_trades["Action"] == "SELL"]["Stock"].tolist())
+
+        # Open = bought but not sold
+        open_buys = buys[~buys["Stock"].isin(sells)]
+
+        for _, row in open_buys.iterrows():
+            stock     = str(row["Stock"])
+            price     = float(row["Price"])
+            quantity  = int(row["Quantity"])
+            value     = float(row["Value"])
+            timestamp = str(row["Timestamp"])
+
+            # Check if lifecycle record already exists for this stock+bucket
+            active_states = {
+                "WATCHLIST","READY","ENTERED",
+                "HOLDING","TRAILING","PARTIAL_EXIT"
+            }
+            already_exists = (
+                not lc_df.empty and
+                len(lc_df[
+                    (lc_df["stock"]  == stock) &
+                    (lc_df["bucket"] == bucket_name) &
+                    (lc_df["state"].isin(active_states))
+                ]) > 0
+            )
+
+            if already_exists:
+                continue  # Already tracked — skip
+
+            # Get symbol
+            try:
+                from strategies.watchlist_manager import get_watchlist_dict
+                wl     = get_watchlist_dict()
+                symbol = wl.get(stock, stock + ".NS")
+            except Exception:
+                symbol = stock + ".NS"
+
+            # Create the lifecycle record
+            # Go straight to HOLDING (it's already been entered and held)
+            position_id = _generate_position_id(stock + "_BACKFILL", bucket_name)
+
+            hard_stop  = round(price * (1 - STOP_LOSS_PCT),     2)
+            target     = round(price * (1 + TARGET_PROFIT_PCT), 2)
+            trail_stop = round(price * (1 - TRAILING_STOP_PCT), 2)
+
+            # Calculate days held from original buy timestamp
+            days_held = 0
+            try:
+                buy_date  = pd.to_datetime(timestamp).date()
+                days_held = (date.today() - buy_date).days
+            except Exception:
+                days_held = 0
+
+            new_row = {col: "" for col in LIFECYCLE_COLUMNS}
+            new_row.update({
+                "position_id":      position_id,
+                "stock":            stock,
+                "symbol":           symbol,
+                "bucket":           bucket_name,
+                "state":            "HOLDING",
+                "buy_price":        str(price),
+                "buy_date":         timestamp[:10],
+                "quantity":         str(quantity),
+                "buy_value":        str(value),
+                "current_price":    str(price),
+                "current_pnl_pct":  "0.0",
+                "peak_price":       str(price),
+                "trail_stop_price": str(trail_stop),
+                "hard_stop_price":  str(hard_stop),
+                "target_price":     str(target),
+                "partial_sold":     "False",
+                "composite_score":  "0",
+                "notes":            "Backfilled from bucket_trades history",
+                "last_updated":     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            })
+
+            lc_df = pd.concat([lc_df, pd.DataFrame([new_row])], ignore_index=True)
+            backfilled.append(f"{stock} ({bucket_name})")
+
+    if backfilled:
+        save_lifecycle(lc_df)
+
+    return backfilled

@@ -695,7 +695,26 @@ def bucket_buy(bucket_name, stock_name, price, composite_score=None):
 
     save_bucket_state(state)
     _log_bucket_trade(bucket_name, "BUY", stock_name, price, quantity, spend)
-
+        # ── Create lifecycle record ───────────────────
+    try:
+        from portfolio.position_manager import add_to_watchlist
+        from portfolio.position_manager import mark_ready
+        from portfolio.position_manager import mark_entered as _pm_enter
+        try:
+            from strategies.watchlist_manager import get_watchlist_dict
+            wl     = get_watchlist_dict()
+            symbol = wl.get(stock_name, stock_name + ".NS")
+        except Exception:
+            symbol = stock_name + ".NS"
+        watch_result = add_to_watchlist(stock_name, symbol, bucket_name)
+        if watch_result["status"] in ("OK", "SKIPPED"):
+            pos_id = watch_result.get("position_id")
+            if pos_id:
+                mark_ready(pos_id, composite_score or 0)
+                _pm_enter(pos_id, round(price, 2), quantity, spend)
+    except Exception as e:
+        print(f"⚠️ Lifecycle create failed (non-critical): {e}")
+    
     return {
         "status":    "EXECUTED",
         "action":    "BUY",
@@ -758,7 +777,23 @@ def bucket_sell(bucket_name, stock_name, price):
 
     save_bucket_state(state)
     _log_bucket_trade(bucket_name, "SELL", stock_name, price, quantity, sell_value, pnl)
-
+        # ── Update lifecycle record to EXITED ─────────
+    try:
+        from portfolio.position_manager import load_lifecycle, mark_exited
+        df = load_lifecycle()
+        # Find the active lifecycle record for this stock+bucket
+        active = df[
+            (df["stock"]  == stock_name) &
+            (df["bucket"] == bucket_name) &
+            (df["state"].isin(["ENTERED","HOLDING","TRAILING","PARTIAL_EXIT"]))
+        ]
+        if not active.empty:
+            pos_id = active.iloc[-1]["position_id"]
+            exit_reason = "STOP_LOSS" if pnl < 0 else "TARGET"
+            mark_exited(pos_id, round(price, 2), exit_reason)
+    except Exception as e:
+        print(f"⚠️ Lifecycle exit update failed (non-critical): {e}")
+    
     return {
         "status":   "EXECUTED",
         "action":   "SELL",
@@ -907,4 +942,4 @@ def load_last_known_prices() -> dict:
                 prices[stock] = float(row.get("available_cash") or 0)
         return prices
     except Exception:
-        return {}    
+        return {}  

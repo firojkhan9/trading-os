@@ -111,6 +111,20 @@ from portfolio.capital_engine import (
     reset_bucket_state,
 )
 
+from engine.loop_state import (
+    load_loop_state,
+    start_loop,
+    pause_loop,
+    stop_loop,
+    load_decision_log,
+    clear_decision_log,
+    get_market_status,
+    STATUS_RUNNING,
+    STATUS_PAUSED,
+    STATUS_STOPPED,
+)
+from engine.execution_loop import run_one_cycle
+
 # ── Page configuration ───────────────────────────
 st.set_page_config(
     page_title="Firoj Khan's Trading OS",
@@ -371,7 +385,7 @@ def fetch_market_sentiment_cached():
 
 
 # ── Navigation Tabs ───────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "📊 Dashboard",
     "🌡️ Market Regime",
     "📡 Scanner",
@@ -380,7 +394,9 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "🔬 Backtesting",
     "📊 Strategy Comparison",
     "📋 Logs",
-    "🪣 Portfolio Buckets"
+    "🪣 Portfolio Buckets",
+    "🔄 Position Lifecycle",
+    "🤖 Auto Pilot"
 ])
 
 # ════════════════════════════════════════════════
@@ -2521,6 +2537,583 @@ with tab9:
         if st.button("🗑️ Reset All Bucket Data", key="reset_buckets"):
             reset_bucket_state()
             st.success("✅ All buckets reset to starting capital. Refresh the page.")
+
+# ════════════════════════════════════════════════
+# TAB 10: POSITION LIFECYCLE — Milestone 25A
+# ════════════════════════════════════════════════
+with tab10:
+
+    st.title("🔄 Position Lifecycle Manager")
+    st.caption("Track every position through its full journey — from watchlist to exit")
+    st.divider()
+
+    # Import lifecycle functions
+    from portfolio.position_manager import (
+        get_lifecycle_summary,
+        get_lifecycle_display_df,
+        get_full_history,
+        get_state_color,
+        expire_cooldowns,
+        is_in_cooldown,
+    )
+
+    # ── Expire old cooldowns automatically ────────
+    expired = expire_cooldowns()
+    if expired:
+        st.info(f"✅ Cooldown expired for: {', '.join(expired)} — back on watchlist")
+
+    # ── Headline metrics ──────────────────────────
+    summary = get_lifecycle_summary()
+
+    lc1, lc2, lc3, lc4, lc5 = st.columns(5)
+    lc1.metric("Live Positions",  summary["live"],
+               help="ENTERED + HOLDING + TRAILING + PARTIAL_EXIT")
+    lc2.metric("Watchlist",       summary["watchlist"],
+               help="Being monitored — not yet entered")
+    lc3.metric("Ready to Enter",  summary["ready"],
+               help="Signal fired, approved — enter on next tick")
+    lc4.metric("In Cooldown",     summary["cooldown"],
+               help="Stop loss hit — blocked from re-entry")
+    lc5.metric("Exited Today",    summary["exited_today"])
+
+    st.divider()
+
+    # ── Backfill older positions ──────────────────
+    from portfolio.position_manager import backfill_lifecycle_from_trades
+    with st.expander("⚙️ First Time Setup — Import Existing Positions"):
+        st.caption(
+            "If you had open positions before the lifecycle system was added, "
+            "click below to import them. Safe to run multiple times — skips duplicates."
+        )
+        if st.button("📥 Import Existing Open Positions", key="backfill_lifecycle"):
+            backfilled = backfill_lifecycle_from_trades()
+            if backfilled:
+                st.success(f"✅ Imported {len(backfilled)} position(s): {', '.join(backfilled)}")
+                st.rerun()
+            else:
+                st.info("Nothing to import — all open positions already have lifecycle records.")
+    
+    # ── Live positions table ──────────────────────
+    st.subheader("📊 Active Positions")
+    st.caption("All positions currently in the system (not yet exited)")
+
+    display_df = get_lifecycle_display_df()
+
+    if display_df.empty:
+        st.info(
+            "No active lifecycle positions yet. "
+            "Every BUY you make through the bucket system will appear here automatically."
+        )
+    else:
+        def color_state(val):
+            return get_state_color(val)
+
+        def color_pnl_lc(val):
+            s = str(val)
+            if s.startswith("+") or (s.replace(".","").replace("%","").lstrip("-").isdigit() and not s.startswith("-")):
+                return "color: green"
+            if s.startswith("-"):
+                return "color: red"
+            return ""
+
+        styled = display_df.style
+        if "State" in display_df.columns:
+            styled = styled.map(color_state, subset=["State"])
+        if "P&L %" in display_df.columns:
+            styled = styled.map(color_pnl_lc, subset=["P&L %"])
+
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # ── 25B: Position Monitor ─────────────────────
+    st.subheader("🔄 Position Monitor")
+    st.caption(
+        "Fetch latest prices for all live positions and check for "
+        "stop loss hits, trailing stop triggers, and profit targets."
+    )
+
+    from portfolio.position_manager import (
+        get_live_positions,
+        update_position_price,
+    )
+
+    if st.button("🔄 Refresh All Live Positions", use_container_width=True, key="refresh_lifecycle"):
+
+        live_df = get_live_positions()
+
+        if live_df.empty:
+            st.info("No live positions to monitor right now.")
+        else:
+            st.write(f"Checking {len(live_df)} live position(s)...")
+            action_rows = []
+
+            for _, pos in live_df.iterrows():
+                stock     = str(pos["stock"])
+                pos_id    = str(pos["position_id"])
+                bucket    = str(pos["bucket"])
+                buy_price = float(pos["buy_price"]) if pos["buy_price"] not in ("", "nan") else 0
+
+                # Fetch latest price
+                try:
+                    sym        = WATCHLIST.get(stock, stock + ".NS")
+                    price_data = fetch_stock_data(sym)
+                    curr_price = round(float(price_data['Close'].iloc[-1]), 2)
+                except Exception:
+                    curr_price = buy_price   # fallback to buy price
+
+                # Run the lifecycle update
+                result = update_position_price(pos_id, curr_price)
+
+                action     = result.get("action",   "HOLD")
+                pnl_pct    = result.get("pnl_pct",  0)
+                trail_stop = result.get("trail_stop", "—")
+                reason     = result.get("reason",   "")
+                new_state  = result.get("state",    "—")
+                days_held  = result.get("days_held", 0)
+
+                action_rows.append({
+                    "Stock":       stock,
+                    "Bucket":      bucket,
+                    "Buy ₹":       f"₹{buy_price}",
+                    "Now ₹":       f"₹{curr_price}",
+                    "P&L %":       f"{pnl_pct:+.2f}%",
+                    "State":       new_state,
+                    "Action":      action,
+                    "Trail Stop":  f"₹{trail_stop}" if isinstance(trail_stop, float) else trail_stop,
+                    "Days Held":   days_held,
+                    "Reason":      reason,
+                })
+
+            if action_rows:
+                results_df = pd.DataFrame(action_rows)
+
+                # Color the Action column
+                def color_action_lc(val):
+                    if val == "SELL_STOP":    return "color: red;    font-weight: bold"
+                    if val == "SELL_TARGET":  return "color: green;  font-weight: bold"
+                    if val == "SELL_TRAIL":   return "color: orange; font-weight: bold"
+                    if val == "TRAIL_ACTIVATED": return "color: cyan"
+                    if val == "PARTIAL_EXIT": return "color: orange"
+                    return "color: gray"
+
+                def color_pnl_monitor(val):
+                    if str(val).startswith("+"): return "color: green"
+                    if str(val).startswith("-"): return "color: red"
+                    return ""
+
+                st.dataframe(
+                    results_df.style
+                        .map(color_action_lc,   subset=["Action"])
+                        .map(color_pnl_monitor, subset=["P&L %"]),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                # ── Action alerts ──────────────────
+                urgent = [r for r in action_rows if r["Action"] not in ("HOLD", "NO_ACTION")]
+                if urgent:
+                    st.divider()
+                    st.subheader("⚠️ Actions Required")
+                    for r in urgent:
+                        action = r["Action"]
+                        stock  = r["Stock"]
+                        bucket = r["Bucket"]
+                        reason = r["Reason"]
+
+                        if action == "SELL_STOP":
+                            st.error(
+                                f"🛑 **{stock} ({bucket})** — SELL IMMEDIATELY\n\n"
+                                f"{reason}"
+                            )
+                        elif action == "SELL_TARGET":
+                            st.success(
+                                f"🎯 **{stock} ({bucket})** — TARGET HIT — Consider selling\n\n"
+                                f"{reason}"
+                            )
+                        elif action == "SELL_TRAIL":
+                            st.warning(
+                                f"📉 **{stock} ({bucket})** — TRAILING STOP HIT — Consider selling\n\n"
+                                f"{reason}"
+                            )
+                        elif action == "TRAIL_ACTIVATED":
+                            st.info(
+                                f"🔔 **{stock} ({bucket})** — TRAILING STOP ACTIVATED\n\n"
+                                f"{reason}"
+                            )
+                        elif action == "PARTIAL_EXIT":
+                            st.warning(
+                                f"📊 **{stock} ({bucket})** — PARTIAL EXIT SUGGESTED — Sell 50%\n\n"
+                                f"{reason}"
+                            )
+                else:
+                    st.success("✅ All positions healthy — no urgent actions needed")
+
+    st.divider()
+    st.caption(
+        "💡 In Milestone 26 (Autonomous Execution Loop), "
+        "this refresh will run automatically every 15 minutes during market hours."
+    )
+    st.divider()
+
+    # ── State guide ───────────────────────────────
+    st.subheader("📖 Lifecycle State Guide")
+    state_guide = [
+        {"State": "WATCHLIST",    "Meaning": "Stock is being monitored, signal not yet fired",
+         "Next": "READY when signal fires"},
+        {"State": "READY",        "Meaning": "Signal fired, score approved, waiting to enter",
+         "Next": "ENTERED on next tick"},
+        {"State": "ENTERED",      "Meaning": "BUY just executed, position is live",
+         "Next": "HOLDING after first price update"},
+        {"State": "HOLDING",      "Meaning": "Normal hold — within stop/target range",
+         "Next": "TRAILING (gain ≥6%) or EXITED"},
+        {"State": "TRAILING",     "Meaning": "Profit locked — stop now trails peak price",
+         "Next": "PARTIAL_EXIT or EXITED"},
+        {"State": "PARTIAL_EXIT", "Meaning": "50% profit booked, rest still running",
+         "Next": "EXITED when stop or target hit"},
+        {"State": "EXITED",       "Meaning": "Position fully closed",
+         "Next": "COOLDOWN (if stop loss) or WATCHLIST"},
+        {"State": "COOLDOWN",     "Meaning": "Stop loss hit — blocked from re-entry for 3 days",
+         "Next": "WATCHLIST after cooldown expires"},
+        {"State": "REJECTED",     "Meaning": "Signal blocked — score too low, bear market, etc.",
+         "Next": "WATCHLIST to re-evaluate"},
+    ]
+    st.dataframe(
+        pd.DataFrame(state_guide),
+        use_container_width=True, hide_index=True
+    )
+
+    st.divider()
+
+    # ── Full history ──────────────────────────────
+    st.subheader("📋 Full Position History")
+    st.caption("All positions including exited ones — complete audit trail")
+
+    show_exited  = st.checkbox("Include exited positions", value=True)
+    show_rejected= st.checkbox("Include rejected positions", value=False)
+
+    history_df = get_full_history(
+        include_exited=show_exited,
+        include_rejected=show_rejected
+    )
+
+    if history_df.empty:
+        st.info("No history yet.")
+    else:
+        # Show key columns only
+        hist_cols = [
+            "stock", "bucket", "state",
+            "buy_price", "exit_price", "current_pnl_pct",
+            "exit_reason", "days_held", "last_updated"
+        ]
+        existing = [c for c in hist_cols if c in history_df.columns]
+        st.dataframe(
+            history_df[existing].style.map(
+                lambda v: get_state_color(v) if v in {
+                    "WATCHLIST","READY","ENTERED","HOLDING",
+                    "TRAILING","PARTIAL_EXIT","EXITED","COOLDOWN","REJECTED"
+                } else "",
+                subset=["state"] if "state" in existing else []
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.download_button(
+            label="⬇️ Download Full Lifecycle History",
+            data=history_df.to_csv(index=False),
+            file_name="position_lifecycle_history.csv",
+            mime="text/csv"
+        )
+
+    st.divider()
+
+    # ── Cooldown checker ──────────────────────────
+    st.subheader("🔒 Cooldown Checker")
+    st.caption("Check if a stock is blocked from re-entry after a stop loss")
+
+    cd_col1, cd_col2 = st.columns(2)
+    with cd_col1:
+        cd_stock  = st.selectbox("Stock:", options=STOCK_NAMES, key="cd_stock")
+    with cd_col2:
+        cd_bucket = st.selectbox("Bucket:", options=list(BUCKET_CONFIG.keys()), key="cd_bucket")
+
+    in_cd, until = is_in_cooldown(cd_stock, cd_bucket)
+    if in_cd:
+        st.error(f"🔒 {cd_stock} is in COOLDOWN for {cd_bucket} bucket until **{until}**")
+    else:
+        st.success(f"✅ {cd_stock} is NOT in cooldown for {cd_bucket} — free to trade")
+
+
+# ════════════════════════════════════════════════
+# TAB 11: AUTO PILOT — Autonomous Execution Loop
+# ════════════════════════════════════════════════
+with tab11:
+ 
+    st.title("🤖 Auto Pilot — Autonomous Execution Loop")
+    st.caption(
+        "The loop watches all stocks during market hours, finds opportunities, "
+        "monitors positions, and places paper trades automatically."
+    )
+    st.divider()
+ 
+    # ── Market status banner ──────────────────────
+    mkt_status = get_market_status()
+    if mkt_status["open"]:
+        st.success(
+            f"🟢 **Market OPEN** — {mkt_status['time']} | "
+            "Loop can run now"
+        )
+    else:
+        st.warning(
+            f"⚫ **Market {mkt_status['status']}** — {mkt_status['time']} | "
+            "Loop will wait for market hours"
+        )
+ 
+    st.divider()
+ 
+    # ── Load current loop state ───────────────────
+    loop_state    = load_loop_state()
+    loop_status   = loop_state.get("status", STATUS_STOPPED)
+    last_run      = loop_state.get("last_run",        "Never")
+    next_run      = loop_state.get("next_run",         "—")
+    runs_today    = loop_state.get("runs_today",        0)
+    buys_today    = loop_state.get("buys_today",        0)
+    sells_today   = loop_state.get("sells_today",       0)
+    pnl_today     = loop_state.get("pnl_today",         0.0)
+    error_count   = loop_state.get("error_count",       0)
+    last_error    = loop_state.get("last_error",        None)
+    interval_min  = loop_state.get("interval_minutes",  15)
+ 
+    # ── Status banner ─────────────────────────────
+    if loop_status == STATUS_RUNNING:
+        st.success(f"## 🟢 Loop Status: RUNNING")
+    elif loop_status == STATUS_PAUSED:
+        st.warning(f"## ⏸️ Loop Status: PAUSED")
+    else:
+        st.error(f"## ⛔ Loop Status: STOPPED")
+ 
+    # ── Today's stats ─────────────────────────────
+    lc1, lc2, lc3, lc4, lc5 = st.columns(5)
+    lc1.metric("Runs Today",    runs_today)
+    lc2.metric("Buys Today",    buys_today)
+    lc3.metric("Sells Today",   sells_today)
+    lc4.metric(
+        "P&L Today",
+        f"₹{pnl_today:+,.0f}",
+        delta=f"{'▲' if pnl_today >= 0 else '▼'}"
+    )
+    lc5.metric("Errors Today",  error_count)
+ 
+    st.caption(f"Last run: {last_run}  |  Next run: {next_run}")
+ 
+    if last_error:
+        st.error(f"⚠️ Last error: {last_error}")
+ 
+    st.divider()
+ 
+    # ── Controls ──────────────────────────────────
+    st.subheader("⚙️ Loop Controls")
+ 
+    ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns(4)
+ 
+    with ctrl_col1:
+        # Interval selector
+        new_interval = st.selectbox(
+            "Run every:",
+            options=[5, 10, 15, 30, 60],
+            index=[5, 10, 15, 30, 60].index(interval_min)
+                if interval_min in [5, 10, 15, 30, 60] else 2,
+            format_func=lambda x: f"{x} minutes",
+            key="loop_interval"
+        )
+ 
+    with ctrl_col2:
+        if st.button(
+            "▶️ START Loop",
+            use_container_width=True,
+            disabled=(loop_status == STATUS_RUNNING),
+            key="start_loop_btn"
+        ):
+            start_loop(interval_minutes=new_interval)
+            st.success(f"✅ Loop started — will run every {new_interval} minutes")
+            st.rerun()
+ 
+    with ctrl_col3:
+        if st.button(
+            "⏸️ PAUSE Loop",
+            use_container_width=True,
+            disabled=(loop_status != STATUS_RUNNING),
+            key="pause_loop_btn"
+        ):
+            pause_loop()
+            st.info("⏸️ Loop paused — positions still monitored on next RUN NOW")
+            st.rerun()
+ 
+    with ctrl_col4:
+        if st.button(
+            "⛔ STOP Loop",
+            use_container_width=True,
+            disabled=(loop_status == STATUS_STOPPED),
+            key="stop_loop_btn"
+        ):
+            stop_loop()
+            st.warning("⛔ Loop stopped")
+            st.rerun()
+ 
+    st.divider()
+ 
+    # ── Manual Run Now ────────────────────────────
+    st.subheader("🚀 Manual Controls")
+    st.caption(
+        "Run one cycle manually — useful for testing outside market hours "
+        "or triggering an immediate scan."
+    )
+ 
+    man1, man2, man3 = st.columns(3)
+ 
+    with man1:
+        if st.button(
+            "🔍 RUN NOW (Live)",
+            use_container_width=True,
+            key="run_now_live"
+        ):
+            with st.spinner("Running one cycle... this takes 30-60 seconds"):
+                result = run_one_cycle(force=True, scan_only=False)
+            if result.get("skipped"):
+                st.info(f"ℹ️ Skipped: {result['skip_reason']}")
+            elif result.get("error"):
+                st.error(f"❌ Error: {result['error'][:300]}")
+            else:
+                st.success(
+                    f"✅ Cycle complete | Regime: {result['regime']} | "
+                    f"Buys: {result['buys']} | Sells: {result['sells']} | "
+                    f"No-trades: {result['no_trades']}"
+                )
+            st.rerun()
+ 
+    with man2:
+        if st.button(
+            "🔬 SCAN ONLY (No Trades)",
+            use_container_width=True,
+            key="run_scan_only"
+        ):
+            with st.spinner("Scanning (no trades will be placed)..."):
+                result = run_one_cycle(force=True, scan_only=True)
+            st.info(
+                f"Scan complete | Regime: {result.get('regime','?')} | "
+                f"Decisions logged: {len(result.get('decisions', []))}"
+            )
+            st.rerun()
+ 
+    with man3:
+        if st.button(
+            "🗑️ Clear Decision Log",
+            use_container_width=True,
+            key="clear_log_btn"
+        ):
+            clear_decision_log()
+            st.info("Decision log cleared")
+            st.rerun()
+ 
+    st.divider()
+ 
+    # ── How the loop works ────────────────────────
+    st.subheader("📖 How the Loop Works")
+    st.caption("Each cycle runs these steps in order:")
+ 
+    steps = [
+        {"Step": "1", "Action": "Market Hours Check",
+         "Detail": "Only runs 9:15 AM – 3:30 PM IST, Mon–Fri"},
+        {"Step": "2", "Action": "Expire Cooldowns",
+         "Detail": "Releases stocks blocked after stop loss (after 3 days)"},
+        {"Step": "3", "Action": "Fetch Market Regime",
+         "Detail": "Reads NIFTY 50 to determine BULL/BEAR/SIDEWAYS"},
+        {"Step": "4", "Action": "Portfolio Safety Gate",
+         "Detail": "BEAR market → pause buys | Daily loss >5% → halt all"},
+        {"Step": "5", "Action": "Exit Monitor",
+         "Detail": "Checks all live positions — sells if stop/target/trail hit"},
+        {"Step": "6", "Action": "Buy Scanner",
+         "Detail": "Runs all strategies, scores every stock, buys best opportunities"},
+        {"Step": "7", "Action": "Log Everything",
+         "Detail": "Every decision (including NO-TRADE) logged with full reasons"},
+    ]
+    st.dataframe(pd.DataFrame(steps), use_container_width=True, hide_index=True)
+ 
+    st.divider()
+ 
+    # ── Safety rules ──────────────────────────────
+    st.subheader("🛡️ Built-in Safety Rules")
+ 
+    rules = [
+        {"Rule": "Bear Market Gate",     "Action": "Zero new BUY orders in BEAR regime"},
+        {"Rule": "Daily Loss Limit",     "Action": "Halt all buys if portfolio down >5% today"},
+        {"Rule": "Cooldown Period",      "Action": "No re-entry for 3 days after stop loss"},
+        {"Rule": "Score Gate",           "Action": "Minimum score per bucket (Long-Term=70, Swing=60, Intraday=55)"},
+        {"Rule": "No Double-Buy",        "Action": "Won't buy a stock already held in same bucket"},
+        {"Rule": "Position Limit",       "Action": "Max 5 open positions per bucket"},
+        {"Rule": "Auto-Pause on Errors", "Action": "Loop pauses itself after 3 consecutive errors"},
+        {"Rule": "Stop Loss Priority",   "Action": "Stop loss executes immediately — no override"},
+    ]
+    st.dataframe(pd.DataFrame(rules), use_container_width=True, hide_index=True)
+ 
+    st.divider()
+ 
+    # ── Decision log ──────────────────────────────
+    st.subheader("📋 Decision Log")
+    st.caption(
+        "Every BUY, SELL, and NO-TRADE with full reasons — "
+        "the audit trail of autonomous decisions"
+    )
+ 
+    decision_df = load_decision_log(max_rows=100)
+ 
+    if decision_df.empty:
+        st.info(
+            "No decisions logged yet. "
+            "Click **RUN NOW** above to run one cycle "
+            "and see decisions here."
+        )
+    else:
+        def color_decision(val):
+            if val == "BUY":            return "color: green;  font-weight: bold"
+            if val == "SELL":           return "color: orange; font-weight: bold"
+            if val == "HALTED":         return "color: red;    font-weight: bold"
+            if val == "NO-TRADE":       return "color: gray"
+            if "PARTIAL" in str(val):   return "color: cyan"
+            return ""
+ 
+        def color_exit(val):
+            if "STOP"   in str(val): return "color: red"
+            if "TARGET" in str(val): return "color: green"
+            if "TRAIL"  in str(val): return "color: orange"
+            return ""
+ 
+        st.dataframe(
+            decision_df.style
+                .map(color_decision, subset=["Decision"])
+                .map(color_exit,     subset=["Exit_Reason"]),
+            use_container_width=True,
+            hide_index=True
+        )
+ 
+        # ── Summary counts ─────────────────────────
+        total_shown = len(decision_df)
+        buy_count   = len(decision_df[decision_df["Decision"] == "BUY"])
+        sell_count  = len(decision_df[decision_df["Decision"] == "SELL"])
+        nt_count    = len(decision_df[decision_df["Decision"] == "NO-TRADE"])
+ 
+        st.caption(
+            f"Showing last {total_shown} decisions | "
+            f"BUY: {buy_count} | SELL: {sell_count} | NO-TRADE: {nt_count}"
+        )
+ 
+        st.download_button(
+            label     = "⬇️ Download Decision Log",
+            data      = decision_df.to_csv(index=False),
+            file_name = "decision_log.csv",
+            mime      = "text/csv",
+        )
 
 # ── Footer ─────────────────────────────────────────
 st.divider()

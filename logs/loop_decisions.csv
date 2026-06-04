@@ -1,0 +1,3 @@
+Timestamp,Stock,Bucket,Decision,Score,Signal,Price,Reason,Regime,Exit_Reason
+2026-06-05 02:14:37,PORTFOLIO,ALL,HALTED,0,—,0,BEAR market detected (BEAR 🐻). No new BUY orders — capital protection mode.,BEAR 🐻,
+2026-06-05 02:14:44,Tribhovandas Bhimji Zaveri,Swing,HOLD,0,TRAILING,177.49,Trailing stop activated at 7.3% gain. Trail stop ₹170.39 — moves up with price.,BEAR 🐻,TRAIL_ACTIVATED
