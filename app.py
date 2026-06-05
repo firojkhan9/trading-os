@@ -96,6 +96,11 @@ from strategies.sentiment_engine import (
     get_market_sentiment,
 )
 
+from strategies.volume_engine import (
+    get_volume_analysis,
+    get_volume_score_only,
+)
+
 from portfolio.capital_engine import (
     get_bucket_summary,
     get_portfolio_totals,
@@ -1193,6 +1198,9 @@ with tab4:
             with st.spinner(f"Analysing sentiment for {score_stock}..."):
                 sentiment_result = get_stock_sentiment(score_stock, score_symbol, max_results=10)
                 sentiment_score_value = sentiment_result["score_0_100"]
+            with st.spinner(f"Analysing volume for {score_stock}..."):
+                volume_result      = get_volume_analysis(score_data.copy())
+                volume_score_value = volume_result["volume_score"]
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
                 ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
@@ -1202,7 +1210,8 @@ with tab4:
                 combined_weighted_score=score_combined["Score"],
                 regime=score_regime, rs_score=None,
                 fundamental_score=fund_score_value,
-                sentiment_score=sentiment_score_value
+                sentiment_score=sentiment_score_value,
+                volume_score=volume_score_value,
             )
  
             # Get full explanation
@@ -1333,14 +1342,15 @@ with tab4:
         breakdown_rows = []
         for dim, val in score_result["Individual Scores"].items():
             weight_map = {
-                "Trend":         "20%",   # MA + EMA direction
-                "Momentum":      "20%",   # RSI + MACD
-                "Volatility":    "12%",   # Bollinger Bands
-                "Signal":        "17%",   # Combined strategy votes
-                "Regime":        "10%",   # Market regime
-                "Rel. Strength": "5%",    # vs NIFTY
-                "Fundamental":   "8%",    # Business health
-                "Sentiment":     "8%",    # News sentiment
+                "Trend":         "18%",
+                "Momentum":      "17%",
+                "Volatility":    "10%",
+                "Signal":        "15%",
+                "Regime":        "10%",
+                "Rel. Strength": "5%",
+                "Fundamental":   "8%",
+                "Sentiment":     "7%",
+                "Volume":        "10%",
             }
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
@@ -1640,6 +1650,98 @@ with tab4:
                 st.error(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100) | Based on {market_sent['total_headlines']} news items")
             else:
                 st.info(f"📰 Market Sentiment: **{sent_lbl}** ({market_sent['score_0_100']}/100)")
+
+        st.divider()
+
+        # ════════════════════════════════════════
+        # VOLUME INTELLIGENCE SECTION — M27
+        # ════════════════════════════════════════
+        st.subheader("📊 Volume Intelligence")
+        st.caption("Does volume confirm this price move? Volume without confirmation = weak signal.")
+
+        vol_score_v    = volume_result.get("volume_score",    50)
+        vol_label      = volume_result.get("volume_label",    "N/A")
+        vol_trend      = volume_result.get("volume_trend",    "N/A")
+        obv_label      = volume_result.get("obv_label",       "N/A")
+        cmf_label      = volume_result.get("cmf_label",       "N/A")
+        cmf_val        = volume_result.get("cmf",             None)
+        breakout_sig   = volume_result.get("breakout_signal", "N/A")
+        interpretation = volume_result.get("interpretation",  "N/A")
+        curr_vol       = volume_result.get("current_volume",  0)
+        avg_vol        = volume_result.get("avg_volume",      0)
+        vol_ratio      = volume_result.get("volume_ratio",    None)
+
+        # ── Volume score banner ───────────────────
+        if vol_score_v >= 70:
+            st.success(f"### Volume Score: {vol_score_v}/100 — Volume CONFIRMS the move ✅")
+        elif vol_score_v >= 50:
+            st.info(f"### Volume Score: {vol_score_v}/100 — Volume is neutral")
+        else:
+            st.warning(f"### Volume Score: {vol_score_v}/100 — Volume does NOT confirm ⚠️")
+
+        st.caption(interpretation)
+        st.write("")
+
+        # ── Volume metrics ────────────────────────
+        def _fmt_vol(v):
+            try:
+                v = int(v)
+                if v >= 10_000_000: return f"{round(v/10_000_000,2)} Cr"
+                if v >= 100_000:    return f"{round(v/100_000,2)} L"
+                return f"{v:,}"
+            except Exception:
+                return "N/A"
+
+        vm1, vm2, vm3, vm4 = st.columns(4)
+        vm1.metric("Today's Volume",  _fmt_vol(curr_vol),
+                   help="Raw volume traded today")
+        vm2.metric("20D Avg Volume",  _fmt_vol(avg_vol),
+                   help="Normal volume baseline for this stock")
+        vm3.metric("vs Average",      vol_label,
+                   help="Today's volume as a multiple of 20-day average")
+        vm4.metric("Volume Score",    f"{vol_score_v}/100")
+
+        vm5, vm6, vm7, vm8 = st.columns(4)
+        vm5.metric("OBV Trend",       obv_label,
+                   help="On-Balance Volume: rising = accumulation, falling = distribution")
+        vm6.metric("CMF",             f"{cmf_val}" if cmf_val is not None else "N/A",
+                   help="Chaikin Money Flow: +0.25 = strong buy pressure, -0.25 = strong sell")
+        vm7.metric("CMF Signal",      cmf_label)
+        vm8.metric("Breakout Signal", breakout_sig,
+                   help="Is today's price move confirmed by volume?")
+
+        st.write("")
+
+        # ── Volume trend direction ─────────────────
+        if vol_trend and vol_trend != "N/A":
+            if "RISING" in vol_trend:
+                st.success(f"📈 Volume Trend: **{vol_trend}** — more participants joining")
+            elif "FALLING" in vol_trend:
+                st.warning(f"📉 Volume Trend: **{vol_trend}** — participation fading")
+            else:
+                st.info(f"↔️ Volume Trend: **{vol_trend}**")
+
+        # ── Volume charts ────────────────────────
+        with st.expander("📈 View Volume Charts"):
+            vol_df = volume_result.get("enriched_data", pd.DataFrame())
+            if not vol_df.empty and "Volume" in vol_df.columns:
+                st.caption("Volume vs 20-Day Average Volume (last 60 days)")
+                chart_df = vol_df[["Volume"]].dropna().tail(60)
+                st.bar_chart(chart_df, use_container_width=True)
+
+                if "Volume_MA" in vol_df.columns:
+                    ma_chart = vol_df[["Volume_MA"]].dropna().tail(60)
+                    st.line_chart(ma_chart, use_container_width=True)
+
+            if not vol_df.empty and "OBV" in vol_df.columns:
+                st.caption("On-Balance Volume — rising = smart money buying")
+                obv_chart = vol_df[["OBV"]].dropna().tail(60)
+                st.line_chart(obv_chart, use_container_width=True)
+
+            if not vol_df.empty and "CMF" in vol_df.columns:
+                st.caption("Chaikin Money Flow — above 0 = buying pressure")
+                cmf_chart = vol_df[["CMF"]].dropna().tail(60)
+                st.line_chart(cmf_chart, use_container_width=True)
 
         st.divider()
 
@@ -2856,6 +2958,36 @@ with tab11:
         "monitors positions, and places paper trades automatically."
     )
     st.divider()
+
+    # ── AUTO-RUN on page load ─────────────────────
+    # Streamlit has no background scheduler — the loop runs
+    # whenever someone is viewing this tab AND the interval has elapsed.
+    # Keep this tab open in your browser during market hours.
+    _auto_state = load_loop_state()
+    if _auto_state.get("status") == STATUS_RUNNING and is_market_open():
+        _last = _auto_state.get("last_run")
+        _interval = int(_auto_state.get("interval_minutes", 15))
+        _should_auto = False
+        if _last is None:
+            _should_auto = True
+        else:
+            try:
+                from datetime import datetime as _dt
+                _elapsed = (_dt.now() - _dt.strptime(_last, '%Y-%m-%d %H:%M:%S')).total_seconds() / 60
+                _should_auto = _elapsed >= _interval
+            except Exception:
+                _should_auto = False
+
+        if _should_auto:
+            with st.spinner(f"🤖 Auto-running cycle (every {_interval} min)..."):
+                _auto_result = run_one_cycle(force=False, scan_only=False)
+            if _auto_result.get("ran"):
+                st.toast(
+                    f"✅ Auto cycle complete | "
+                    f"Buys: {_auto_result['buys']} | Sells: {_auto_result['sells']}",
+                    icon="🤖"
+                )
+            st.rerun()
  
     # ── Market status banner ──────────────────────
     mkt_status = get_market_status()
@@ -2869,6 +3001,10 @@ with tab11:
             f"⚫ **Market {mkt_status['status']}** — {mkt_status['time']} | "
             "Loop will wait for market hours"
         )
+    st.caption(
+        "NSE Market Hours: 9:15 AM – 3:30 PM IST (Mon–Fri) | "
+        "All times shown in IST (UTC+5:30)"
+    )
  
     st.divider()
  
@@ -2905,7 +3041,7 @@ with tab11:
     )
     lc5.metric("Errors Today",  error_count)
  
-    st.caption(f"Last run: {last_run}  |  Next run: {next_run}")
+    st.caption(f"Last run: {last_run}  |  Next run: {next_run}  |  Current interval: every **{interval_min} min**")
  
     if last_error:
         st.error(f"⚠️ Last error: {last_error}")

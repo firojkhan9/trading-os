@@ -31,8 +31,6 @@ Building a 3-bucket autonomous portfolio engine:
 • Intraday   ₹60,000   — VWAP + Volume + ATR (high frequency, future)
  
 UPCOMING MILESTONES:
-25 · Position Lifecycle Manager    → portfolio/position\_manager.py
-26 · Autonomous Execution Loop     → engine/execution\_loop.py
 27 · Volume Intelligence Engine    → strategies/volume\_engine.py
 28 · Candlestick Engine            → strategies/candlestick\_engine.py
 29 · Market Structure Engine       → strategies/market\_structure.py
@@ -50,6 +48,6 @@ Remind git add/commit/push after each milestone · Never expose secrets
  
 \---
  
-LAST COMPLETED : Milestone 25A and 25 B · osition Lifecycle Manager    → portfolio/position\_manager.py and supabase table position\_lifecycle
+LAST COMPLETED : Milestone 26 — Autonomous Execution Loop
 CURRENT REQUIRED FIXES  :  at least 5 years data analysis for better results e.g. fundamental and financial analysis,one click selection of stocks for trade 
-NEXT MILESTONE : Milestone 26 — Autonomous Execution Loop File: engine/execution_loop.py
+NEXT MILESTONE : Milestone 27 — Volume Intelligence Engine

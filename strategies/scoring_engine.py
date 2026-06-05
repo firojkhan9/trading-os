@@ -5,21 +5,24 @@
 #          for each stock on a scale of 0-100
 #
 # UPDATED:
-#   Milestone 22 — Added Fundamental Score (10%)
-#   Milestone 23 — Added Sentiment Score (8%)
+#   Milestone 22 — Added Fundamental Score (8%)
+#   Milestone 23 — Added Sentiment Score (7%)
+#   Milestone 27 — Added Volume Score (10%) as 9th dimension
+#                  Weights rebalanced across all 9 dimensions
 #
 # HOW IT WORKS:
-#   We score 8 dimensions independently (0-100 each)
+#   We score 9 dimensions independently (0-100 each)
 #   then combine with weights:
 #
-#   1. Trend Score       (20%) — MA + EMA direction
-#   2. Momentum Score    (20%) — RSI + MACD
-#   3. Volatility Score  (12%) — Bollinger Bands position
-#   4. Signal Score      (17%) — Combined strategy votes
+#   1. Trend Score       (18%) — MA + EMA direction
+#   2. Momentum Score    (17%) — RSI + MACD
+#   3. Volatility Score  (10%) — Bollinger Bands position
+#   4. Signal Score      (15%) — Combined strategy votes
 #   5. Regime Score      (10%) — Is market favorable?
 #   6. RS Score          (5%)  — Beating NIFTY?
 #   7. Fundamental Score (8%)  — Is the business healthy?
-#   8. Sentiment Score   (8%)  — What is news saying?
+#   8. Sentiment Score   (7%)  — What is news saying?
+#   9. Volume Score      (10%) — Does volume confirm the move?
 #
 # OUTPUT:
 #   Composite Score: 0-100
@@ -35,14 +38,15 @@ import pandas as pd
 # ── Score Weights ─────────────────────────────────
 # Must sum to 1.0
 WEIGHTS = {
-    "trend":        0.20,   # Trend direction and strength
-    "momentum":     0.20,   # RSI and MACD momentum
-    "volatility":   0.12,   # Bollinger Bands position
-    "signal":       0.17,   # Combined strategy votes
+    "trend":        0.18,   # Trend direction and strength
+    "momentum":     0.17,   # RSI and MACD momentum
+    "volatility":   0.10,   # Bollinger Bands position
+    "signal":       0.15,   # Combined strategy votes
     "regime":       0.10,   # Market regime favorability
     "rs":           0.05,   # Relative strength vs NIFTY
     "fundamental":  0.08,   # Business health (M22)
-    "sentiment":    0.08,   # News sentiment (M23)
+    "sentiment":    0.07,   # News sentiment (M23)
+    "volume":       0.10,   # Volume confirmation (M27)
 }
 
 # ── Score thresholds ──────────────────────────────
@@ -280,6 +284,7 @@ def build_composite_score(
     rs_score=None,
     fundamental_score=None,   # M22 — pass None for neutral 50
     sentiment_score=None,     # M23 — pass None for neutral 50
+    volume_score=None,        # M27 — pass None for neutral 50
 ):
     """
     Master scoring function.
@@ -301,6 +306,7 @@ def build_composite_score(
     # Optional dimensions — neutral 50 if not provided
     fund_score = fundamental_score if fundamental_score is not None else 50
     sent_score = sentiment_score   if sentiment_score   is not None else 50
+    vol_score  = volume_score      if volume_score      is not None else 50
 
     individual_scores = {
         "Trend":         trend_score,
@@ -311,6 +317,7 @@ def build_composite_score(
         "Rel. Strength": rs_score_norm,
         "Fundamental":   fund_score,
         "Sentiment":     sent_score,
+        "Volume":        vol_score,
     }
 
     # ── Step 2: Weighted composite score ──────────
@@ -322,7 +329,8 @@ def build_composite_score(
         regime_score     * WEIGHTS["regime"]      +
         rs_score_norm    * WEIGHTS["rs"]          +
         fund_score       * WEIGHTS["fundamental"] +
-        sent_score       * WEIGHTS["sentiment"]
+        sent_score       * WEIGHTS["sentiment"]   +
+        vol_score        * WEIGHTS["volume"]
     )
     composite = round(composite)
 
@@ -347,14 +355,15 @@ def build_composite_score(
         "Individual Scores":  individual_scores,
         "Explanation":        explanation,
         "Score Breakdown": {
-            "Trend Score":         f"{trend_score}/100      (weight: 20%)",
-            "Momentum Score":      f"{momentum_score}/100   (weight: 20%)",
-            "Volatility Score":    f"{volatility_score}/100 (weight: 12%)",
-            "Signal Score":        f"{signal_score}/100     (weight: 17%)",
+            "Trend Score":         f"{trend_score}/100      (weight: 18%)",
+            "Momentum Score":      f"{momentum_score}/100   (weight: 17%)",
+            "Volatility Score":    f"{volatility_score}/100 (weight: 10%)",
+            "Signal Score":        f"{signal_score}/100     (weight: 15%)",
             "Regime Score":        f"{regime_score}/100     (weight: 10%)",
             "Rel. Strength Score": f"{rs_score_norm}/100    (weight: 5%)",
             "Fundamental Score":   f"{fund_score}/100       (weight: 8%)",
-            "Sentiment Score":     f"{sent_score}/100       (weight: 8%)",
+            "Sentiment Score":     f"{sent_score}/100       (weight: 7%)",
+            "Volume Score":        f"{vol_score}/100        (weight: 10%)",
         }
     }
 

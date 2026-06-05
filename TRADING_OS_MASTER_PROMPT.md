@@ -136,6 +136,7 @@ COMPLETED MILESTONES ✅
 24 Capital Allocation Engine✅ Done
 25A Position Lifecycle Integration ✅ Done
 25B Lifecycle Monitoring Engine ✅ Done
+26 Autonomous Execution Loop ✅ Done
 ---
 CURRENT RISK SETTINGS
 SettingValueStop Loss6%Profit Target15%Trailing Stop4% below peakMax Position Size10% of capitalMax Open Positions5 stocksStarting Capital (paper)₹1,00,000Brokerage0.1% per tradeDaily Loss Limit5%
@@ -273,7 +274,7 @@ PHASE 4B — INTELLIGENCE EXPANSION
 (Add new signal types to improve decision quality)
 ---
 Milestone 27 — Volume Intelligence Engine
-File: strategies/volume\_engine.py
+File: strategies/volume_engine.py
 Volume is a confirmation tool — never a standalone signal.
 Implement:
 
@@ -288,7 +289,7 @@ Volume-weighted confidence adjustment in scoring engine
 Rule: Any BUY signal with volume < average volume gets confidence reduced by 20%.
 ---
 Milestone 28 — Candlestick + Price Action Engine
-File: strategies/candlestick\_engine.py
+File: strategies/candlestick_engine.py
 Priority patterns to detect:
 
 Hammer (bullish reversal at support)
@@ -526,8 +527,8 @@ One milestone at a time — don't overwhelm, build incrementally
 ---
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
-Last completed milestone: Milestone 25 — Position Lifecycle Manager
-Next planned milestone:   Milestone 26 — Autonomous Execution Loop
+Last completed milestone: Milestone 26 — Autonomous Execution Loop
+Next planned milestone:   Milestone 27 — Volume Intelligence Engine
 ---
 Trading OS v4.0 — Firoj Khan
 "Survive first. Profit second. Automate third."

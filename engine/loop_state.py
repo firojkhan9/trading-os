@@ -322,17 +322,19 @@ def get_market_status() -> dict:
     """
     Return a human-readable market status dict.
     Used by the dashboard status banner.
+    Always uses IST (Asia/Kolkata = UTC+5:30).
     """
     now_ist  = datetime.now(IST)
     weekday  = now_ist.weekday()
     now_time = now_ist.time()
+    time_str = now_ist.strftime('%I:%M %p IST (UTC+5:30)')
 
     if weekday >= 5:
         return {
             "open":   False,
             "status": "CLOSED — Weekend",
             "color":  "gray",
-            "time":   now_ist.strftime('%I:%M %p IST'),
+            "time":   time_str,
         }
 
     if now_time < MARKET_OPEN:
@@ -340,7 +342,7 @@ def get_market_status() -> dict:
             "open":   False,
             "status": "PRE-MARKET",
             "color":  "orange",
-            "time":   now_ist.strftime('%I:%M %p IST'),
+            "time":   time_str,
         }
 
     if MARKET_OPEN <= now_time <= MARKET_CLOSE:
@@ -348,12 +350,12 @@ def get_market_status() -> dict:
             "open":   True,
             "status": "OPEN 🟢",
             "color":  "green",
-            "time":   now_ist.strftime('%I:%M %p IST'),
+            "time":   time_str,
         }
 
     return {
         "open":   False,
         "status": "CLOSED — After Hours",
         "color":  "gray",
-        "time":   now_ist.strftime('%I:%M %p IST'),
+        "time":   time_str,
     }

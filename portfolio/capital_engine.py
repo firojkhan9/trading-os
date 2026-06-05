@@ -342,17 +342,35 @@ def load_bucket_state():
         try:
             response = client.table("bucket_state").select("*").execute()
             if response.data:
-                df = pd.DataFrame(response.data)
-                df = df.rename(columns={
-                    "bucket":           "Bucket",
-                    "starting_capital": "Starting_Capital",
-                    "available_cash":   "Available_Cash",
-                    "deployed_capital": "Deployed_Capital",
-                    "total_pnl":        "Total_PNL",
-                    "total_trades":     "Total_Trades",
-                    "winning_trades":   "Winning_Trades",
-                    "last_updated":     "Last_Updated",
-                })
+                # Clean up any legacy __price__ rows (from old code)
+                price_rows = [
+                    r["bucket"] for r in response.data
+                    if str(r.get("bucket", "")).startswith("__price__")
+                ]
+                if price_rows:
+                    try:
+                        for pk in price_rows:
+                            client.table("bucket_state").delete().eq("bucket", pk).execute()
+                        print(f"🧹 Cleaned {len(price_rows)} legacy __price__ rows from bucket_state")
+                    except Exception:
+                        pass
+                # Filter to only real bucket rows
+                real_rows = [
+                    r for r in response.data
+                    if not str(r.get("bucket", "")).startswith("__price__")
+                ]
+                if real_rows:
+                    df = pd.DataFrame(real_rows)
+                    df = df.rename(columns={
+                        "bucket":           "Bucket",
+                        "starting_capital": "Starting_Capital",
+                        "available_cash":   "Available_Cash",
+                        "deployed_capital": "Deployed_Capital",
+                        "total_pnl":        "Total_PNL",
+                        "total_trades":     "Total_Trades",
+                        "winning_trades":   "Winning_Trades",
+                        "last_updated":     "Last_Updated",
+                    })
         except Exception as e:
             print(f"Supabase bucket_state load failed: {e} — using CSV")
 
@@ -912,34 +930,23 @@ def get_bucket_trade_history(bucket_name=None):
 
 
 def save_last_known_prices(prices: dict):
-    """Save last known good prices to bucket_state as a backup."""
-    client = get_client()
-    if not client:
-        return
+    """Save last known good prices to a local JSON file (not Supabase)."""
     try:
-        records = [
-            {"bucket": f"__price__{stock}", "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-             "available_cash": price}
-            for stock, price in prices.items()
-            if price and price > 0
-        ]
-        # reuse bucket_state table — prefix __price__ to avoid collision
-        client.table("bucket_state").upsert(records, on_conflict="bucket").execute()
+        import json
+        price_file = os.path.join(LOGS_DIR, "last_known_prices.json")
+        with open(price_file, "w") as f:
+            json.dump(prices, f)
     except Exception as e:
         print(f"⚠️ save_last_known_prices failed: {e}")
 
 def load_last_known_prices() -> dict:
-    """Load last known prices saved before midnight."""
-    client = get_client()
-    if not client:
-        return {}
+    """Load last known prices from local JSON file."""
     try:
-        response = client.table("bucket_state").select("*").execute()
-        prices = {}
-        for row in (response.data or []):
-            if str(row.get("bucket", "")).startswith("__price__"):
-                stock = row["bucket"].replace("__price__", "")
-                prices[stock] = float(row.get("available_cash") or 0)
-        return prices
+        import json
+        price_file = os.path.join(LOGS_DIR, "last_known_prices.json")
+        if os.path.exists(price_file):
+            with open(price_file, "r") as f:
+                return json.load(f)
     except Exception:
-        return {}  
+        pass
+    return {}

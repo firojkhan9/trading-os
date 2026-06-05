@@ -28,6 +28,12 @@ try:
 except ImportError:
     FUNDAMENTALS_AVAILABLE = False
 
+try:
+    from strategies.volume_engine import get_volume_score_only
+    VOLUME_AVAILABLE = True
+except ImportError:
+    VOLUME_AVAILABLE = False
+
 NIFTY_SYMBOL = "^NSEI"
 
 
@@ -153,6 +159,13 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
             except Exception:
                 fund_score = 50
 
+        vol_score = 50
+        if VOLUME_AVAILABLE:
+            try:
+                vol_score = get_volume_score_only(data)
+            except Exception:
+                vol_score = 50
+
         return build_composite_score(
             stock_name=stock_name,
             latest_close=s_close, ma20=s_ma20, rsi=s_rsi,
@@ -163,7 +176,8 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
             combined_weighted_score=combined["Score"],
             regime=regime, rs_score=None,
             fundamental_score=fund_score,
-            sentiment_score=None
+            sentiment_score=None,
+            volume_score=vol_score,
         )
     except Exception:
         return None

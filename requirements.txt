@@ -1,5 +1,6 @@
 # Core data + dashboard
 pandas
+numpy
 yfinance
 streamlit
 plotly
@@ -16,6 +17,9 @@ pytz              # Timezone handling for IST market hours (Milestone 26)
 gnews          # Google News RSS wrapper — free, no API key
 textblob       # NLP sentiment library — free, no API key
 feedparser     # RSS feed parser — backup news source
+
+# Volume Intelligence (NEW in Milestone 27)
+# numpy already listed above — used for OBV trend slope calculation
  
 # Already used in the project
 requests
