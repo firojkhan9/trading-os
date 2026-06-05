@@ -9,20 +9,23 @@
 #   Milestone 23 — Added Sentiment Score (7%)
 #   Milestone 27 — Added Volume Score (10%) as 9th dimension
 #                  Weights rebalanced across all 9 dimensions
+#   Milestone 28 — Added Candlestick Score (8%) as 10th dimension
+#                  Weights rebalanced: Signal -3%, Momentum -3%, Volatility -2%
 #
 # HOW IT WORKS:
-#   We score 9 dimensions independently (0-100 each)
+#   We score 10 dimensions independently (0-100 each)
 #   then combine with weights:
 #
-#   1. Trend Score       (18%) — MA + EMA direction
-#   2. Momentum Score    (17%) — RSI + MACD
-#   3. Volatility Score  (10%) — Bollinger Bands position
-#   4. Signal Score      (15%) — Combined strategy votes
-#   5. Regime Score      (10%) — Is market favorable?
-#   6. RS Score          (5%)  — Beating NIFTY?
-#   7. Fundamental Score (8%)  — Is the business healthy?
-#   8. Sentiment Score   (7%)  — What is news saying?
-#   9. Volume Score      (10%) — Does volume confirm the move?
+#   1. Trend Score        (18%) — MA + EMA direction
+#   2. Momentum Score     (14%) — RSI + MACD
+#   3. Volatility Score   ( 8%) — Bollinger Bands position
+#   4. Signal Score       (12%) — Combined strategy votes
+#   5. Regime Score       (10%) — Is market favorable?
+#   6. RS Score           ( 5%) — Beating NIFTY?
+#   7. Fundamental Score  ( 8%) — Is the business healthy?
+#   8. Sentiment Score    ( 7%) — What is news saying?
+#   9. Volume Score       (10%) — Does volume confirm the move?
+#  10. Candlestick Score  ( 8%) — Pattern + validation confidence
 #
 # OUTPUT:
 #   Composite Score: 0-100
@@ -39,15 +42,17 @@ import pandas as pd
 # Must sum to 1.0
 WEIGHTS = {
     "trend":        0.18,   # Trend direction and strength
-    "momentum":     0.17,   # RSI and MACD momentum
-    "volatility":   0.10,   # Bollinger Bands position
-    "signal":       0.15,   # Combined strategy votes
+    "momentum":     0.14,   # RSI and MACD momentum       (-0.03)
+    "volatility":   0.08,   # Bollinger Bands position    (-0.02)
+    "signal":       0.12,   # Combined strategy votes     (-0.03)
     "regime":       0.10,   # Market regime favorability
     "rs":           0.05,   # Relative strength vs NIFTY
     "fundamental":  0.08,   # Business health (M22)
     "sentiment":    0.07,   # News sentiment (M23)
     "volume":       0.10,   # Volume confirmation (M27)
+    "candlestick":  0.08,   # Candlestick pattern confidence (M28)
 }
+# Weights sum = 1.0 ✓
 
 # ── Score thresholds ──────────────────────────────
 STRONG_BUY_THRESHOLD  = 70
@@ -285,10 +290,11 @@ def build_composite_score(
     fundamental_score=None,   # M22 — pass None for neutral 50
     sentiment_score=None,     # M23 — pass None for neutral 50
     volume_score=None,        # M27 — pass None for neutral 50
+    candlestick_score=None,   # M28 — pass None for neutral 50
 ):
     """
     Master scoring function.
-    Takes all indicator values + fundamental + sentiment.
+    Takes all indicator values + fundamental + sentiment + volume + candlestick.
     Returns complete scoring analysis dict.
 
     All new parameters are optional (default neutral 50).
@@ -304,9 +310,10 @@ def build_composite_score(
     rs_score_norm    = calculate_rs_score_normalized(rs_score)
 
     # Optional dimensions — neutral 50 if not provided
-    fund_score = fundamental_score if fundamental_score is not None else 50
-    sent_score = sentiment_score   if sentiment_score   is not None else 50
-    vol_score  = volume_score      if volume_score      is not None else 50
+    fund_score   = fundamental_score  if fundamental_score  is not None else 50
+    sent_score   = sentiment_score    if sentiment_score    is not None else 50
+    vol_score    = volume_score       if volume_score       is not None else 50
+    candle_score = candlestick_score  if candlestick_score  is not None else 50
 
     individual_scores = {
         "Trend":         trend_score,
@@ -318,19 +325,21 @@ def build_composite_score(
         "Fundamental":   fund_score,
         "Sentiment":     sent_score,
         "Volume":        vol_score,
+        "Candlestick":   candle_score,
     }
 
     # ── Step 2: Weighted composite score ──────────
     composite = (
-        trend_score      * WEIGHTS["trend"]       +
-        momentum_score   * WEIGHTS["momentum"]    +
-        volatility_score * WEIGHTS["volatility"]  +
-        signal_score     * WEIGHTS["signal"]      +
-        regime_score     * WEIGHTS["regime"]      +
-        rs_score_norm    * WEIGHTS["rs"]          +
-        fund_score       * WEIGHTS["fundamental"] +
-        sent_score       * WEIGHTS["sentiment"]   +
-        vol_score        * WEIGHTS["volume"]
+        trend_score      * WEIGHTS["trend"]        +
+        momentum_score   * WEIGHTS["momentum"]     +
+        volatility_score * WEIGHTS["volatility"]   +
+        signal_score     * WEIGHTS["signal"]       +
+        regime_score     * WEIGHTS["regime"]       +
+        rs_score_norm    * WEIGHTS["rs"]           +
+        fund_score       * WEIGHTS["fundamental"]  +
+        sent_score       * WEIGHTS["sentiment"]    +
+        vol_score        * WEIGHTS["volume"]       +
+        candle_score     * WEIGHTS["candlestick"]
     )
     composite = round(composite)
 
@@ -356,14 +365,15 @@ def build_composite_score(
         "Explanation":        explanation,
         "Score Breakdown": {
             "Trend Score":         f"{trend_score}/100      (weight: 18%)",
-            "Momentum Score":      f"{momentum_score}/100   (weight: 17%)",
-            "Volatility Score":    f"{volatility_score}/100 (weight: 10%)",
-            "Signal Score":        f"{signal_score}/100     (weight: 15%)",
+            "Momentum Score":      f"{momentum_score}/100   (weight: 14%)",
+            "Volatility Score":    f"{volatility_score}/100 (weight: 8%)",
+            "Signal Score":        f"{signal_score}/100     (weight: 12%)",
             "Regime Score":        f"{regime_score}/100     (weight: 10%)",
             "Rel. Strength Score": f"{rs_score_norm}/100    (weight: 5%)",
             "Fundamental Score":   f"{fund_score}/100       (weight: 8%)",
             "Sentiment Score":     f"{sent_score}/100       (weight: 7%)",
             "Volume Score":        f"{vol_score}/100        (weight: 10%)",
+            "Candlestick Score":   f"{candle_score}/100     (weight: 8%)",
         }
     }
 

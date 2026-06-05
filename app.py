@@ -101,6 +101,12 @@ from strategies.volume_engine import (
     get_volume_score_only,
 )
 
+from strategies.candlestick_engine import (
+    get_candlestick_analysis,
+    get_candlestick_score_only,
+    load_candle_log,
+)
+
 from portfolio.capital_engine import (
     get_bucket_summary,
     get_portfolio_totals,
@@ -1201,6 +1207,16 @@ with tab4:
             with st.spinner(f"Analysing volume for {score_stock}..."):
                 volume_result      = get_volume_analysis(score_data.copy())
                 volume_score_value = volume_result["volume_score"]
+            with st.spinner(f"Detecting candlestick patterns for {score_stock}..."):
+                candle_result      = get_candlestick_analysis(
+                    stock_name        = score_stock,
+                    data              = score_data.copy(),
+                    regime            = score_regime,
+                    symbol            = score_symbol,
+                    use_mtf           = False,   # MTF disabled by default (extra fetch)
+                    trigger_lifecycle = False,   # manual tab — no auto lifecycle
+                )
+                candle_score_value = candle_result["candlestick_score"]
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
                 ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
@@ -1212,6 +1228,7 @@ with tab4:
                 fundamental_score=fund_score_value,
                 sentiment_score=sentiment_score_value,
                 volume_score=volume_score_value,
+                candlestick_score=candle_score_value,
             )
  
             # Get full explanation
@@ -1343,14 +1360,15 @@ with tab4:
         for dim, val in score_result["Individual Scores"].items():
             weight_map = {
                 "Trend":         "18%",
-                "Momentum":      "17%",
-                "Volatility":    "10%",
-                "Signal":        "15%",
+                "Momentum":      "14%",
+                "Volatility":    "8%",
+                "Signal":        "12%",
                 "Regime":        "10%",
                 "Rel. Strength": "5%",
                 "Fundamental":   "8%",
                 "Sentiment":     "7%",
                 "Volume":        "10%",
+                "Candlestick":   "8%",
             }
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
@@ -1742,6 +1760,113 @@ with tab4:
                 st.caption("Chaikin Money Flow — above 0 = buying pressure")
                 cmf_chart = vol_df[["CMF"]].dropna().tail(60)
                 st.line_chart(cmf_chart, use_container_width=True)
+
+        st.divider()
+
+        # ════════════════════════════════════════
+        # CANDLESTICK INTELLIGENCE SECTION — M28
+        # ════════════════════════════════════════
+        st.subheader("🕯️ Candlestick Intelligence")
+        st.caption(
+            "Candlestick patterns validated by trend, volume, support/resistance, "
+            "and market regime. Only confirmed patterns count."
+        )
+
+        c_score    = candle_result["candlestick_score"]
+        c_signal   = candle_result["signal"]
+        c_conf     = candle_result["confidence"]
+        c_dir      = candle_result["direction"]
+        c_detected = candle_result["patterns_detected"]
+        c_accepted = candle_result["patterns_accepted"]
+        c_rejected = candle_result["patterns_rejected"]
+        c_summary  = candle_result["summary"]
+        c_top      = candle_result["top_pattern"]
+
+        # ── Score banner ──────────────────────────
+        if c_accepted:
+            if "STRONG BUY" in c_signal:
+                st.success(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
+            elif "BUY" in c_signal:
+                st.success(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
+            elif "SELL" in c_signal:
+                st.error(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
+            else:
+                st.info(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
+        else:
+            st.info(f"### 🕯️ No confirmed pattern today  |  Candlestick Score: {c_score}/100")
+
+        st.caption(c_summary)
+        st.write("")
+
+        # ── Metrics ───────────────────────────────
+        cm1, cm2, cm3, cm4 = st.columns(4)
+        cm1.metric("Patterns Detected",  len(c_detected) if c_detected else 0,
+                   help="How many candle patterns were identified in today's data")
+        cm2.metric("Patterns Confirmed", len(c_accepted) if c_accepted else 0,
+                   help="Patterns that passed all 4 validation filters")
+        cm3.metric("Patterns Rejected",  len(c_rejected) if c_rejected else 0,
+                   help="Patterns detected but not confirmed (logged with reasons)")
+        cm4.metric("Candlestick Score",  f"{c_score}/100")
+
+        # ── Top pattern detail ─────────────────────
+        if c_top:
+            st.write("")
+            st.caption("📋 Top Confirmed Pattern — Validation Detail")
+            val_rows = [
+                {"Check":         "Trend Alignment",
+                 "Result":        "✅ PASS" if c_top["trend_ok"]  else "❌ FAIL",
+                 "Detail":        c_top["trend_reason"]},
+                {"Check":         "Volume Confirmation",
+                 "Result":        "✅ PASS" if c_top["volume_ok"] else "❌ FAIL",
+                 "Detail":        c_top["volume_reason"]},
+                {"Check":         "Support/Resistance",
+                 "Result":        "✅ NEAR" if c_top["sr_near"]   else "⚠️ NOT NEAR",
+                 "Detail":        c_top["sr_reason"]},
+                {"Check":         "Market Regime",
+                 "Result":        "✅ PASS" if c_top["regime_ok"] else "❌ FAIL",
+                 "Detail":        c_top["regime_reason"]},
+            ]
+            def color_check(val):
+                if "PASS" in str(val) or "NEAR" in str(val): return "color: green"
+                if "FAIL" in str(val): return "color: red"
+                return "color: orange"
+            val_df = pd.DataFrame(val_rows)
+            st.dataframe(
+                val_df.style.map(color_check, subset=["Result"]),
+                use_container_width=True, hide_index=True
+            )
+
+        # ── Rejected patterns ─────────────────────
+        if c_rejected:
+            with st.expander(f"📋 Rejected Patterns ({len(c_rejected)}) — Why they didn't qualify"):
+                st.caption(
+                    "These patterns were detected structurally but failed one or more "
+                    "confirmation filters. Logging them keeps a full audit trail."
+                )
+                for p in c_rejected:
+                    st.markdown(f"**{p.replace('_',' ').title()}** — not confirmed")
+
+        # ── Pattern audit log ─────────────────────
+        with st.expander("📜 Candlestick Audit Log — Recent Pattern History"):
+            candle_log_df = load_candle_log(max_rows=50)
+            if candle_log_df.empty:
+                st.info("No patterns logged yet. Run an analysis to start the log.")
+            else:
+                candle_log_display = candle_log_df[
+                    candle_log_df["Stock"] == score_stock
+                ] if score_stock in candle_log_df.get("Stock", pd.Series()).values else candle_log_df
+
+                def color_accepted(val):
+                    if val == "YES": return "color: green"
+                    if val == "NO":  return "color: red"
+                    return ""
+                if "Accepted" in candle_log_display.columns:
+                    st.dataframe(
+                        candle_log_display.style.map(color_accepted, subset=["Accepted"]),
+                        use_container_width=True, hide_index=True
+                    )
+                else:
+                    st.dataframe(candle_log_display, use_container_width=True, hide_index=True)
 
         st.divider()
 
