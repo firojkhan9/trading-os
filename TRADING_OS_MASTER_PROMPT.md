@@ -137,6 +137,7 @@ COMPLETED MILESTONES ✅
 25A Position Lifecycle Integration ✅ Done
 25B Lifecycle Monitoring Engine ✅ Done
 26 Autonomous Execution Loop ✅ Done
+27 Volume Intelligence Engine ✅ Done
 ---
 CURRENT RISK SETTINGS
 SettingValueStop Loss6%Profit Target15%Trailing Stop4% below peakMax Position Size10% of capitalMax Open Positions5 stocksStarting Capital (paper)₹1,00,000Brokerage0.1% per tradeDaily Loss Limit5%
@@ -309,6 +310,266 @@ Support/Resistance level proximity
 Market regime (not in bear market for BUY signals)
 
 Unconfirmed patterns = IGNORED (logged as REJECTED with reason)
+
+# Milestone 28 — Advanced Candlestick Intelligence Engine
+
+## File
+
+strategies/candlestick_engine.py
+
+## Objective
+
+Build a dedicated candlestick intelligence engine that detects, validates, scores, and logs candlestick signals before they enter the composite scoring and orchestration layers.
+
+Candlestick patterns are NOT standalone buy/sell signals.
+
+Every detected pattern must pass multiple confirmation layers before it can contribute to a trading decision.
+
+---
+
+# 28A — Pattern Detection Engine
+
+Implement detection logic for:
+
+## Bullish Patterns
+
+* Hammer
+* Bullish Engulfing
+* Morning Star
+* Breakout Candle
+
+## Bearish Patterns
+
+* Shooting Star
+* Bearish Engulfing
+* Evening Star
+
+## Neutral Patterns
+
+* Doji
+
+Detection output format:
+
+{
+"pattern": "HAMMER",
+"direction": "BULLISH",
+"strength": 0.82,
+"candle_date": "YYYY-MM-DD"
+}
+
+Pattern detection ONLY identifies the candle structure.
+
+No trade decisions are allowed in this layer.
+
+---
+
+# 28B — Context Validation Engine
+
+A detected pattern must pass ALL validation filters.
+
+## Trend Confirmation
+
+Bullish patterns require:
+
+Close > EMA20 > EMA50
+
+or
+
+EMA20 slope positive
+
+Bearish patterns require:
+
+Close < EMA20 < EMA50
+
+or
+
+EMA20 slope negative
+
+If trend does not agree:
+
+Pattern = REJECTED
+
+Reason logged.
+
+---
+
+## Volume Confirmation
+
+Signal candle volume must exceed average volume.
+
+Suggested rule:
+
+Volume > 1.5 × 20-day average volume
+
+Scoring:
+
+Weak Volume = Reject
+
+Average Volume = Low Confidence
+
+Strong Volume = High Confidence
+
+---
+
+## Support / Resistance Confirmation
+
+Bullish reversals must occur near support.
+
+Bearish reversals must occur near resistance.
+
+Example:
+
+distance_to_level < 2%
+
+Patterns occurring in the middle of a range should be rejected.
+
+---
+
+## Market Regime Confirmation
+
+Bullish patterns allowed only when:
+
+* BULL regime
+* STRONG BULL regime
+
+Bearish patterns allowed when:
+
+* BEAR regime
+* STRONG BEAR regime
+
+SIDEWAYS regime reduces confidence.
+
+Rejected patterns must record the regime reason.
+
+---
+
+# 28C — Candlestick Confidence Scoring
+
+Convert valid patterns into a confidence score.
+
+Suggested weights:
+
+Pattern Quality = 30
+
+Trend Confirmation = 25
+
+Volume Confirmation = 20
+
+Support/Resistance Context = 15
+
+Market Regime Alignment = 10
+
+Maximum Score = 100
+
+Output:
+
+{
+"pattern": "HAMMER",
+"confidence": 82,
+"signal": "BUY"
+}
+
+This score becomes an input to the Composite Score Engine.
+
+---
+
+# 28D — Pattern Audit & Rejection Logging
+
+Every detected pattern must be logged.
+
+Accepted and rejected patterns should both be stored.
+
+Log fields:
+
+* Stock
+* Pattern
+* Direction
+* Confidence Score
+* Accepted / Rejected
+* Rejection Reason
+* Timestamp
+
+Example:
+
+RELIANCE
+HAMMER
+Rejected
+Reason: Volume below threshold
+
+This creates a complete audit trail for future optimization.
+
+---
+
+# 28E — Multi-Timeframe Confirmation
+
+Add optional confirmation using higher timeframe trend.
+
+Examples:
+
+Daily Hammer
++
+Weekly Uptrend
+==============
+
+Strong Buy
+
+Daily Hammer
++
+Weekly Downtrend
+================
+
+Weak Buy
+
+Suggested scoring boost:
+
+Confirmed by higher timeframe:
++10 confidence
+
+Contradicted by higher timeframe:
+-10 confidence
+
+This feature should be configurable.
+
+---
+
+# 28F — Lifecycle Integration
+
+Candlestick Engine must NEVER place trades.
+
+Its responsibility ends at producing a validated signal.
+
+Workflow:
+
+Pattern Detected
+→ Validation Passed
+→ Confidence Calculated
+→ Signal Logged
+→ Position Lifecycle
+WATCHLIST → READY
+
+Execution decisions remain the responsibility of:
+
+* Orchestrator (Milestone 31)
+* Decision Engine (Milestone 32)
+* Execution Engine
+
+This keeps signal generation separated from trade execution.
+
+---
+
+# Deliverables
+
+1. Detect all priority candlestick patterns.
+2. Validate using trend, volume, support/resistance, and regime filters.
+3. Calculate confidence scores.
+4. Log accepted and rejected signals.
+5. Support optional multi-timeframe confirmation.
+6. Integrate with Position Lifecycle Manager.
+7. Produce structured outputs for Composite Score and Orchestrator engines.
+
+
+
+
 ---
 Milestone 29 — Market Structure Engine
 File: strategies/market\_structure.py
@@ -527,8 +788,8 @@ One milestone at a time — don't overwhelm, build incrementally
 ---
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
-Last completed milestone: Milestone 26 — Autonomous Execution Loop
-Next planned milestone:   Milestone 27 — Volume Intelligence Engine
+Last completed milestone: Milestone 27 — Volume Intelligence Engine
+Next planned milestone:   Milestone 28 — Candlestick + Price Action Engine
 ---
 Trading OS v4.0 — Firoj Khan
 "Survive first. Profit second. Automate third."

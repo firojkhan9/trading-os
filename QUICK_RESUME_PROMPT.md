@@ -31,7 +31,6 @@ Building a 3-bucket autonomous portfolio engine:
 • Intraday   ₹60,000   — VWAP + Volume + ATR (high frequency, future)
  
 UPCOMING MILESTONES:
-27 · Volume Intelligence Engine    → strategies/volume\_engine.py
 28 · Candlestick Engine            → strategies/candlestick\_engine.py
 29 · Market Structure Engine       → strategies/market\_structure.py
 30 · Advanced Portfolio Risk       → risk/portfolio\_risk.py
@@ -48,6 +47,6 @@ Remind git add/commit/push after each milestone · Never expose secrets
  
 \---
  
-LAST COMPLETED : Milestone 26 — Autonomous Execution Loop
+LAST COMPLETED : Milestone 27 — Volume Intelligence Engine
 CURRENT REQUIRED FIXES  :  at least 5 years data analysis for better results e.g. fundamental and financial analysis,one click selection of stocks for trade 
-NEXT MILESTONE : Milestone 27 — Volume Intelligence Engine
+NEXT MILESTONE : Milestone 28 — Candlestick + Price Action Engine
