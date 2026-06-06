@@ -34,6 +34,12 @@ try:
 except ImportError:
     VOLUME_AVAILABLE = False
 
+try:
+    from strategies.market_structure import get_market_structure_analysis, get_market_structure_score_only
+    MARKET_STRUCTURE_AVAILABLE = True
+except ImportError:
+    MARKET_STRUCTURE_AVAILABLE = False
+
 NIFTY_SYMBOL = "^NSEI"
 
 
@@ -166,6 +172,20 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
             except Exception:
                 vol_score = 50
 
+        ms_score = 50
+        if MARKET_STRUCTURE_AVAILABLE:
+            try:
+                ms_score = get_market_structure_score_only(data)
+            except Exception:
+                ms_score = 50
+
+        candle_score = 50
+        try:
+            from strategies.candlestick_engine import get_candlestick_score_only
+            candle_score = get_candlestick_score_only(data, regime=regime)
+        except Exception:
+            candle_score = 50
+
         return build_composite_score(
             stock_name=stock_name,
             latest_close=s_close, ma20=s_ma20, rsi=s_rsi,
@@ -178,6 +198,8 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
             fundamental_score=fund_score,
             sentiment_score=None,
             volume_score=vol_score,
+            candlestick_score=candle_score,
+            market_structure_score=ms_score,
         )
     except Exception:
         return None
@@ -248,6 +270,32 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                     composite_score = score_result["Composite Score"]
                     score_action    = score_result["Action"]
 
+            # Market Structure (Milestone 29)
+            ms_trend   = "N/A"
+            ms_score_v = 50
+            ms_breakout= "—"
+            ms_squeeze = "—"
+            ms_hh = ms_hl = ms_lh = ms_ll = 0
+            ms_support = ms_resistance = "N/A"
+
+            if MARKET_STRUCTURE_AVAILABLE:
+                try:
+                    ms = get_market_structure_analysis(name, data)
+                    ms_trend    = ms.get("trend_state", "N/A")
+                    ms_score_v  = ms.get("market_structure_score", 50)
+                    ms_breakout = "YES 🚀" if ms["breakout"].get("breakout") else "—"
+                    ms_squeeze  = ms["squeeze"].get("squeeze_strength", "NONE")
+                    ms_hh       = ms.get("hh_count", 0)
+                    ms_hl       = ms.get("hl_count", 0)
+                    ms_lh       = ms.get("lh_count", 0)
+                    ms_ll       = ms.get("ll_count", 0)
+                    sup = ms.get("nearest_support")
+                    res = ms.get("nearest_resistance")
+                    ms_support    = f"₹{sup['price']:.0f} ({sup['touches']}x)" if sup else "N/A"
+                    ms_resistance = f"₹{res['price']:.0f} ({res['touches']}x)" if res else "N/A"
+                except Exception:
+                    pass
+
             rows.append({
                 "Stock":           name,
                 "Symbol":          symbol,
@@ -259,6 +307,16 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                 "Buy Votes":       buy_votes,
                 "Score":           composite_score if composite_score is not None else 0,
                 "Action":          score_action,
+                "Trend State":     ms_trend,
+                "Struct Score":    ms_score_v,
+                "Support":         ms_support,
+                "Resistance":      ms_resistance,
+                "Breakout":        ms_breakout,
+                "Squeeze":         ms_squeeze,
+                "HH":              ms_hh,
+                "HL":              ms_hl,
+                "LH":              ms_lh,
+                "LL":              ms_ll,
                 "_return":         period_return if period_return is not None else -999,
                 "_score":          composite_score if composite_score is not None else 0,
                 "_rs":             rs_vs_nifty if rs_vs_nifty is not None else -999,

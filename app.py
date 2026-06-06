@@ -101,10 +101,9 @@ from strategies.volume_engine import (
     get_volume_score_only,
 )
 
-from strategies.candlestick_engine import (
-    get_candlestick_analysis,
-    get_candlestick_score_only,
-    load_candle_log,
+from strategies.market_structure import (
+    get_market_structure_analysis,
+    get_market_structure_score_only,
 )
 
 from portfolio.capital_engine import (
@@ -1080,19 +1079,42 @@ with tab3:
         for col, func in style_cols.items():
             styled = styled.map(func, subset=[col])
 
-        st.dataframe(styled, use_container_width=True, hide_index=True)
-
-        st.divider()
-
-        # ── Quick Buy Panel ───────────────────
-        st.divider()
-        st.subheader("💰 Quick Trade from Scanner")
-        st.caption("Select a stock from the scan results and trade directly here")
-        scanner_trade_stock = st.selectbox(
-            "Select stock to trade:",
-            options=STOCK_NAMES,
-            key="scanner_trade_stock"
+        # ── Full scan table with row selection ────
+        st.caption("👆 Click any row to instantly select that stock for trading")
+        scan_selection = st.dataframe(
+            styled,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
         )
+
+        # Auto-update selected stock from row click
+        if scan_selection and scan_selection.selection.rows:
+            clicked_idx   = scan_selection.selection.rows[0]
+            clicked_stock = full_df.iloc[clicked_idx]["Stock"]
+            if clicked_stock in STOCK_NAMES:
+                st.session_state["scanner_trade_stock_sel"] = clicked_stock
+
+        st.divider()
+
+        # ── Quick Trade Panel ─────────────────
+        st.subheader("💰 Quick Trade from Scanner")
+        st.caption("Click a row above to auto-select, or pick manually")
+
+        # Determine default: row click > previous selection > first stock
+        scan_default = st.session_state.get("scanner_trade_stock_sel", STOCK_NAMES[0])
+        scan_default_idx = STOCK_NAMES.index(scan_default) if scan_default in STOCK_NAMES else 0
+
+        scanner_trade_stock = st.selectbox(
+            "Selected stock:",
+            options=STOCK_NAMES,
+            index=scan_default_idx,
+            key="scanner_trade_stock",
+        )
+        # Keep session state in sync with dropdown
+        st.session_state["scanner_trade_stock_sel"] = scanner_trade_stock
+
         render_quick_buy_panel(scanner_trade_stock, "scanner")
         st.divider()
 
@@ -1154,8 +1176,13 @@ with tab4:
             )
             score_data_long.columns = [col[0] for col in score_data_long.columns]
  
-            # Also fetch 60d for indicators
-            score_data = fetch_stock_data(score_symbol)
+            # Fetch 1y for indicators — better EMA, market structure, candlestick accuracy
+            score_data = yf.download(
+                tickers=score_symbol, period="1y",
+                interval="1d", progress=False
+            )
+            score_data.columns = [col[0] for col in score_data.columns]
+            score_data = score_data.dropna(subset=["Close"])
  
             # Run all strategies
             score_analyzed  = analyze_stock(score_data.copy())
@@ -1207,15 +1234,12 @@ with tab4:
             with st.spinner(f"Analysing volume for {score_stock}..."):
                 volume_result      = get_volume_analysis(score_data.copy())
                 volume_score_value = volume_result["volume_score"]
-            with st.spinner(f"Detecting candlestick patterns for {score_stock}..."):
-                candle_result      = get_candlestick_analysis(
-                    stock_name        = score_stock,
-                    data              = score_data.copy(),
-                    regime            = score_regime,
-                    symbol            = score_symbol,
-                    use_mtf           = False,   # MTF disabled by default (extra fetch)
-                    trigger_lifecycle = False,   # manual tab — no auto lifecycle
-                )
+            with st.spinner(f"Analysing market structure for {score_stock}..."):
+                ms_result      = get_market_structure_analysis(score_stock, score_data.copy())
+                ms_score_value = ms_result["market_structure_score"]
+            with st.spinner(f"Analysing candlestick patterns for {score_stock}..."):
+                from strategies.candlestick_engine import get_candlestick_analysis
+                candle_result      = get_candlestick_analysis(score_stock, score_data.copy(), regime=score_regime)
                 candle_score_value = candle_result["candlestick_score"]
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
@@ -1229,6 +1253,7 @@ with tab4:
                 sentiment_score=sentiment_score_value,
                 volume_score=volume_score_value,
                 candlestick_score=candle_score_value,
+                market_structure_score=ms_score_value,
             )
  
             # Get full explanation
@@ -1360,15 +1385,14 @@ with tab4:
         for dim, val in score_result["Individual Scores"].items():
             weight_map = {
                 "Trend":         "18%",
-                "Momentum":      "14%",
-                "Volatility":    "8%",
-                "Signal":        "12%",
+                "Momentum":      "17%",
+                "Volatility":    "10%",
+                "Signal":        "15%",
                 "Regime":        "10%",
                 "Rel. Strength": "5%",
                 "Fundamental":   "8%",
                 "Sentiment":     "7%",
                 "Volume":        "10%",
-                "Candlestick":   "8%",
             }
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
@@ -1764,109 +1788,150 @@ with tab4:
         st.divider()
 
         # ════════════════════════════════════════
-        # CANDLESTICK INTELLIGENCE SECTION — M28
+        # MARKET STRUCTURE SECTION — M29
         # ════════════════════════════════════════
-        st.subheader("🕯️ Candlestick Intelligence")
-        st.caption(
-            "Candlestick patterns validated by trend, volume, support/resistance, "
-            "and market regime. Only confirmed patterns count."
-        )
+        st.subheader("🏗️ Market Structure Analysis")
+        st.caption("Price structure — where is this stock in its journey? Higher Highs, Support/Resistance, Breakouts.")
 
-        c_score    = candle_result["candlestick_score"]
-        c_signal   = candle_result["signal"]
-        c_conf     = candle_result["confidence"]
-        c_dir      = candle_result["direction"]
-        c_detected = candle_result["patterns_detected"]
-        c_accepted = candle_result["patterns_accepted"]
-        c_rejected = candle_result["patterns_rejected"]
-        c_summary  = candle_result["summary"]
-        c_top      = candle_result["top_pattern"]
+        ms_score_display = ms_result["market_structure_score"]
+        ms_trend_display = ms_result["trend_state"]
 
-        # ── Score banner ──────────────────────────
-        if c_accepted:
-            if "STRONG BUY" in c_signal:
-                st.success(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
-            elif "BUY" in c_signal:
-                st.success(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
-            elif "SELL" in c_signal:
-                st.error(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
-            else:
-                st.info(f"### 🕯️ {c_signal}  |  Confidence: {c_conf}/100")
+        # Score banner
+        if ms_score_display >= 70:
+            st.success(f"### Structure Score: {ms_score_display}/100 — Bullish Structure ✅")
+        elif ms_score_display >= 50:
+            st.info(f"### Structure Score: {ms_score_display}/100 — Neutral Structure")
         else:
-            st.info(f"### 🕯️ No confirmed pattern today  |  Candlestick Score: {c_score}/100")
+            st.warning(f"### Structure Score: {ms_score_display}/100 — Weak/Bearish Structure ⚠️")
 
-        st.caption(c_summary)
+        st.caption(ms_result["summary"])
         st.write("")
 
-        # ── Metrics ───────────────────────────────
-        cm1, cm2, cm3, cm4 = st.columns(4)
-        cm1.metric("Patterns Detected",  len(c_detected) if c_detected else 0,
-                   help="How many candle patterns were identified in today's data")
-        cm2.metric("Patterns Confirmed", len(c_accepted) if c_accepted else 0,
-                   help="Patterns that passed all 4 validation filters")
-        cm3.metric("Patterns Rejected",  len(c_rejected) if c_rejected else 0,
-                   help="Patterns detected but not confirmed (logged with reasons)")
-        cm4.metric("Candlestick Score",  f"{c_score}/100")
+        # Core metrics row
+        mm1, mm2, mm3, mm4, mm5 = st.columns(5)
+        mm1.metric("Trend State",  ms_trend_display)
+        mm2.metric("HH / HL",      f"{ms_result['hh_count']} / {ms_result['hl_count']}",
+                   help="Higher Highs / Higher Lows — bullish if both > 0")
+        mm3.metric("LH / LL",      f"{ms_result['lh_count']} / {ms_result['ll_count']}",
+                   help="Lower Highs / Lower Lows — bearish if both > 0")
+        mm4.metric("EMA20",        f"₹{ms_result.get('ema20', 'N/A')}",
+                   help="20-day EMA — price above = bullish")
+        mm5.metric("EMA50",        f"₹{ms_result.get('ema50', 'N/A')}",
+                   help="50-day EMA — price above = medium-term bullish")
 
-        # ── Top pattern detail ─────────────────────
-        if c_top:
-            st.write("")
-            st.caption("📋 Top Confirmed Pattern — Validation Detail")
-            val_rows = [
-                {"Check":         "Trend Alignment",
-                 "Result":        "✅ PASS" if c_top["trend_ok"]  else "❌ FAIL",
-                 "Detail":        c_top["trend_reason"]},
-                {"Check":         "Volume Confirmation",
-                 "Result":        "✅ PASS" if c_top["volume_ok"] else "❌ FAIL",
-                 "Detail":        c_top["volume_reason"]},
-                {"Check":         "Support/Resistance",
-                 "Result":        "✅ NEAR" if c_top["sr_near"]   else "⚠️ NOT NEAR",
-                 "Detail":        c_top["sr_reason"]},
-                {"Check":         "Market Regime",
-                 "Result":        "✅ PASS" if c_top["regime_ok"] else "❌ FAIL",
-                 "Detail":        c_top["regime_reason"]},
-            ]
-            def color_check(val):
-                if "PASS" in str(val) or "NEAR" in str(val): return "color: green"
-                if "FAIL" in str(val): return "color: red"
-                return "color: orange"
-            val_df = pd.DataFrame(val_rows)
-            st.dataframe(
-                val_df.style.map(color_check, subset=["Result"]),
-                use_container_width=True, hide_index=True
-            )
+        st.write("")
 
-        # ── Rejected patterns ─────────────────────
-        if c_rejected:
-            with st.expander(f"📋 Rejected Patterns ({len(c_rejected)}) — Why they didn't qualify"):
-                st.caption(
-                    "These patterns were detected structurally but failed one or more "
-                    "confirmation filters. Logging them keeps a full audit trail."
+        # Support / Resistance
+        sr1, sr2 = st.columns(2)
+        with sr1:
+            st.caption("🟢 Nearest Support")
+            sup = ms_result.get("nearest_support")
+            if sup:
+                st.metric(
+                    f"₹{sup['price']:.2f}",
+                    f"{sup['touches']} touch(es)",
+                    help="Price level where buyers have stepped in before"
                 )
-                for p in c_rejected:
-                    st.markdown(f"**{p.replace('_',' ').title()}** — not confirmed")
-
-        # ── Pattern audit log ─────────────────────
-        with st.expander("📜 Candlestick Audit Log — Recent Pattern History"):
-            candle_log_df = load_candle_log(max_rows=50)
-            if candle_log_df.empty:
-                st.info("No patterns logged yet. Run an analysis to start the log.")
+                latest_c = float(score_data["Close"].iloc[-1])
+                pct_away = round((latest_c - sup["price"]) / latest_c * 100, 1)
+                st.caption(f"Price is {pct_away}% above this support")
             else:
-                candle_log_display = candle_log_df[
-                    candle_log_df["Stock"] == score_stock
-                ] if score_stock in candle_log_df.get("Stock", pd.Series()).values else candle_log_df
+                st.info("No clear support zone identified in recent data")
 
-                def color_accepted(val):
-                    if val == "YES": return "color: green"
-                    if val == "NO":  return "color: red"
-                    return ""
-                if "Accepted" in candle_log_display.columns:
+        with sr2:
+            st.caption("🔴 Nearest Resistance")
+            res = ms_result.get("nearest_resistance")
+            if res:
+                st.metric(
+                    f"₹{res['price']:.2f}",
+                    f"{res['touches']} touch(es)",
+                    help="Price level where sellers have emerged before"
+                )
+                latest_c  = float(score_data["Close"].iloc[-1])
+                pct_away  = round((res["price"] - latest_c) / latest_c * 100, 1)
+                st.caption(f"Price is {pct_away}% below this resistance")
+            else:
+                st.info("No clear resistance zone identified in recent data")
+
+        st.write("")
+
+        # Breakout / Breakdown / Consolidation / Squeeze row
+        bs1, bs2, bs3, bs4 = st.columns(4)
+
+        breakout_info = ms_result.get("breakout", {})
+        breakdown_info= ms_result.get("breakdown", {})
+        consol_info   = ms_result.get("consolidation", {})
+        squeeze_info  = ms_result.get("squeeze", {})
+
+        with bs1:
+            if breakout_info.get("breakout"):
+                st.success(
+                    f"🚀 **BREAKOUT**\n\n"
+                    f"{breakout_info.get('strength', '')}\n\n"
+                    f"+{breakout_info.get('distance_pct', 0)}% above resistance\n\n"
+                    f"Vol: {breakout_info.get('vol_ratio', '?')}x avg"
+                )
+            else:
+                st.info("No Breakout")
+
+        with bs2:
+            if breakdown_info.get("breakdown"):
+                st.error(
+                    f"🔻 **BREAKDOWN**\n\n"
+                    f"{breakdown_info.get('strength', '')}\n\n"
+                    f"-{breakdown_info.get('distance_pct', 0)}% below support"
+                )
+            else:
+                st.info("No Breakdown")
+
+        with bs3:
+            if consol_info.get("consolidation"):
+                st.warning(
+                    f"📦 **CONSOLIDATION**\n\n"
+                    f"Compression: {consol_info.get('compression_score', 0)}/100\n\n"
+                    f"Range: {consol_info.get('range_pct', '?')}%"
+                )
+            else:
+                st.info("No Consolidation")
+
+        with bs4:
+            if squeeze_info.get("squeeze_active"):
+                st.warning(
+                    f"⚡ **SQUEEZE ACTIVE**\n\n"
+                    f"{squeeze_info.get('squeeze_strength', '')}\n\n"
+                    f"BB Width in bottom {squeeze_info.get('bb_width_percentile', '?')}%"
+                )
+            else:
+                st.info(f"No Squeeze\n\nBB Width: {squeeze_info.get('bb_width_percentile', '?')}th pct")
+
+        # Swing points table
+        with st.expander("📋 Recent Swing Highs & Lows"):
+            swing_cols = st.columns(2)
+            with swing_cols[0]:
+                st.caption("Swing Highs (recent first)")
+                sh_list = ms_result.get("swing_highs", [])
+                if sh_list:
                     st.dataframe(
-                        candle_log_display.style.map(color_accepted, subset=["Accepted"]),
+                        pd.DataFrame(sh_list)[["price", "date"]].rename(
+                            columns={"price": "High ₹", "date": "Date"}
+                        ),
                         use_container_width=True, hide_index=True
                     )
                 else:
-                    st.dataframe(candle_log_display, use_container_width=True, hide_index=True)
+                    st.info("No swing highs found")
+
+            with swing_cols[1]:
+                st.caption("Swing Lows (recent first)")
+                sl_list = ms_result.get("swing_lows", [])
+                if sl_list:
+                    st.dataframe(
+                        pd.DataFrame(sl_list)[["price", "date"]].rename(
+                            columns={"price": "Low ₹", "date": "Date"}
+                        ),
+                        use_container_width=True, hide_index=True
+                    )
+                else:
+                    st.info("No swing lows found")
 
         st.divider()
 
