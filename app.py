@@ -663,154 +663,152 @@ with tab1:
     # So the Suggestion column can say ADD/SELL based
     # on the actual current strategy signal, not just price.
     # AFTER — single source of truth
-from portfolio.capital_engine import load_portfolio_from_bucket_trades
+    from portfolio.capital_engine import load_portfolio_from_bucket_trades
 
-portfolio_raw           = load_portfolio_from_bucket_trades()
-portfolio_combined_sigs = {}
+    portfolio_raw           = load_portfolio_from_bucket_trades()
+    portfolio_combined_sigs = {}
 
-if portfolio_raw is not None and not portfolio_raw.empty:
-    for held_stock in portfolio_raw['Stock'].tolist():
-        try:
-            held_symbol = WATCHLIST.get(held_stock)
-            if held_symbol:
-                held_data     = fetch_stock_data(held_symbol)
-                held_analyzed = analyze_stock(held_data.copy())
-                held_ema      = calculate_ema_signals(held_data.copy())
-                held_bb       = analyze_bollinger(held_data.copy())
-                held_macd     = analyze_macd(held_data.copy())
-                held_combined = build_combined_summary(
-                    ma_signal   = held_analyzed.iloc[-1]['Signal'],
-                    ema_signal  = held_ema.iloc[-1]['EMA_Signal'],
-                    bb_signal   = held_bb.iloc[-1]['BB_Signal'],
-                    macd_signal = held_macd.iloc[-1]['MACD_Crossover'],
-                )
-                portfolio_combined_sigs[held_stock] = held_combined["Final Signal"]
-        except Exception:
-            pass
-
-    # Remove the debug lines and call get_portfolio_summary normally
-    st.subheader("📂 Current Portfolio")
-    portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
- 
-    if portfolio_df.empty:
-        st.info("No open positions yet — click BUY above to start!")
- 
-    else:
-        # ── Headline summary metrics ──────────────
-        # Pull totals from the TOTAL row at the bottom
-        total_row = portfolio_df[portfolio_df['Stock'] == '📊 TOTAL']
-        if not total_row.empty:
-            t           = total_row.iloc[0]
-            t_invested  = float(t['Invested ₹'])
-            t_value     = float(t['Value ₹'])
-            t_pnl       = float(t['P&L ₹'])
-            t_pnl_pct   = float(t['P&L %'])
- 
-            pm1, pm2, pm3, pm4 = st.columns(4)
-            pm1.metric(
-                "Total Invested",
-                f"₹{t_invested:,.0f}"
-            )
-            pm2.metric(
-                "Current Value",
-                f"₹{t_value:,.0f}",
-                delta=f"₹{t_pnl:+,.0f}"
-            )
-            pm3.metric(
-                "Total P&L ₹",
-                f"₹{t_pnl:+,.0f}"
-            )
-            pm4.metric(
-                "Total P&L %",
-                f"{t_pnl_pct:+.2f}%"
-            )
-            st.write("")
- 
-        # ── Color functions for the table ─────────
-        def color_pnl_val(val):
-            """Green for profit, red for loss."""
+    if portfolio_raw is not None and not portfolio_raw.empty:
+        for held_stock in portfolio_raw['Stock'].tolist():
             try:
-                f = float(val)
-                if f > 0: return "color: green; font-weight: bold"
-                if f < 0: return "color: red; font-weight: bold"
+                held_symbol = WATCHLIST.get(held_stock)
+                if held_symbol:
+                    held_data     = fetch_stock_data(held_symbol)
+                    held_analyzed = analyze_stock(held_data.copy())
+                    held_ema      = calculate_ema_signals(held_data.copy())
+                    held_bb       = analyze_bollinger(held_data.copy())
+                    held_macd     = analyze_macd(held_data.copy())
+                    held_combined = build_combined_summary(
+                        ma_signal   = held_analyzed.iloc[-1]['Signal'],
+                        ema_signal  = held_ema.iloc[-1]['EMA_Signal'],
+                        bb_signal   = held_bb.iloc[-1]['BB_Signal'],
+                        macd_signal = held_macd.iloc[-1]['MACD_Crossover'],
+                    )
+                    portfolio_combined_sigs[held_stock] = held_combined["Final Signal"]
             except Exception:
                 pass
-            return ""
- 
-        def color_suggestion(val):
-            """Color each suggestion by action type."""
-            s = str(val)
-            if "Stop Loss"    in s: return "color: red;       font-weight: bold"
-            if "Take Profit"  in s: return "color: green;     font-weight: bold"
-            if "Strong Signal Exit" in s: return "color: red; font-weight: bold"
-            if "Signal Exit"  in s: return "color: orange;    font-weight: bold"
-            if "ADD"          in s: return "color: green;     font-weight: bold"
-            if "Near Target"  in s: return "color: goldenrod"
-            if "Watch Loss"   in s: return "color: orange"
-            if "Overall Loss" in s: return "color: red;       font-weight: bold"
-            if "Overall Profit" in s: return "color: green;   font-weight: bold"
-            return "color: gray"
- 
-        def highlight_total_row(row):
-            """Bold background for the TOTAL row."""
-            if row['Stock'] == '📊 TOTAL':
-                return ['font-weight: bold; background-color: #1a1a2e'] * len(row)
-            return [''] * len(row)
- 
-        # ── Display the table ─────────────────────
-        st.dataframe(
-            portfolio_df.style
-                .map(color_pnl_val,    subset=["P&L ₹", "P&L %"])
-                .map(color_suggestion, subset=["Suggestion"])
-                .apply(highlight_total_row, axis=1),
-            use_container_width=True,
-            hide_index=True
-        )
- 
-        # ── Legend ───────────────────────────────
-        st.caption(
-            "🟢 ADD = Strong signal, consider scaling in  |  "
-            "✅ SELL (Take Profit) = Target % reached  |  "
-            "🔴 SELL (Stop Loss) = Stop % breached  |  "
-            "🟠 SELL (Signal Exit) = Strategy says SELL  |  "
-            "🟡 HOLD = No action needed"
-        )
 
-    st.divider()
+        portfolio_df = get_portfolio_summary(current_prices, portfolio_combined_sigs)
+    
+        if portfolio_df.empty:
+            st.info("No open positions yet — click BUY above to start!")
+    
+        else:
+            # ── Headline summary metrics ──────────────
+            # Pull totals from the TOTAL row at the bottom
+            total_row = portfolio_df[portfolio_df['Stock'] == '📊 TOTAL']
+            if not total_row.empty:
+                t           = total_row.iloc[0]
+                t_invested  = float(t['Invested ₹'])
+                t_value     = float(t['Value ₹'])
+                t_pnl       = float(t['P&L ₹'])
+                t_pnl_pct   = float(t['P&L %'])
+    
+                pm1, pm2, pm3, pm4 = st.columns(4)
+                pm1.metric(
+                    "Total Invested",
+                    f"₹{t_invested:,.0f}"
+                )
+                pm2.metric(
+                    "Current Value",
+                    f"₹{t_value:,.0f}",
+                    delta=f"₹{t_pnl:+,.0f}"
+                )
+                pm3.metric(
+                    "Total P&L ₹",
+                    f"₹{t_pnl:+,.0f}"
+                )
+                pm4.metric(
+                    "Total P&L %",
+                    f"{t_pnl_pct:+.2f}%"
+                )
+                st.write("")
+    
+            # ── Color functions for the table ─────────
+            def color_pnl_val(val):
+                """Green for profit, red for loss."""
+                try:
+                    f = float(val)
+                    if f > 0: return "color: green; font-weight: bold"
+                    if f < 0: return "color: red; font-weight: bold"
+                except Exception:
+                    pass
+                return ""
+    
+            def color_suggestion(val):
+                """Color each suggestion by action type."""
+                s = str(val)
+                if "Stop Loss"    in s: return "color: red;       font-weight: bold"
+                if "Take Profit"  in s: return "color: green;     font-weight: bold"
+                if "Strong Signal Exit" in s: return "color: red; font-weight: bold"
+                if "Signal Exit"  in s: return "color: orange;    font-weight: bold"
+                if "ADD"          in s: return "color: green;     font-weight: bold"
+                if "Near Target"  in s: return "color: goldenrod"
+                if "Watch Loss"   in s: return "color: orange"
+                if "Overall Loss" in s: return "color: red;       font-weight: bold"
+                if "Overall Profit" in s: return "color: green;   font-weight: bold"
+                return "color: gray"
+    
+            def highlight_total_row(row):
+                """Bold background for the TOTAL row."""
+                if row['Stock'] == '📊 TOTAL':
+                    return ['font-weight: bold; background-color: #1a1a2e'] * len(row)
+                return [''] * len(row)
+    
+            # ── Display the table ─────────────────────
+            st.dataframe(
+                portfolio_df.style
+                    .map(color_pnl_val,    subset=["P&L ₹", "P&L %"])
+                    .map(color_suggestion, subset=["Suggestion"])
+                    .apply(highlight_total_row, axis=1),
+                use_container_width=True,
+                hide_index=True
+            )
+    
+            # ── Legend ───────────────────────────────
+            st.caption(
+                "🟢 ADD = Strong signal, consider scaling in  |  "
+                "✅ SELL (Take Profit) = Target % reached  |  "
+                "🔴 SELL (Stop Loss) = Stop % breached  |  "
+                "🟠 SELL (Signal Exit) = Strategy says SELL  |  "
+                "🟡 HOLD = No action needed"
+            )
 
-    # ── Performance ───────────────────────────────
-    st.subheader("📊 Performance Report")
-    perf_summary = get_performance_summary()
-    p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Total Trades",    perf_summary["Total Trades"])
-    p2.metric("Win Rate",        perf_summary["Win Rate"])
-    p3.metric("Total P&L",       perf_summary["Total P&L"])
-    p4.metric("Current Capital", perf_summary["Current Capital"])
-    p5, p6, p7, p8 = st.columns(4)
-    p5.metric("Winning Trades",  perf_summary["Winning Trades"])
-    p6.metric("Losing Trades",   perf_summary["Losing Trades"])
-    p7.metric("Best Trade",      perf_summary["Best Trade"])
-    p8.metric("Worst Trade",     perf_summary["Worst Trade"])
-    st.divider()
+        st.divider()
 
-    completed_df = get_completed_trades()
-    st.caption("📋 Completed Trades")
-    if completed_df.empty:
-        st.info("No completed trades yet!")
-    else:
-        def color_result_perf(val):
-            if "WIN"  in str(val): return "color: green"
-            if "LOSS" in str(val): return "color: red"
-            return ""
-        st.dataframe(
-            completed_df.style.map(color_result_perf, subset=["Result"]),
-            use_container_width=True
-        )
-        st.download_button(
-            label="⬇️ Download Performance Report",
-            data=completed_df.to_csv(index=False),
-            file_name="performance_report.csv", mime="text/csv"
-        )
+        # ── Performance ───────────────────────────────
+        st.subheader("📊 Performance Report")
+        perf_summary = get_performance_summary()
+        p1, p2, p3, p4 = st.columns(4)
+        p1.metric("Total Trades",    perf_summary["Total Trades"])
+        p2.metric("Win Rate",        perf_summary["Win Rate"])
+        p3.metric("Total P&L",       perf_summary["Total P&L"])
+        p4.metric("Current Capital", perf_summary["Current Capital"])
+        p5, p6, p7, p8 = st.columns(4)
+        p5.metric("Winning Trades",  perf_summary["Winning Trades"])
+        p6.metric("Losing Trades",   perf_summary["Losing Trades"])
+        p7.metric("Best Trade",      perf_summary["Best Trade"])
+        p8.metric("Worst Trade",     perf_summary["Worst Trade"])
+        st.divider()
+
+        completed_df = get_completed_trades()
+        st.caption("📋 Completed Trades")
+        if completed_df.empty:
+            st.info("No completed trades yet!")
+        else:
+            def color_result_perf(val):
+                if "WIN"  in str(val): return "color: green"
+                if "LOSS" in str(val): return "color: red"
+                return ""
+            st.dataframe(
+                completed_df.style.map(color_result_perf, subset=["Result"]),
+                use_container_width=True
+            )
+            st.download_button(
+                label="⬇️ Download Performance Report",
+                data=completed_df.to_csv(index=False),
+                file_name="performance_report.csv", mime="text/csv"
+            )
 
 
 # ════════════════════════════════════════════════
@@ -1519,6 +1517,7 @@ with tab4:
             cr  = fund_data.get("current_ratio")
             rg  = fund_data.get("revenue_growth")
             eg  = fund_data.get("earnings_growth")
+            div_yield = fund_data.get("dividend_yield")
         
             fm1.metric("P/E Ratio",       f"{pe}x"   if pe  is not None else "N/A",
                     help="Price vs Earnings. Lower = cheaper. 15-25x is fair for India.")
@@ -1536,6 +1535,41 @@ with tab4:
                     help="Year-over-year revenue growth. 10%+ is healthy.")
             fm8.metric("Earnings Growth", f"{eg}%"   if eg  is not None else "N/A",
                     help="Year-over-year earnings growth.")
+
+            # ── Dividend yield — shown separately as it's key for Long-Term holds ──
+            st.divider()
+            st.caption("💰 Dividend Information (Important for Long-Term & Swing Bucket Holders)")
+            dv1, dv2, dv3 = st.columns(3)
+            dv1.metric(
+                "Dividend Yield",
+                f"{div_yield:.2f}%" if div_yield is not None else "N/A",
+                help=(
+                    "Annual dividend as % of current price. "
+                    "For Long-Term holds, this is EXTRA income on top of price gains. "
+                    "ITC, Coal India etc. typically pay 3–6% dividend yield."
+                )
+            )
+            dv2.metric(
+                "Dividend in ₹ per ₹1L invested",
+                f"₹{round(div_yield * 1000, 0):.0f}/yr" if div_yield is not None else "N/A",
+                help="Approximate annual dividend received if you invest ₹1,00,000 in this stock."
+            )
+
+            if div_yield is not None:
+                if div_yield >= 3:
+                    dv3.success(f"HIGH dividend yield — adds {div_yield:.1f}% annual income on top of price gain")
+                elif div_yield >= 1:
+                    dv3.info(f"MODERATE dividend yield — useful bonus for long-term hold")
+                else:
+                    dv3.caption(f"LOW dividend yield — this stock returns value via price growth, not dividends")
+            else:
+                dv3.caption("Dividend data unavailable for this stock")
+
+            st.caption(
+                "⚠️ **Paper trading note:** Dividends are NOT automatically credited in this paper trading system. "
+                "They are shown here as information only. In real trading via Zerodha, dividends are credited "
+                "to your bank account automatically on the ex-dividend date."
+            )
         
             st.divider()
         
@@ -2002,7 +2036,14 @@ VERDICT:
         st.divider()
         st.subheader("💰 Quick Trade")
         st.caption("Score looks good? Trade directly from this page")
-        render_quick_buy_panel(score_stock, "score")
+        render_quick_buy_panel(
+            stock_name      = score_stock,
+            tab_key_prefix  = "score",
+            composite_score = composite,
+            combined_signal = final_signal,
+            buy_votes       = explanation["buy_votes"],
+            regime          = score_regime,
+        )
         st.divider()
 
         st.download_button(
@@ -2368,18 +2409,36 @@ with tab8:
     st.divider()
 
     st.subheader("📜 Trade History")
-    trades_df = load_trades()
+    st.caption("All trades from the Bucket Portfolio system (Long-Term, Swing, Intraday)")
+    from portfolio.capital_engine import load_bucket_trades
+    trades_df = load_bucket_trades()
     if trades_df.empty:
-        st.info("No trades yet!")
+        st.info("No trades yet! Use the Portfolio Buckets tab or Dashboard to place trades.")
     else:
+        def _color_trade_action(val):
+            if val == "BUY":  return "color: green; font-weight: bold"
+            if val == "SELL": return "color: red; font-weight: bold"
+            return ""
+        def _color_trade_pnl(val):
+            try:
+                f = float(val)
+                if f > 0: return "color: green"
+                if f < 0: return "color: red"
+            except Exception:
+                pass
+            return ""
+        display_cols = [c for c in ["Timestamp","Bucket","Action","Stock","Price","Quantity","Value","PNL"] if c in trades_df.columns]
         st.dataframe(
-            trades_df.sort_values('Timestamp', ascending=False),
-            use_container_width=True
+            trades_df[display_cols].sort_values('Timestamp', ascending=False).style
+                .map(_color_trade_action, subset=["Action"] if "Action" in display_cols else [])
+                .map(_color_trade_pnl,    subset=["PNL"]    if "PNL"    in display_cols else []),
+            use_container_width=True,
+            hide_index=True,
         )
         st.download_button(
             label="⬇️ Download Trade History",
-            data=trades_df.to_csv(index=False),
-            file_name="paper_trades.csv", mime="text/csv"
+            data=trades_df[display_cols].to_csv(index=False),
+            file_name="bucket_trades.csv", mime="text/csv"
         )
 
     st.divider()
