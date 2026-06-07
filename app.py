@@ -135,6 +135,8 @@ from engine.loop_state import (
 )
 from engine.execution_loop import run_one_cycle
 
+from risk.portfolio_risk import get_risk_dashboard_data, format_risk_level
+
 # ── Page configuration ───────────────────────────
 st.set_page_config(
     page_title="Firoj Khan's Trading OS",
@@ -2547,6 +2549,38 @@ with tab9:
     )
  
     st.divider()
+
+    # ── Portfolio Risk Dashboard ──────────────────
+    st.subheader("🛡️ Portfolio Risk Status")
+    with st.spinner("Running risk checks..."):
+        from risk.portfolio_risk import (
+            get_risk_dashboard_data,
+            format_risk_level,
+        )
+        rd = get_risk_dashboard_data(regime=regime)
+        ps = rd["portfolio_summary"]
+
+    risk_color = {
+        "LOW":      "normal", "NORMAL":   "normal",
+        "ELEVATED": "off",    "HIGH":     "inverse",
+        "CRITICAL": "inverse",
+    }
+
+    rc1, rc2, rc3, rc4, rc5 = st.columns(5)
+    rc1.metric("Risk Level",       format_risk_level(ps["risk_level"]))
+    rc2.metric("Deployed",         f"{ps['capital_deployed_pct']}%")
+    rc3.metric("Top Sector",       f"{ps['largest_sector_name']} {ps['largest_sector_pct']}%")
+    rc4.metric("Open Positions",   ps["open_positions_count"])
+    rc5.metric("Trading Allowed",  "✅ YES" if ps["trading_allowed"] else "🛑 NO")
+
+    if ps["warnings"]:
+        for w in ps["warnings"]:
+            st.warning(w)
+    else:
+        st.success("✅ All portfolio risk checks passed — normal trading conditions")
+
+    st.divider()
+
  
     # ── Bucket summary cards ──────────────────────
     st.subheader("🪣 Bucket Overview")

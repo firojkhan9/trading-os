@@ -374,6 +374,37 @@ def _is_ok_to_buy(
     if avail <= 0:
         return False, f"No cash available in {bucket_name} bucket."
 
+    # 7. Portfolio Risk Gate (Milestone 30)
+    try:
+        from risk.portfolio_risk import validate_portfolio_risk
+        from portfolio.capital_engine import get_max_position_size
+        from strategies.watchlist_manager import get_watchlist_dict
+        wl      = get_watchlist_dict()
+        sym     = wl.get(stock_name, stock_name + ".NS")
+        qty, spend, _ = get_max_position_size(bucket_name, 0)   # 0 = just estimate
+        # Estimate trade value using bucket's max position size
+        avail = get_bucket_available_cash(bucket_name)
+        cfg   = BUCKET_CONFIG.get(bucket_name, {})
+        from portfolio.capital_engine import load_bucket_state
+        st    = load_bucket_state()
+        start = st.get(bucket_name, {}).get("Starting_Capital", avail)
+        estimated_value = round(start * cfg.get("max_position_pct", 0.10), 2)
+
+        risk_result = validate_portfolio_risk(
+            stock_name          = stock_name,
+            stock_symbol        = sym,
+            bucket_name         = bucket_name,
+            proposed_trade_value= estimated_value,
+            regime              = regime,
+            skip_correlation    = True,   # Skip in loop — too slow per-stock
+        )
+        if not risk_result["approved"]:
+            return False, risk_result["summary"]
+    except Exception as e:
+        print(f"⚠️ Portfolio risk check skipped: {e}")
+
+    return True, ""
+
     return True, ""
 
 
