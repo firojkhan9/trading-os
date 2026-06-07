@@ -99,6 +99,8 @@ from portfolio.position_manager     import (
     load_lifecycle,
 )
 
+from strategies.orchestrator import orchestrate_opportunity, DECISION_ACCEPT, DECISION_REVIEW
+
 import yfinance as yf
 import pandas as pd
 
@@ -492,33 +494,41 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
             })
             continue
 
-        # ── Get bucket suggestion ──────────────────
-        suggestion   = suggest_bucket(
-            composite_score = score,
-            combined_signal = final_signal,
-            buy_votes       = buy_votes,
-            regime          = regime,
+        # ── Orchestrate: route + score + validate ──
+        orch_result = orchestrate_opportunity(
+            stock_name        = stock_name,
+            symbol            = symbol,
+            composite_score   = score,
+            individual_scores = result.get("individual_scores", {}),
+            combined_votes    = {
+                "buy":  result["buy_votes"],
+                "sell": result["sell_votes"],
+                "hold": 4 - result["buy_votes"] - result["sell_votes"],
+            },
+            final_signal      = final_signal,
+            regime            = regime,
+            log_decision      = True,
         )
-        target_bucket = suggestion["suggested_bucket"]
 
-        if not target_bucket:
+        target_bucket = orch_result["bucket"]
+
+        if orch_result["decision"] not in (DECISION_ACCEPT, DECISION_REVIEW):
             log_decision(
-                stock=stock_name, bucket="—",
+                stock=stock_name, bucket=target_bucket or "—",
                 decision="NO-TRADE",
                 score=score, signal=final_signal,
                 price=price, regime=regime,
-                reason=suggestion["reason"],
+                reason=orch_result["summary"],
             )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
-                "reason": suggestion["reason"]
+                "reason": orch_result["summary"],
             })
             continue
 
-        # ── Safety check ──────────────────────────
-        approved, reject_reason = _is_ok_to_buy(
-            stock_name, target_bucket, score, regime
-        )
+        # REVIEW decisions still proceed but get flagged in the log
+        if orch_result["decision"] == DECISION_REVIEW:
+            print(f"  🟡 REVIEW: {stock_name} — {orch_result['summary']}")
 
         if not approved:
             log_decision(

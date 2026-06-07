@@ -1386,16 +1386,19 @@ with tab4:
         breakdown_rows = []
         for dim, val in score_result["Individual Scores"].items():
             weight_map = {
-                "Trend":         "18%",
-                "Momentum":      "17%",
-                "Volatility":    "10%",
-                "Signal":        "15%",
-                "Regime":        "10%",
-                "Rel. Strength": "5%",
-                "Fundamental":   "8%",
-                "Sentiment":     "7%",
-                "Volume":        "10%",
+                "Trend":          "16%",
+                "Momentum":       "12%",
+                "Volatility":     "7%",
+                "Signal":         "10%",
+                "Regime":         "10%",
+                "Rel. Strength":  "4%",
+                "Fundamental":    "8%",
+                "Sentiment":      "7%",
+                "Volume":         "10%",
+                "Candlestick":    "8%",
+                "Mkt Structure":  "8%",
             }
+            
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
             breakdown_rows.append({
                 "Dimension": dim,
