@@ -31,9 +31,6 @@ Building a 3-bucket autonomous portfolio engine:
 • Intraday   ₹60,000   — VWAP + Volume + ATR (high frequency, future)
  
 UPCOMING MILESTONES:
-28 · Candlestick Engine            → strategies/candlestick\_engine.py
-29 · Market Structure Engine       → strategies/market\_structure.py
-30 · Advanced Portfolio Risk       → risk/portfolio\_risk.py
 31 · Strategy Orchestration Engine → strategies/orchestrator.py
 32 · Explainable Decision Engine   → engine/decision\_engine.py
 33 · Zerodha Integration           → brokers/zerodha\_connector.py
@@ -47,7 +44,7 @@ Remind git add/commit/push after each milestone · Never expose secrets
  
 \---
  
-LAST COMPLETED : Milestone 29 — Market Structure Engine
-CURRENT REQUIRED FIXES  :  No weightage given to candlestick and market structure, at least 5 years data analysis for better results e.g. fundamental and financial analysis,one click selection of stocks for trade 
-NEXT MILESTONE : Milestone 30 — Advanced Portfolio Risk Engine
+LAST COMPLETED : Milestone 30 — Advanced Portfolio Risk Engine
+CURRENT REQUIRED FIXES  : No weightage visible for candlestick and market structure 
+NEXT MILESTONE : Milestone 31 — Strategy Orchestration Engine
 Dont give full python file if patches can be done in smaller edits. Only give full file when it is fully new

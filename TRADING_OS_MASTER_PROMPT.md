@@ -313,261 +313,7 @@ Market regime (not in bear market for BUY signals)
 
 Unconfirmed patterns = IGNORED (logged as REJECTED with reason)
 
-# Milestone 28 — Advanced Candlestick Intelligence Engine
 
-## File
-
-strategies/candlestick_engine.py
-
-## Objective
-
-Build a dedicated candlestick intelligence engine that detects, validates, scores, and logs candlestick signals before they enter the composite scoring and orchestration layers.
-
-Candlestick patterns are NOT standalone buy/sell signals.
-
-Every detected pattern must pass multiple confirmation layers before it can contribute to a trading decision.
-
----
-
-# 28A — Pattern Detection Engine
-
-Implement detection logic for:
-
-## Bullish Patterns
-
-* Hammer
-* Bullish Engulfing
-* Morning Star
-* Breakout Candle
-
-## Bearish Patterns
-
-* Shooting Star
-* Bearish Engulfing
-* Evening Star
-
-## Neutral Patterns
-
-* Doji
-
-Detection output format:
-
-{
-"pattern": "HAMMER",
-"direction": "BULLISH",
-"strength": 0.82,
-"candle_date": "YYYY-MM-DD"
-}
-
-Pattern detection ONLY identifies the candle structure.
-
-No trade decisions are allowed in this layer.
-
----
-
-# 28B — Context Validation Engine
-
-A detected pattern must pass ALL validation filters.
-
-## Trend Confirmation
-
-Bullish patterns require:
-
-Close > EMA20 > EMA50
-
-or
-
-EMA20 slope positive
-
-Bearish patterns require:
-
-Close < EMA20 < EMA50
-
-or
-
-EMA20 slope negative
-
-If trend does not agree:
-
-Pattern = REJECTED
-
-Reason logged.
-
----
-
-## Volume Confirmation
-
-Signal candle volume must exceed average volume.
-
-Suggested rule:
-
-Volume > 1.5 × 20-day average volume
-
-Scoring:
-
-Weak Volume = Reject
-
-Average Volume = Low Confidence
-
-Strong Volume = High Confidence
-
----
-
-## Support / Resistance Confirmation
-
-Bullish reversals must occur near support.
-
-Bearish reversals must occur near resistance.
-
-Example:
-
-distance_to_level < 2%
-
-Patterns occurring in the middle of a range should be rejected.
-
----
-
-## Market Regime Confirmation
-
-Bullish patterns allowed only when:
-
-* BULL regime
-* STRONG BULL regime
-
-Bearish patterns allowed when:
-
-* BEAR regime
-* STRONG BEAR regime
-
-SIDEWAYS regime reduces confidence.
-
-Rejected patterns must record the regime reason.
-
----
-
-# 28C — Candlestick Confidence Scoring
-
-Convert valid patterns into a confidence score.
-
-Suggested weights:
-
-Pattern Quality = 30
-
-Trend Confirmation = 25
-
-Volume Confirmation = 20
-
-Support/Resistance Context = 15
-
-Market Regime Alignment = 10
-
-Maximum Score = 100
-
-Output:
-
-{
-"pattern": "HAMMER",
-"confidence": 82,
-"signal": "BUY"
-}
-
-This score becomes an input to the Composite Score Engine.
-
----
-
-# 28D — Pattern Audit & Rejection Logging
-
-Every detected pattern must be logged.
-
-Accepted and rejected patterns should both be stored.
-
-Log fields:
-
-* Stock
-* Pattern
-* Direction
-* Confidence Score
-* Accepted / Rejected
-* Rejection Reason
-* Timestamp
-
-Example:
-
-RELIANCE
-HAMMER
-Rejected
-Reason: Volume below threshold
-
-This creates a complete audit trail for future optimization.
-
----
-
-# 28E — Multi-Timeframe Confirmation
-
-Add optional confirmation using higher timeframe trend.
-
-Examples:
-
-Daily Hammer
-+
-Weekly Uptrend
-==============
-
-Strong Buy
-
-Daily Hammer
-+
-Weekly Downtrend
-================
-
-Weak Buy
-
-Suggested scoring boost:
-
-Confirmed by higher timeframe:
-+10 confidence
-
-Contradicted by higher timeframe:
--10 confidence
-
-This feature should be configurable.
-
----
-
-# 28F — Lifecycle Integration
-
-Candlestick Engine must NEVER place trades.
-
-Its responsibility ends at producing a validated signal.
-
-Workflow:
-
-Pattern Detected
-→ Validation Passed
-→ Confidence Calculated
-→ Signal Logged
-→ Position Lifecycle
-WATCHLIST → READY
-
-Execution decisions remain the responsibility of:
-
-* Orchestrator (Milestone 31)
-* Decision Engine (Milestone 32)
-* Execution Engine
-
-This keeps signal generation separated from trade execution.
-
----
-
-# Deliverables
-
-1. Detect all priority candlestick patterns.
-2. Validate using trend, volume, support/resistance, and regime filters.
-3. Calculate confidence scores.
-4. Log accepted and rejected signals.
-5. Support optional multi-timeframe confirmation.
-6. Integrate with Position Lifecycle Manager.
-7. Produce structured outputs for Composite Score and Orchestrator engines.
 
 
 
@@ -587,324 +333,7 @@ Lower Highs / Lower Lows detection (downtrend structure)
 Price structure scoring contribution to composite score
 
 
-# MILESTONE 29 — MARKET STRUCTURE ENGINE
 
-## Objective
-
-Create a dedicated Market Structure Engine that evaluates price behavior independent of indicators.
-
-The engine should identify:
-
-* Trend structure
-* Support and resistance
-* Breakouts
-* Breakdowns
-* Consolidation
-* Volatility compression
-* Expansion phases
-
-Output should contribute to Composite Score calculation.
-
----
-
-# File
-
-strategies/market_structure.py
-
----
-
-# Inputs
-
-Required:
-
-* OHLCV DataFrame
-* Minimum 60 candles
-
-Columns:
-
-* Open
-* High
-* Low
-* Close
-* Volume
-
----
-
-# Core Functions
-
-## 1. Swing High Detection
-
-Identify local highs.
-
-Definition:
-
-Current High > previous N highs
-AND
-Current High > next N highs
-
-Return:
-
-* Swing High Levels
-* Swing High Dates
-
----
-
-## 2. Swing Low Detection
-
-Identify local lows.
-
-Definition:
-
-Current Low < previous N lows
-AND
-Current Low < next N lows
-
-Return:
-
-* Swing Low Levels
-* Swing Low Dates
-
----
-
-## 3. Support Detection
-
-Build support zones from:
-
-* Recent swing lows
-* Multiple touch points
-
-Output:
-
-* Support Price
-* Support Strength
-* Number of Touches
-
----
-
-## 4. Resistance Detection
-
-Build resistance zones from:
-
-* Recent swing highs
-* Multiple touch points
-
-Output:
-
-* Resistance Price
-* Resistance Strength
-* Number of Touches
-
----
-
-## 5. Breakout Detection
-
-Conditions:
-
-Close > Resistance
-
-AND
-
-Volume > 1.5 × Average Volume
-
-Return:
-
-* Breakout = True/False
-* Breakout Strength
-* Distance Above Resistance %
-
----
-
-## 6. Breakdown Detection
-
-Conditions:
-
-Close < Support
-
-Return:
-
-* Breakdown = True/False
-* Breakdown Strength
-
----
-
-## 7. Consolidation Detection
-
-Conditions:
-
-ATR decreasing
-
-AND
-
-Bollinger Width decreasing
-
-AND
-
-Price range compressed
-
-Return:
-
-* Consolidation = True/False
-* Compression Score
-
----
-
-## 8. Volatility Compression
-
-Detect squeeze conditions.
-
-Possible methods:
-
-* BB Width percentile
-* ATR percentile
-
-Output:
-
-* Squeeze Active
-* Squeeze Strength
-
----
-
-## 9. Higher High Higher Low Detection
-
-Bullish Structure
-
-Rules:
-
-HH = latest swing high > previous swing high
-
-HL = latest swing low > previous swing low
-
-Output:
-
-* HH Count
-* HL Count
-* Uptrend Strength
-
----
-
-## 10. Lower High Lower Low Detection
-
-Bearish Structure
-
-Rules:
-
-LH = latest swing high < previous swing high
-
-LL = latest swing low < previous swing low
-
-Output:
-
-* LH Count
-* LL Count
-* Downtrend Strength
-
----
-
-## 11. Trend Structure Classification
-
-Classify:
-
-* Strong Uptrend
-* Uptrend
-* Sideways
-* Downtrend
-* Strong Downtrend
-
-Based on:
-
-* HH/HL structure
-* LH/LL structure
-* Moving Average Alignment
-
----
-
-# Structure Score
-
-Generate:
-
-market_structure_score
-
-Range:
-
-0 – 100
-
-Suggested Weighting
-
-HH/HL Trend Quality         : 30
-Support Strength            : 10
-Resistance Breakout         : 20
-Volume Confirmation         : 10
-Volatility Compression      : 10
-Trend Persistence           : 10
-Consolidation Breakout Bias : 10
-
-Total                       : 100
-
----
-
-# Composite Score Integration
-
-Composite Score Components
-
-Technical Indicators     : Existing
-Fundamentals             : Existing
-Market Regime            : Existing
-Market Structure         : NEW
-
-Suggested Weight:
-
-Market Structure = 15% to 20%
-
----
-
-# Scanner Enhancements
-
-Add Columns:
-
-* Structure Score
-* Trend State
-* Support
-* Resistance
-* Breakout
-* Breakdown
-* Consolidation
-* Squeeze
-* HH Count
-* HL Count
-* LH Count
-* LL Count
-
----
-
-# Dashboard Enhancements
-
-New Panel:
-
-Market Structure
-
-Display:
-
-* Trend State
-* Structure Score
-* Support
-* Resistance
-* Breakout Status
-* Squeeze Status
-
----
-
-# Success Criteria
-
-A stock should receive:
-
-* Trend classification
-* Structure score
-* Breakout signal
-* Breakdown signal
-* Consolidation signal
-* Squeeze signal
-
-All outputs must be consumable by Composite Score Engine.
 
 
 
@@ -925,576 +354,7 @@ Volatility-adjusted position sizing (smaller size in volatile markets)
 ATR-based stop loss (stop = entry - 2x ATR, not fixed %)
 Regime-aware aggression (reduce size in WEAK BULL / SIDEWAYS)
 
-# MILESTONE 30 — ADVANCED PORTFOLIO RISK ENGINE
 
-## Objective
-
-Current system already supports:
-
-* Composite scoring
-* Capital allocation by bucket
-* Position limits
-* Fixed stop loss
-* Market regime filtering
-
-Milestone 30 upgrades risk management from trade-level protection to portfolio-level protection.
-
-The goal is to prevent concentration risk, correlated exposure, portfolio drawdowns, and over-aggressive deployment.
-
----
-
-# FILE TO CREATE
-
-risk/portfolio_risk.py
-
----
-
-# EXISTING SYSTEMS TO USE
-
-Use data from:
-
-* bucket_state
-* bucket_trades
-* paper_portfolio
-* paper_trades
-* market_regime.py
-* capital_engine.py
-* yfinance price history
-* ATR calculations already used elsewhere if available
-
-Do not duplicate existing logic if reusable functions already exist.
-
----
-
-# FEATURE 1 — PORTFOLIO RISK SUMMARY
-
-Create:
-
-```python
-get_portfolio_risk_summary()
-```
-
-Returns:
-
-```python
-{
-    "capital_deployed_pct": 52.4,
-    "daily_pnl_pct": -1.3,
-    "largest_sector_pct": 24.8,
-    "high_correlation_count": 2,
-    "risk_level": "NORMAL",
-    "trading_allowed": True
-}
-```
-
-Used later in dashboard.
-
----
-
-# FEATURE 2 — SECTOR EXPOSURE LIMIT
-
-Create:
-
-```python
-check_sector_exposure(
-    sector,
-    proposed_value
-)
-```
-
-Purpose:
-
-Prevent excessive concentration in one sector.
-
-Example:
-
-HDFC Bank
-ICICI Bank
-Axis Bank
-Kotak Bank
-
-All belong to Banking.
-
-Even though there are multiple stocks, actual diversification is poor.
-
-Rule:
-
-Maximum sector allocation:
-
-30% of total portfolio value
-
-Calculation:
-
-sector_value_after_trade
-/
-total_portfolio_value_after_trade
-
-If result exceeds 30%:
-
-Reject trade.
-
-Return:
-
-```python
-(False,
- "Banking exposure would become 37.5%")
-```
-
-Otherwise:
-
-```python
-(True, "OK")
-```
-
----
-
-# FEATURE 3 — CORRELATION RISK
-
-Create:
-
-```python
-check_correlation_risk(stock)
-```
-
-Purpose:
-
-Prevent buying multiple stocks that move together.
-
-Example:
-
-TCS
-INFY
-WIPRO
-HCLTECH
-
-Looks diversified but is effectively one trade.
-
-Implementation:
-
-Fetch 60 trading days of history.
-
-Calculate:
-
-Daily returns
-
-Then:
-
-```python
-returns.corr()
-```
-
-High correlation threshold:
-
-0.80
-
-Count how many current holdings have correlation above 0.80.
-
-Rule:
-
-If candidate stock is highly correlated with 3 or more active positions:
-
-Reject trade.
-
-Return:
-
-```python
-(False,
- "Highly correlated with existing portfolio")
-```
-
-Otherwise:
-
-```python
-(True, "OK")
-```
-
----
-
-# FEATURE 4 — BUCKET DRAWDOWN CONTROL
-
-Create:
-
-```python
-check_bucket_drawdown(bucket)
-```
-
-Use:
-
-bucket_state
-
-Calculate:
-
-Current Equity
-
-Current Equity =
-Available Cash
-+
-Deployed Capital
-+
-Realized PnL
-
-Drawdown:
-
-```python
-(Current Equity - Starting Capital)
-/
-Starting Capital
-*
-100
-```
-
-Rule:
-
-If bucket drawdown <= -10%
-
-Pause that bucket.
-
-No new trades allowed.
-
-Existing positions remain active.
-
-Return:
-
-```python
-{
-    "allowed": False,
-    "drawdown_pct": -11.8
-}
-```
-
----
-
-# FEATURE 5 — DAILY PORTFOLIO LOSS LIMIT
-
-Create:
-
-```python
-check_daily_loss_limit()
-```
-
-Purpose:
-
-Stop trading during major market damage.
-
-Calculate:
-
-Current portfolio value
-
-versus
-
-Start-of-day portfolio value
-
-Rule:
-
-If portfolio loss >= 5%
-
-No new trades allowed.
-
-Existing trades continue normally.
-
-Return:
-
-```python
-(False,
- "Daily portfolio loss limit reached")
-```
-
-Otherwise:
-
-```python
-(True,
- "OK")
-```
-
----
-
-# FEATURE 6 — MAX CAPITAL DEPLOYMENT
-
-Create:
-
-```python
-check_max_exposure(
-    proposed_trade_value
-)
-```
-
-Purpose:
-
-Always maintain cash reserves.
-
-Calculate:
-
-```python
-deployed_after_trade
-/
-total_capital
-```
-
-Rule:
-
-Maximum deployment:
-
-70%
-
-Example:
-
-Current deployment:
-65%
-
-New trade:
-10%
-
-Result:
-75%
-
-Reject trade.
-
----
-
-# FEATURE 7 — ATR STOP LOSS
-
-Create:
-
-```python
-calculate_atr_stop(
-    stock,
-    entry_price
-)
-```
-
-Use:
-
-14-period ATR
-
-Formula:
-
-stop =
-entry_price
------------
-
-(ATR × 2)
-
-Example:
-
-Entry = 100
-
-ATR = 4
-
-Stop = 92
-
-Return:
-
-```python
-{
-    "atr": 4,
-    "stop": 92
-}
-```
-
-This does NOT replace current stop logic yet.
-
-It should be available for future milestones.
-
----
-
-# FEATURE 8 — VOLATILITY ADJUSTED POSITION SIZING
-
-Create:
-
-```python
-get_volatility_multiplier(stock)
-```
-
-Calculate:
-
-ATR %
-
-```python
-ATR / Price
-```
-
-Rules:
-
-ATR% < 2%
-
-Multiplier:
-
-```python
-1.00
-```
-
-ATR% between 2% and 4%
-
-Multiplier:
-
-```python
-0.75
-```
-
-ATR% > 4%
-
-Multiplier:
-
-```python
-0.50
-```
-
-Example:
-
-Normal position size:
-₹100,000
-
-Multiplier:
-0.50
-
-Final size:
-₹50,000
-
----
-
-# FEATURE 9 — REGIME AWARE AGGRESSION
-
-Use output from:
-
-market_regime.py
-
-Create:
-
-```python
-get_regime_position_multiplier()
-```
-
-Mapping:
-
-STRONG_BULL → 1.00
-
-WEAK_BULL → 0.75
-
-SIDEWAYS → 0.50
-
-BEAR → 0.25
-
-CRASH → 0.00
-
-Meaning:
-
-CRASH regime blocks all new buying.
-
----
-
-# FEATURE 10 — MASTER PORTFOLIO RISK GATE
-
-Create:
-
-```python
-validate_portfolio_risk(
-    stock,
-    bucket,
-    proposed_value,
-    sector
-)
-```
-
-This becomes the single approval function.
-
-Run checks in this order:
-
-1. Daily loss limit
-2. Bucket drawdown
-3. Max deployment
-4. Sector exposure
-5. Correlation risk
-6. Market regime
-
-Return:
-
-```python
-{
-    "approved": True,
-    "reasons": []
-}
-```
-
-or
-
-```python
-{
-    "approved": False,
-    "reasons": [
-        "Sector limit exceeded",
-        "Bucket drawdown exceeded"
-    ]
-}
-```
-
----
-
-# REQUIRED INTEGRATION
-
-Current flow:
-
-Scanner
-→ Composite Score
-→ Capital Engine
-→ BUY
-
-New flow:
-
-Scanner
-→ Composite Score
-→ Portfolio Risk Engine
-→ Capital Engine
-→ BUY
-
-Every BUY path must call:
-
-```python
-validate_portfolio_risk()
-```
-
-before execution.
-
-This includes:
-
-* Scanner buy
-* Manual buy
-* Future automated execution loop
-
----
-
-# SUCCESS CRITERIA
-
-Milestone 30 is complete when:
-
-✓ Sector exposure limit working
-
-✓ Correlation filtering working
-
-✓ Bucket drawdown protection working
-
-✓ Daily portfolio loss protection working
-
-✓ Max deployment protection working
-
-✓ ATR stop calculation available
-
-✓ Volatility-adjusted sizing available
-
-✓ Regime-aware sizing available
-
-✓ Single validation function protects every buy path
-
-✓ Risk summary function available for dashboard use
-
-Important:
-
-Focus on building the engine first.
-
-Do not modify dashboard UI yet.
-
-Do not modify execution_loop yet.
-
-Expose clean functions that later milestones can consume.
 
 
 ---
@@ -1539,6 +399,268 @@ Calculate bucket-specific confidence score
 Reject weak setups before they reach execution
 Identify confluence (multiple signals agreeing = higher confidence)
 Log all routing decisions with reasons
+
+# Milestone 31 – Strategy Orchestration Engine
+
+## Objective
+
+Build a Strategy Orchestration Engine that acts as the central decision layer between scanners/signals and trade execution.
+
+The goal is to ensure that every stock opportunity is evaluated according to the rules of the target bucket before reaching the execution engine.
+
+The orchestrator should not execute trades.
+
+It should only:
+
+* Evaluate opportunities
+* Calculate confidence scores
+* Route opportunities to the correct bucket
+* Reject weak opportunities
+* Log all decisions
+
+---
+
+## Existing System Context
+
+Current system already contains:
+
+* Scanner and signal generation modules
+* Composite scoring framework
+* Bucket-based capital allocation
+* Capital Engine
+* Portfolio Risk Engine
+* Position Lifecycle Manager
+* Trade execution flow
+
+The orchestrator should integrate with these existing components rather than duplicate them.
+
+Before implementation, inspect the current codebase and identify:
+
+* Existing signal generators
+* Existing composite scoring logic
+* Existing bucket definitions
+* Existing risk filters
+* Existing trade entry workflow
+
+Reuse wherever possible.
+
+---
+
+## Responsibilities
+
+### 1. Bucket Routing
+
+Determine which bucket a stock belongs to.
+
+Possible buckets:
+
+* Long-Term
+* Swing
+* Intraday (future)
+
+Routing should be rule-driven and configurable.
+
+Examples:
+
+* Strong fundamentals + trend alignment → Long-Term
+* Technical breakout + momentum → Swing
+* Intraday momentum setup → Intraday
+
+The routing decision should always include a reason.
+
+---
+
+### 2. Bucket-Specific Scoring
+
+Each bucket should have its own weighting model.
+
+### Long-Term Bucket
+
+Suggested weight model:
+
+* Fundamental Score = 40%
+* Trend Score = 30%
+* Relative Strength = 20%
+* Sentiment = 10%
+
+Minimum entry score:
+70/100
+
+Minimum holding period:
+20 trading days
+
+---
+
+### Swing Bucket
+
+Suggested weight model:
+
+* EMA Crossover = 25%
+* MACD = 25%
+* Relative Strength = 20%
+* Volume Confirmation = 15%
+* Candlestick Pattern = 15%
+
+Minimum entry score:
+60/100
+
+Maximum holding period:
+15 trading days
+
+---
+
+### Intraday Bucket (Future)
+
+Suggested weight model:
+
+* VWAP Position = 30%
+* Volume Spike = 25%
+* RSI Momentum = 25%
+* ATR Volatility = 20%
+
+Mandatory same-day exit.
+
+Implementation can be placeholder if Intraday is not active yet.
+
+---
+
+### 3. Confluence Detection
+
+Identify when multiple independent signals support the same direction.
+
+Examples:
+
+* EMA crossover + MACD bullish
+* Breakout + volume confirmation
+* Relative strength + trend alignment
+
+More confluence should increase confidence.
+
+Confluence should be configurable.
+
+---
+
+### 4. Conflict Resolution
+
+Detect conflicting signals.
+
+Examples:
+
+* Bullish EMA crossover but bearish MACD
+* Strong fundamentals but weak trend
+* Breakout candidate during risk-off market regime
+
+The orchestrator should decide whether to:
+
+* Reject
+* Reduce confidence
+* Route differently
+
+All decisions must be explainable.
+
+---
+
+### 5. Opportunity Rejection Layer
+
+Reject opportunities before they reach execution.
+
+Examples:
+
+* Score below threshold
+* Risk engine rejection
+* Bucket exposure limits reached
+* Position lifecycle restriction
+* Cooldown active
+* Portfolio risk limits exceeded
+
+Return structured rejection reasons.
+
+---
+
+### 6. Confidence Scoring
+
+Produce a normalized confidence score.
+
+Target:
+0–100
+
+Output should include:
+
+* Raw component scores
+* Weighted score
+* Final confidence score
+* Routing reason
+* Rejection reason (if rejected)
+
+---
+
+### 7. Logging
+
+Create a full audit trail.
+
+Every opportunity should be logged regardless of outcome.
+
+Log:
+
+* Timestamp
+* Stock
+* Bucket selected
+* Component scores
+* Confidence score
+* Accepted/Rejected
+* Reason
+
+Prefer Supabase-backed persistence if consistent with existing architecture.
+
+---
+
+## Suggested Output Structure
+
+For every evaluated opportunity return something similar to:
+
+{
+stock,
+bucket,
+confidence_score,
+decision,
+reasons,
+component_scores,
+confluence_count
+}
+
+Decision values:
+
+* ACCEPT
+* REJECT
+* REVIEW
+
+---
+
+## Design Principles
+
+1. Reuse existing scoring systems.
+2. Reuse existing risk engine outputs.
+3. Reuse lifecycle restrictions.
+4. Avoid duplicating calculations already available elsewhere.
+5. Keep bucket rules configurable.
+6. Keep future support for Intraday trading.
+7. Make every routing decision explainable and auditable.
+
+---
+
+## Deliverables
+
+Claude should:
+
+1. Review existing codebase.
+2. Identify reusable modules.
+3. Design orchestration architecture.
+4. Recommend required data structures.
+5. Recommend Supabase logging schema if needed.
+6. Implement orchestrator using existing project patterns.
+7. Ensure compatibility with Capital Engine, Risk Engine, and Position Lifecycle Manager.
+
+
 
 ---
 Milestone 32 — Explainable Autonomous Decision Engine
@@ -1661,11 +783,7 @@ Backtesting
 Strategy Comparison
 Logs
 
-Future tabs to add:
-11. Autonomous Bot (start/stop/status, live decision log)
-12. Risk Dashboard (exposure, correlation, drawdown)
-13. Volume Intelligence (unusual activity alerts)
-14. Market Structure (support/resistance, breakouts)
+
 ---
 HOW TO HELP ME
 When assisting with this project:
@@ -1684,8 +802,8 @@ One milestone at a time — don't overwhelm, build incrementally
 ---
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
-Last completed milestone: Milestone 27 — Volume Intelligence Engine
-Next planned milestone:   Milestone 28 — Candlestick + Price Action Engine
+Last completed milestone: Milestone 30 — Advanced Portfolio Risk Engine
+Next planned milestone:   Milestone 31 — Strategy Orchestration Engine
 ---
 Trading OS v4.0 — Firoj Khan
 "Survive first. Profit second. Automate third."

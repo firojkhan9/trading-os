@@ -1,3 +1,8 @@
 Timestamp,Stock,Pattern,Direction,Candle_Date,Strength,Confidence,Signal,Accepted,Trend_OK,Volume_OK,SR_Near,Regime_OK,Vol_Ratio,Rejection_Reason
 2026-06-07 09:34:43,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
 2026-06-07 10:59:05,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
+2026-06-07 13:07:03,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
+2026-06-07 13:16:30,HINDUNILVR,BREAKOUT_CANDLE,BULLISH,2026-06-05,0.8,0,WEAK BUY 🕯️,NO,NO,NO,NO,NO,0.84,TREND: Price below EMA20 and EMA falling — trend not aligned for bullish pattern | VOLUME: Volume only 0.84x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹2066 is 2.6% away) | REGIME: BEAR market — bullish patterns not valid (BEAR 🐻)
+2026-06-07 18:50:06,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
+2026-06-07 20:49:37,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
+2026-06-07 23:44:44,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
