@@ -138,6 +138,8 @@ COMPLETED MILESTONES ✅
 25B Lifecycle Monitoring Engine ✅ Done
 26 Autonomous Execution Loop ✅ Done
 27 Volume Intelligence Engine ✅ Done
+28 Candlestick + Price Action Engine ✅ Done
+29 Market Structure Engine ✅ Done
 ---
 CURRENT RISK SETTINGS
 SettingValueStop Loss6%Profit Target15%Trailing Stop4% below peakMax Position Size10% of capitalMax Open Positions5 stocksStarting Capital (paper)₹1,00,000Brokerage0.1% per tradeDaily Loss Limit5%
@@ -572,7 +574,7 @@ This keeps signal generation separated from trade execution.
 
 ---
 Milestone 29 — Market Structure Engine
-File: strategies/market\_structure.py
+File: strategies/market_structure.py
 Implement:
 
 Support and resistance zone detection (recent swing highs/lows)
@@ -583,6 +585,328 @@ Volatility compression alerts (squeeze before expansion)
 Higher Highs / Higher Lows detection (uptrend structure)
 Lower Highs / Lower Lows detection (downtrend structure)
 Price structure scoring contribution to composite score
+
+
+# MILESTONE 29 — MARKET STRUCTURE ENGINE
+
+## Objective
+
+Create a dedicated Market Structure Engine that evaluates price behavior independent of indicators.
+
+The engine should identify:
+
+* Trend structure
+* Support and resistance
+* Breakouts
+* Breakdowns
+* Consolidation
+* Volatility compression
+* Expansion phases
+
+Output should contribute to Composite Score calculation.
+
+---
+
+# File
+
+strategies/market_structure.py
+
+---
+
+# Inputs
+
+Required:
+
+* OHLCV DataFrame
+* Minimum 60 candles
+
+Columns:
+
+* Open
+* High
+* Low
+* Close
+* Volume
+
+---
+
+# Core Functions
+
+## 1. Swing High Detection
+
+Identify local highs.
+
+Definition:
+
+Current High > previous N highs
+AND
+Current High > next N highs
+
+Return:
+
+* Swing High Levels
+* Swing High Dates
+
+---
+
+## 2. Swing Low Detection
+
+Identify local lows.
+
+Definition:
+
+Current Low < previous N lows
+AND
+Current Low < next N lows
+
+Return:
+
+* Swing Low Levels
+* Swing Low Dates
+
+---
+
+## 3. Support Detection
+
+Build support zones from:
+
+* Recent swing lows
+* Multiple touch points
+
+Output:
+
+* Support Price
+* Support Strength
+* Number of Touches
+
+---
+
+## 4. Resistance Detection
+
+Build resistance zones from:
+
+* Recent swing highs
+* Multiple touch points
+
+Output:
+
+* Resistance Price
+* Resistance Strength
+* Number of Touches
+
+---
+
+## 5. Breakout Detection
+
+Conditions:
+
+Close > Resistance
+
+AND
+
+Volume > 1.5 × Average Volume
+
+Return:
+
+* Breakout = True/False
+* Breakout Strength
+* Distance Above Resistance %
+
+---
+
+## 6. Breakdown Detection
+
+Conditions:
+
+Close < Support
+
+Return:
+
+* Breakdown = True/False
+* Breakdown Strength
+
+---
+
+## 7. Consolidation Detection
+
+Conditions:
+
+ATR decreasing
+
+AND
+
+Bollinger Width decreasing
+
+AND
+
+Price range compressed
+
+Return:
+
+* Consolidation = True/False
+* Compression Score
+
+---
+
+## 8. Volatility Compression
+
+Detect squeeze conditions.
+
+Possible methods:
+
+* BB Width percentile
+* ATR percentile
+
+Output:
+
+* Squeeze Active
+* Squeeze Strength
+
+---
+
+## 9. Higher High Higher Low Detection
+
+Bullish Structure
+
+Rules:
+
+HH = latest swing high > previous swing high
+
+HL = latest swing low > previous swing low
+
+Output:
+
+* HH Count
+* HL Count
+* Uptrend Strength
+
+---
+
+## 10. Lower High Lower Low Detection
+
+Bearish Structure
+
+Rules:
+
+LH = latest swing high < previous swing high
+
+LL = latest swing low < previous swing low
+
+Output:
+
+* LH Count
+* LL Count
+* Downtrend Strength
+
+---
+
+## 11. Trend Structure Classification
+
+Classify:
+
+* Strong Uptrend
+* Uptrend
+* Sideways
+* Downtrend
+* Strong Downtrend
+
+Based on:
+
+* HH/HL structure
+* LH/LL structure
+* Moving Average Alignment
+
+---
+
+# Structure Score
+
+Generate:
+
+market_structure_score
+
+Range:
+
+0 – 100
+
+Suggested Weighting
+
+HH/HL Trend Quality         : 30
+Support Strength            : 10
+Resistance Breakout         : 20
+Volume Confirmation         : 10
+Volatility Compression      : 10
+Trend Persistence           : 10
+Consolidation Breakout Bias : 10
+
+Total                       : 100
+
+---
+
+# Composite Score Integration
+
+Composite Score Components
+
+Technical Indicators     : Existing
+Fundamentals             : Existing
+Market Regime            : Existing
+Market Structure         : NEW
+
+Suggested Weight:
+
+Market Structure = 15% to 20%
+
+---
+
+# Scanner Enhancements
+
+Add Columns:
+
+* Structure Score
+* Trend State
+* Support
+* Resistance
+* Breakout
+* Breakdown
+* Consolidation
+* Squeeze
+* HH Count
+* HL Count
+* LH Count
+* LL Count
+
+---
+
+# Dashboard Enhancements
+
+New Panel:
+
+Market Structure
+
+Display:
+
+* Trend State
+* Structure Score
+* Support
+* Resistance
+* Breakout Status
+* Squeeze Status
+
+---
+
+# Success Criteria
+
+A stock should receive:
+
+* Trend classification
+* Structure score
+* Breakout signal
+* Breakdown signal
+* Consolidation signal
+* Squeeze signal
+
+All outputs must be consumable by Composite Score Engine.
+
+
 
 ---
 PHASE 4C — ADVANCED RISK INTELLIGENCE
@@ -600,6 +924,578 @@ Max simultaneous exposure (never >70% capital deployed)
 Volatility-adjusted position sizing (smaller size in volatile markets)
 ATR-based stop loss (stop = entry - 2x ATR, not fixed %)
 Regime-aware aggression (reduce size in WEAK BULL / SIDEWAYS)
+
+# MILESTONE 30 — ADVANCED PORTFOLIO RISK ENGINE
+
+## Objective
+
+Current system already supports:
+
+* Composite scoring
+* Capital allocation by bucket
+* Position limits
+* Fixed stop loss
+* Market regime filtering
+
+Milestone 30 upgrades risk management from trade-level protection to portfolio-level protection.
+
+The goal is to prevent concentration risk, correlated exposure, portfolio drawdowns, and over-aggressive deployment.
+
+---
+
+# FILE TO CREATE
+
+risk/portfolio_risk.py
+
+---
+
+# EXISTING SYSTEMS TO USE
+
+Use data from:
+
+* bucket_state
+* bucket_trades
+* paper_portfolio
+* paper_trades
+* market_regime.py
+* capital_engine.py
+* yfinance price history
+* ATR calculations already used elsewhere if available
+
+Do not duplicate existing logic if reusable functions already exist.
+
+---
+
+# FEATURE 1 — PORTFOLIO RISK SUMMARY
+
+Create:
+
+```python
+get_portfolio_risk_summary()
+```
+
+Returns:
+
+```python
+{
+    "capital_deployed_pct": 52.4,
+    "daily_pnl_pct": -1.3,
+    "largest_sector_pct": 24.8,
+    "high_correlation_count": 2,
+    "risk_level": "NORMAL",
+    "trading_allowed": True
+}
+```
+
+Used later in dashboard.
+
+---
+
+# FEATURE 2 — SECTOR EXPOSURE LIMIT
+
+Create:
+
+```python
+check_sector_exposure(
+    sector,
+    proposed_value
+)
+```
+
+Purpose:
+
+Prevent excessive concentration in one sector.
+
+Example:
+
+HDFC Bank
+ICICI Bank
+Axis Bank
+Kotak Bank
+
+All belong to Banking.
+
+Even though there are multiple stocks, actual diversification is poor.
+
+Rule:
+
+Maximum sector allocation:
+
+30% of total portfolio value
+
+Calculation:
+
+sector_value_after_trade
+/
+total_portfolio_value_after_trade
+
+If result exceeds 30%:
+
+Reject trade.
+
+Return:
+
+```python
+(False,
+ "Banking exposure would become 37.5%")
+```
+
+Otherwise:
+
+```python
+(True, "OK")
+```
+
+---
+
+# FEATURE 3 — CORRELATION RISK
+
+Create:
+
+```python
+check_correlation_risk(stock)
+```
+
+Purpose:
+
+Prevent buying multiple stocks that move together.
+
+Example:
+
+TCS
+INFY
+WIPRO
+HCLTECH
+
+Looks diversified but is effectively one trade.
+
+Implementation:
+
+Fetch 60 trading days of history.
+
+Calculate:
+
+Daily returns
+
+Then:
+
+```python
+returns.corr()
+```
+
+High correlation threshold:
+
+0.80
+
+Count how many current holdings have correlation above 0.80.
+
+Rule:
+
+If candidate stock is highly correlated with 3 or more active positions:
+
+Reject trade.
+
+Return:
+
+```python
+(False,
+ "Highly correlated with existing portfolio")
+```
+
+Otherwise:
+
+```python
+(True, "OK")
+```
+
+---
+
+# FEATURE 4 — BUCKET DRAWDOWN CONTROL
+
+Create:
+
+```python
+check_bucket_drawdown(bucket)
+```
+
+Use:
+
+bucket_state
+
+Calculate:
+
+Current Equity
+
+Current Equity =
+Available Cash
++
+Deployed Capital
++
+Realized PnL
+
+Drawdown:
+
+```python
+(Current Equity - Starting Capital)
+/
+Starting Capital
+*
+100
+```
+
+Rule:
+
+If bucket drawdown <= -10%
+
+Pause that bucket.
+
+No new trades allowed.
+
+Existing positions remain active.
+
+Return:
+
+```python
+{
+    "allowed": False,
+    "drawdown_pct": -11.8
+}
+```
+
+---
+
+# FEATURE 5 — DAILY PORTFOLIO LOSS LIMIT
+
+Create:
+
+```python
+check_daily_loss_limit()
+```
+
+Purpose:
+
+Stop trading during major market damage.
+
+Calculate:
+
+Current portfolio value
+
+versus
+
+Start-of-day portfolio value
+
+Rule:
+
+If portfolio loss >= 5%
+
+No new trades allowed.
+
+Existing trades continue normally.
+
+Return:
+
+```python
+(False,
+ "Daily portfolio loss limit reached")
+```
+
+Otherwise:
+
+```python
+(True,
+ "OK")
+```
+
+---
+
+# FEATURE 6 — MAX CAPITAL DEPLOYMENT
+
+Create:
+
+```python
+check_max_exposure(
+    proposed_trade_value
+)
+```
+
+Purpose:
+
+Always maintain cash reserves.
+
+Calculate:
+
+```python
+deployed_after_trade
+/
+total_capital
+```
+
+Rule:
+
+Maximum deployment:
+
+70%
+
+Example:
+
+Current deployment:
+65%
+
+New trade:
+10%
+
+Result:
+75%
+
+Reject trade.
+
+---
+
+# FEATURE 7 — ATR STOP LOSS
+
+Create:
+
+```python
+calculate_atr_stop(
+    stock,
+    entry_price
+)
+```
+
+Use:
+
+14-period ATR
+
+Formula:
+
+stop =
+entry_price
+-----------
+
+(ATR × 2)
+
+Example:
+
+Entry = 100
+
+ATR = 4
+
+Stop = 92
+
+Return:
+
+```python
+{
+    "atr": 4,
+    "stop": 92
+}
+```
+
+This does NOT replace current stop logic yet.
+
+It should be available for future milestones.
+
+---
+
+# FEATURE 8 — VOLATILITY ADJUSTED POSITION SIZING
+
+Create:
+
+```python
+get_volatility_multiplier(stock)
+```
+
+Calculate:
+
+ATR %
+
+```python
+ATR / Price
+```
+
+Rules:
+
+ATR% < 2%
+
+Multiplier:
+
+```python
+1.00
+```
+
+ATR% between 2% and 4%
+
+Multiplier:
+
+```python
+0.75
+```
+
+ATR% > 4%
+
+Multiplier:
+
+```python
+0.50
+```
+
+Example:
+
+Normal position size:
+₹100,000
+
+Multiplier:
+0.50
+
+Final size:
+₹50,000
+
+---
+
+# FEATURE 9 — REGIME AWARE AGGRESSION
+
+Use output from:
+
+market_regime.py
+
+Create:
+
+```python
+get_regime_position_multiplier()
+```
+
+Mapping:
+
+STRONG_BULL → 1.00
+
+WEAK_BULL → 0.75
+
+SIDEWAYS → 0.50
+
+BEAR → 0.25
+
+CRASH → 0.00
+
+Meaning:
+
+CRASH regime blocks all new buying.
+
+---
+
+# FEATURE 10 — MASTER PORTFOLIO RISK GATE
+
+Create:
+
+```python
+validate_portfolio_risk(
+    stock,
+    bucket,
+    proposed_value,
+    sector
+)
+```
+
+This becomes the single approval function.
+
+Run checks in this order:
+
+1. Daily loss limit
+2. Bucket drawdown
+3. Max deployment
+4. Sector exposure
+5. Correlation risk
+6. Market regime
+
+Return:
+
+```python
+{
+    "approved": True,
+    "reasons": []
+}
+```
+
+or
+
+```python
+{
+    "approved": False,
+    "reasons": [
+        "Sector limit exceeded",
+        "Bucket drawdown exceeded"
+    ]
+}
+```
+
+---
+
+# REQUIRED INTEGRATION
+
+Current flow:
+
+Scanner
+→ Composite Score
+→ Capital Engine
+→ BUY
+
+New flow:
+
+Scanner
+→ Composite Score
+→ Portfolio Risk Engine
+→ Capital Engine
+→ BUY
+
+Every BUY path must call:
+
+```python
+validate_portfolio_risk()
+```
+
+before execution.
+
+This includes:
+
+* Scanner buy
+* Manual buy
+* Future automated execution loop
+
+---
+
+# SUCCESS CRITERIA
+
+Milestone 30 is complete when:
+
+✓ Sector exposure limit working
+
+✓ Correlation filtering working
+
+✓ Bucket drawdown protection working
+
+✓ Daily portfolio loss protection working
+
+✓ Max deployment protection working
+
+✓ ATR stop calculation available
+
+✓ Volatility-adjusted sizing available
+
+✓ Regime-aware sizing available
+
+✓ Single validation function protects every buy path
+
+✓ Risk summary function available for dashboard use
+
+Important:
+
+Focus on building the engine first.
+
+Do not modify dashboard UI yet.
+
+Do not modify execution_loop yet.
+
+Expose clean functions that later milestones can consume.
+
 
 ---
 PHASE 4D — AUTONOMOUS INTELLIGENCE

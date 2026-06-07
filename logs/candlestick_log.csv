@@ -1,0 +1,3 @@
+Timestamp,Stock,Pattern,Direction,Candle_Date,Strength,Confidence,Signal,Accepted,Trend_OK,Volume_OK,SR_Near,Regime_OK,Vol_Ratio,Rejection_Reason
+2026-06-07 09:34:43,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
+2026-06-07 10:59:05,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)

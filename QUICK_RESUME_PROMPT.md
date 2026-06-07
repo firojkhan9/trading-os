@@ -47,6 +47,7 @@ Remind git add/commit/push after each milestone · Never expose secrets
  
 \---
  
-LAST COMPLETED : Milestone 27 — Volume Intelligence Engine
-CURRENT REQUIRED FIXES  :  at least 5 years data analysis for better results e.g. fundamental and financial analysis,one click selection of stocks for trade 
-NEXT MILESTONE : Milestone 28 — Candlestick + Price Action Engine
+LAST COMPLETED : Milestone 29 — Market Structure Engine
+CURRENT REQUIRED FIXES  :  No weightage given to candlestick and market structure, at least 5 years data analysis for better results e.g. fundamental and financial analysis,one click selection of stocks for trade 
+NEXT MILESTONE : Milestone 30 — Advanced Portfolio Risk Engine
+Dont give full python file if patches can be done in smaller edits. Only give full file when it is fully new
