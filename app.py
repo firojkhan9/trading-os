@@ -2038,7 +2038,7 @@ VERDICT:
         st.caption("Score looks good? Trade directly from this page")
         render_quick_buy_panel(
             stock_name      = score_stock,
-            tab_key_prefix  = "score",
+            tab_key_prefix  = f"score_{score_stock}",
             composite_score = composite,
             combined_signal = final_signal,
             buy_votes       = explanation["buy_votes"],

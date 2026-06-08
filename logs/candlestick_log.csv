@@ -8,3 +8,4 @@ Timestamp,Stock,Pattern,Direction,Candle_Date,Strength,Confidence,Signal,Accepte
 2026-06-07 23:44:44,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
 2026-06-08 02:15:12,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)
 2026-06-08 02:17:28,BHARTIARTL,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,63,SELL 🕯️,YES,YES,NO,NO,YES,0.35,VOLUME: Volume only 0.35x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1954 is 8.7% away)
+2026-06-08 08:07:11,RELIANCE,BEARISH_ENGULFING,BEARISH,2026-06-05,0.95,71,SELL 🕯️,YES,YES,YES,NO,YES,1.06,S/R: Price not near resistance (₹1421 is 10.1% away)

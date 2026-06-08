@@ -226,7 +226,22 @@ def fetch_fundamentals(symbol):
         result["quick_ratio"]      = safe_get("quickRatio")
 
         # ── Dividends ─────────────────────────────────
-        result["dividend_yield"]   = safe_get("dividendYield", 100)
+        raw_div = info.get("dividendYield")
+        if raw_div is not None:
+            try:
+                dv = float(raw_div)
+                # yfinance sometimes returns already-percent (e.g. 0.46 meaning 0.46%)
+                # and sometimes decimal (0.0046 meaning 0.46%). Cap at 25% to detect the issue.
+                if dv > 0.25:
+                    # Already in % form (e.g. 0.46 means 0.46%) — use as-is
+                    result["dividend_yield"] = round(dv, 4)
+                else:
+                    # Decimal form — multiply by 100
+                    result["dividend_yield"] = round(dv * 100, 4)
+            except Exception:
+                result["dividend_yield"] = None
+        else:
+            result["dividend_yield"] = None
 
         result["data_available"]   = True
 
