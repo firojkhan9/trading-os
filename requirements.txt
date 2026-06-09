@@ -9,6 +9,7 @@ python-dotenv
 loguru
 supabase
 pytz              # Timezone handling for IST market hours (Milestone 26)
+streamlit-autorefresh
 
 # Backtesting
 # backtrader   # Uncomment when needed

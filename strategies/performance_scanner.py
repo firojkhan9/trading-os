@@ -270,6 +270,17 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                     composite_score = score_result["Composite Score"]
                     score_action    = score_result["Action"]
 
+            # Dividend yield — fetched separately (lightweight)
+            div_yield_pct = "N/A"
+            try:
+                from strategies.fundamental_engine import fetch_fundamentals as _ff
+                _fd = _ff(symbol)
+                dv  = _fd.get("dividend_yield")
+                if dv is not None:
+                    div_yield_pct = f"{round(float(dv), 2)}%"
+            except Exception:
+                pass
+            
             # Market Structure (Milestone 29)
             ms_trend   = "N/A"
             ms_score_v = 50
@@ -307,6 +318,7 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                 "Buy Votes":       buy_votes,
                 "Score":           composite_score if composite_score is not None else 0,
                 "Action":          score_action,
+                "Dividend Yield":  div_yield_pct,
                 "Trend State":     ms_trend,
                 "Struct Score":    ms_score_v,
                 "Support":         ms_support,
