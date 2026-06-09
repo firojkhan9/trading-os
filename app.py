@@ -123,6 +123,7 @@ from portfolio.capital_engine import (
 
 from engine.loop_state import (
     load_loop_state,
+    is_market_open,
     start_loop,
     pause_loop,
     stop_loop,
@@ -1141,6 +1142,7 @@ with tab3:
             {"Column": "Buy Votes",       "What it means": "How many of 4 strategies say BUY right now"},
             {"Column": "Score",           "What it means": "Composite intelligence score 0-100"},
             {"Column": "Action",          "What it means": "Recommended action based on score"},
+            {"Column": "Div Yield",       "What it means": "Annual dividend yield % — useful for Long-Term bucket picks"},
         ]
         st.dataframe(pd.DataFrame(preview_data), use_container_width=True, hide_index=True)
 
@@ -3245,52 +3247,24 @@ with tab11:
     )
     st.divider()
 
-    # ── AUTO-RUN on page load ─────────────────────
-    # Streamlit has no background scheduler — the loop runs
-    # whenever someone is viewing this tab AND the interval has elapsed.
-    # Keep this tab open in your browser during market hours.
-    _auto_state = load_loop_state()
-    if _auto_state.get("status") == STATUS_RUNNING and is_market_open():
-        _last = _auto_state.get("last_run")
-        _interval = int(_auto_state.get("interval_minutes", 15))
-        _should_auto = False
-        if _last is None:
-            _should_auto = True
-        else:
-            try:
-                from datetime import datetime as _dt
-                _elapsed = (_dt.now() - _dt.strptime(_last, '%Y-%m-%d %H:%M:%S')).total_seconds() / 60
-                _should_auto = _elapsed >= _interval
-            except Exception:
-                _should_auto = False
+    # ── Runner page banner ────────────────────────
+    # The autorefresh and execution loop have been moved to
+    # pages/autopilot_runner.py — a dedicated second page.
+    # This keeps the main dashboard completely free of interruptions.
+    st.info(
+        "### 🤖 To enable autonomous trading, open the Auto Pilot Runner page.\n\n"
+        "Look in the **sidebar** (top-left ☰) for **autopilot runner** and open it "
+        "in a **second browser tab**. Leave that tab open during market hours. "
+        "This main dashboard will never be interrupted."
+    )
 
-        if _should_auto:
-            with st.spinner(f"🤖 Auto-running cycle (every {_interval} min)..."):
-                _auto_result = run_one_cycle(force=False, scan_only=False)
-            if _auto_result.get("ran"):
-                st.toast(
-                    f"✅ Auto cycle complete | "
-                    f"Buys: {_auto_result['buys']} | Sells: {_auto_result['sells']}",
-                    icon="🤖"
-                )
-            st.rerun()
- 
     # ── Market status banner ──────────────────────
     mkt_status = get_market_status()
     if mkt_status["open"]:
-        st.success(
-            f"🟢 **Market OPEN** — {mkt_status['time']} | "
-            "Loop can run now"
-        )
+        st.success(f"🟢 **Market OPEN** — {mkt_status['time']}")
     else:
-        st.warning(
-            f"⚫ **Market {mkt_status['status']}** — {mkt_status['time']} | "
-            "Loop will wait for market hours"
-        )
-    st.caption(
-        "NSE Market Hours: 9:15 AM – 3:30 PM IST (Mon–Fri) | "
-        "All times shown in IST (UTC+5:30)"
-    )
+        st.warning(f"⚫ **{mkt_status['status']}** — {mkt_status['time']}")
+    st.caption("NSE Market Hours: 9:15 AM – 3:30 PM IST (Mon–Fri) | All times in IST (UTC+5:30)")
  
     st.divider()
  
