@@ -422,8 +422,7 @@ with tab1:
     st.divider()
 
     # ── Market Regime Mini Banner ─────────────────
-    with st.spinner("Checking market regime..."):
-        regime_data  = fetch_regime_analysis()
+    regime_data  = fetch_regime_analysis()
     regime       = regime_data["regime"]
     regime_advice= regime_data["advice"]
 
@@ -441,8 +440,7 @@ with tab1:
 
     # ── Watchlist Table ───────────────────────────
     st.subheader("📊 Watchlist")
-    with st.spinner("Fetching market data..."):
-        summary_df = fetch_all_stocks()
+    summary_df = fetch_all_stocks()
 
     st.caption("👆 Click any row to select that stock")
     selection = st.dataframe(
@@ -470,8 +468,8 @@ with tab1:
     st.divider()
 
     # ── Fetch + Analyze ───────────────────────────
+    stock_data = fetch_stock_data(selected_symbol)
     with st.spinner(f"Analyzing {selected_stock}..."):
-        stock_data = fetch_stock_data(selected_symbol)
         analyzed   = analyze_stock(stock_data)
 
     latest        = analyzed.iloc[-1]
@@ -821,8 +819,7 @@ with tab2:
     st.caption("Understanding the overall market environment before placing trades")
     st.divider()
 
-    with st.spinner("Analyzing NIFTY 50..."):
-        regime_analysis = fetch_regime_analysis()
+    regime_analysis = fetch_regime_analysis()
 
     regime     = regime_analysis["regime"]
     reason     = regime_analysis["reason"]
@@ -954,9 +951,9 @@ with tab3:
     st.divider()
 
     if st.button("🔍 Scan All Stocks", use_container_width=True, key="run_scan"):
+        regime_info  = fetch_regime_analysis()
+        scan_regime  = regime_info["regime"]
         with st.spinner(f"Scanning all {len(STOCK_NAMES)} stocks over {period_label}... this takes ~60 seconds"):
-            regime_info  = fetch_regime_analysis()
-            scan_regime  = regime_info["regime"]
             full_df, best_return_df, worst_return_df, best_score_df = scan_all_stocks(
                 watchlist_dict = WATCHLIST,
                 period_days    = period_days,
@@ -1167,6 +1164,10 @@ with tab4:
     st.divider()
  
     if st.button("🔍 Analyse & Explain", use_container_width=True, key="calc_score"):
+        # Pre-fetch cached data BEFORE entering spinner (Python 3.14 threading fix)
+        score_regime_data = fetch_regime_analysis()
+        score_regime      = score_regime_data["regime"]
+
         with st.spinner(f"Running full analysis on {score_stock}... fetching 6 months of data"):
  
             score_symbol = WATCHLIST[score_stock]
@@ -1207,9 +1208,7 @@ with tab4:
                 bb_signal=s_bb_sig, macd_signal=s_macd_sig,
             )
  
-            # Get regime
-            score_regime_data = fetch_regime_analysis()
-            score_regime      = score_regime_data["regime"]
+            # regime already fetched above
  
             # Build composite score
             s_close  = round(float(score_latest['Close']), 2)
@@ -2089,8 +2088,7 @@ with tab5:
     st.divider()
 
     if st.button("🏆 Rank All Stocks by Relative Strength", use_container_width=True):
-        with st.spinner("Fetching 6 months of data for all stocks... this takes ~60 seconds"):
-            rs_df = fetch_rs_ranking()
+        rs_df = fetch_rs_ranking()
 
         if rs_df.empty:
             st.error("Could not fetch data — try again.")
