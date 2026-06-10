@@ -513,7 +513,7 @@ ORCH_LOG_COLS = [
 def log_orchestration_decision(result: dict):
     """
     Append one orchestration decision to the audit log.
-    Writes to CSV (always) and Supabase (if available).
+    Writes to Supabase (primary) and CSV (fallback).
     """
     entry = {
         "Timestamp":        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -532,6 +532,30 @@ def log_orchestration_decision(result: dict):
         "Summary":          result.get("summary",          ""),
     }
 
+    # ── Layer 1: Supabase ─────────────────────────────
+    try:
+        client = get_client()
+        if client:
+            client.table("orchestration_log").insert({
+                "timestamp":        entry["Timestamp"],
+                "stock":            entry["Stock"],
+                "symbol":           entry["Symbol"],
+                "bucket":           entry["Bucket"],
+                "decision":         entry["Decision"],
+                "bucket_score":     entry["Bucket_Score"],
+                "composite_score":  entry["Composite_Score"],
+                "confluence_count": entry["Confluence_Count"],
+                "confluence_level": entry["Confluence_Level"],
+                "buy_votes":        entry["Buy_Votes"],
+                "regime":           entry["Regime"],
+                "routing_reason":   entry["Routing_Reason"],
+                "rejection_reason": entry["Rejection_Reason"],
+                "summary":          entry["Summary"],
+            }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase orchestration log failed: {e}")
+
+    # ── Layer 2: CSV fallback ────────────────────────
     df = pd.DataFrame([entry])
     try:
         if os.path.exists(ORCH_LOG_FILE):
@@ -539,11 +563,46 @@ def log_orchestration_decision(result: dict):
         else:
             df.to_csv(ORCH_LOG_FILE, mode='w', header=True, index=False)
     except Exception as e:
-        print(f"⚠️ Orchestration log write failed: {e}")
+        print(f"⚠️ Orchestration log CSV write failed: {e}")
 
 
 def load_orchestration_log(max_rows: int = 200) -> pd.DataFrame:
-    """Load the orchestration decision log for dashboard display."""
+    """Load the orchestration decision log for dashboard display. Tries Supabase first."""
+    # ── Layer 1: Supabase ─────────────────────────────
+    try:
+        client = get_client()
+        if client:
+            response = (
+                client.table("orchestration_log")
+                .select("*")
+                .order("timestamp", desc=True)
+                .limit(max_rows)
+                .execute()
+            )
+            if response.data:
+                df = pd.DataFrame(response.data)
+                df = df.rename(columns={
+                    "timestamp":        "Timestamp",
+                    "stock":            "Stock",
+                    "symbol":           "Symbol",
+                    "bucket":           "Bucket",
+                    "decision":         "Decision",
+                    "bucket_score":     "Bucket_Score",
+                    "composite_score":  "Composite_Score",
+                    "confluence_count": "Confluence_Count",
+                    "confluence_level": "Confluence_Level",
+                    "buy_votes":        "Buy_Votes",
+                    "regime":           "Regime",
+                    "routing_reason":   "Routing_Reason",
+                    "rejection_reason": "Rejection_Reason",
+                    "summary":          "Summary",
+                })
+                cols = [c for c in ORCH_LOG_COLS if c in df.columns]
+                return df[cols].reset_index(drop=True)
+            return pd.DataFrame(columns=ORCH_LOG_COLS)
+    except Exception as e:
+        print(f"⚠️ Supabase orchestration log load failed: {e}")
+    # ── Layer 2: CSV fallback ────────────────────────
     if not os.path.exists(ORCH_LOG_FILE):
         return pd.DataFrame(columns=ORCH_LOG_COLS)
     try:
@@ -554,12 +613,18 @@ def load_orchestration_log(max_rows: int = 200) -> pd.DataFrame:
 
 
 def clear_orchestration_log():
-    """Clear the orchestration log (dashboard reset button)."""
+    """Clear the orchestration log from Supabase and CSV."""
+    try:
+        client = get_client()
+        if client:
+            client.table("orchestration_log").delete().neq("id", 0).execute()
+    except Exception as e:
+        print(f"⚠️ Could not clear Supabase orchestration log: {e}")
     if os.path.exists(ORCH_LOG_FILE):
         try:
             os.remove(ORCH_LOG_FILE)
         except Exception as e:
-            print(f"⚠️ Could not clear orchestration log: {e}")
+            print(f"⚠️ Could not clear orchestration log CSV: {e}")
 
 
 # ════════════════════════════════════════════════

@@ -3511,6 +3511,69 @@ with tab11:
             mime      = "text/csv",
         )
 
-# ── Footer ─────────────────────────────────────────
+        st.divider()  
+
+        # ── Orchestration Log ─────────────────────────
+        st.subheader("🎯 Orchestration Log")
+        st.caption(
+            "Every stock the loop evaluated — bucket routing decisions, "
+            "confluence scores, and rejection reasons from the Strategy Orchestrator"
+        )
+
+        from strategies.orchestrator import (
+            load_orchestration_log,
+            clear_orchestration_log,
+            get_orchestration_stats,
+        )
+
+        orch_stats = get_orchestration_stats()
+        os1, os2, os3, os4, os5 = st.columns(5)
+        os1.metric("Total Evaluated", orch_stats["total"])
+        os2.metric("Accepted",        orch_stats["accepted"])
+        os3.metric("Reviewed",        orch_stats["reviewed"])
+        os4.metric("Rejected",        orch_stats["rejected"])
+        os5.metric("Accept Rate",     orch_stats["accept_rate"])
+
+        orch_df = load_orchestration_log(max_rows=100)
+
+        if orch_df.empty:
+            st.info("No orchestration decisions logged yet. Run a cycle to see routing decisions here.")
+        else:
+            def color_orch_decision(val):
+                if val == "ACCEPT": return "color: green;  font-weight: bold"
+                if val == "REJECT": return "color: red;    font-weight: bold"
+                if val == "REVIEW": return "color: orange; font-weight: bold"
+                return ""
+
+            # Show key columns only for readability
+            show_cols = [c for c in [
+                "Timestamp", "Stock", "Bucket", "Decision",
+                "Bucket_Score", "Composite_Score", "Confluence_Count",
+                "Confluence_Level", "Buy_Votes", "Regime", "Summary"
+            ] if c in orch_df.columns]
+
+            st.dataframe(
+                orch_df[show_cols].style.map(color_orch_decision, subset=["Decision"]),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
+                st.download_button(
+                    label     = "⬇️ Download Orchestration Log",
+                    data      = orch_df.to_csv(index=False),
+                    file_name = "orchestration_log.csv",
+                    mime      = "text/csv",
+                )
+            with col_dl2:
+                if st.button("🗑️ Clear Orchestration Log", key="clear_orch_log"):
+                    clear_orchestration_log()
+                    st.info("Orchestration log cleared")
+                    st.rerun()
+            st.divider()
+
+
+
 st.divider()
 st.caption("📌 Data: Yahoo Finance | Refreshes every 5 min | Not financial advice")

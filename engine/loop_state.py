@@ -222,7 +222,7 @@ def log_decision(
     exit_reason: str = "",
 ):
     """
-    Append one decision to the decision log CSV.
+    Append one decision to the decision log CSV AND Supabase.
     Called for EVERY decision the loop makes — including NO-TRADE.
 
     Logging NO-TRADE is just as important as logging BUY/SELL.
@@ -241,6 +241,27 @@ def log_decision(
         "Exit_Reason": exit_reason,
     }
 
+    # ── Layer 1: Supabase (permanent across restarts) ──
+    try:
+        from config.supabase_client import get_client
+        client = get_client()
+        if client:
+            client.table("loop_decisions").insert({
+                "timestamp":   entry["Timestamp"],
+                "stock":       entry["Stock"],
+                "bucket":      entry["Bucket"],
+                "decision":    entry["Decision"],
+                "score":       entry["Score"],
+                "signal":      entry["Signal"],
+                "price":       entry["Price"],
+                "reason":      entry["Reason"],
+                "regime":      entry["Regime"],
+                "exit_reason": entry["Exit_Reason"],
+            }).execute()
+    except Exception as e:
+        print(f"⚠️ Supabase decision log failed: {e}")
+
+    # ── Layer 2: CSV fallback ──────────────────────────
     df = pd.DataFrame([entry])
     try:
         if os.path.exists(LOOP_LOG_FILE):
@@ -248,14 +269,48 @@ def log_decision(
         else:
             df.to_csv(LOOP_LOG_FILE, mode='w', header=True, index=False)
     except Exception as e:
-        print(f"⚠️ Could not write decision log: {e}")
+        print(f"⚠️ Could not write decision log CSV: {e}")
 
 
 def load_decision_log(max_rows: int = 200) -> pd.DataFrame:
     """
     Load the decision log for dashboard display.
+    Tries Supabase first (survives restarts), falls back to CSV.
     Returns last N rows, newest first.
     """
+    # ── Layer 1: Supabase ─────────────────────────
+    try:
+        from config.supabase_client import get_client
+        client = get_client()
+        if client:
+            response = (
+                client.table("loop_decisions")
+                .select("*")
+                .order("timestamp", desc=True)
+                .limit(max_rows)
+                .execute()
+            )
+            if response.data:
+                df = pd.DataFrame(response.data)
+                df = df.rename(columns={
+                    "timestamp":   "Timestamp",
+                    "stock":       "Stock",
+                    "bucket":      "Bucket",
+                    "decision":    "Decision",
+                    "score":       "Score",
+                    "signal":      "Signal",
+                    "price":       "Price",
+                    "reason":      "Reason",
+                    "regime":      "Regime",
+                    "exit_reason": "Exit_Reason",
+                })
+                cols = [c for c in DECISION_LOG_COLS if c in df.columns]
+                return df[cols].reset_index(drop=True)
+            return pd.DataFrame(columns=DECISION_LOG_COLS)
+    except Exception as e:
+        print(f"\u26a0\ufe0f Supabase decision log load failed: {e}")
+
+    # ── Layer 2: CSV fallback ─────────────────────
     if not os.path.exists(LOOP_LOG_FILE):
         return pd.DataFrame(columns=DECISION_LOG_COLS)
 
@@ -269,14 +324,23 @@ def load_decision_log(max_rows: int = 200) -> pd.DataFrame:
 
 def clear_decision_log():
     """
-    Clear today's decision log.
+    Clear the decision log from CSV and Supabase.
     Called by the dashboard reset button.
     """
+    # Clear Supabase
+    try:
+        from config.supabase_client import get_client
+        client = get_client()
+        if client:
+            client.table("loop_decisions").delete().neq("id", 0).execute()
+    except Exception as e:
+        print(f"⚠️ Could not clear Supabase decision log: {e}")
+    # Clear CSV
     if os.path.exists(LOOP_LOG_FILE):
         try:
             os.remove(LOOP_LOG_FILE)
         except Exception as e:
-            print(f"⚠️ Could not clear decision log: {e}")
+            print(f"⚠️ Could not clear decision log CSV: {e}")
 
 
 # ════════════════════════════════════════════════

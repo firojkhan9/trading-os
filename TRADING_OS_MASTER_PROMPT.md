@@ -807,4 +807,4 @@ Next planned milestone:   Milestone 31 — Strategy Orchestration Engine
 ---
 Trading OS v4.0 — Firoj Khan
 "Survive first. Profit second. Automate third."
-Dont give full python file if patches can be done. Only give full file when it is fully new
+Never give full python file for any modification or correction etc. only give patches if same file is already available. Give full file only when it is fully new
