@@ -140,7 +140,80 @@ COMPLETED MILESTONES ✅
 27 Volume Intelligence Engine ✅ Done
 28 Candlestick + Price Action Engine ✅ Done
 29 Market Structure Engine ✅ Done
+30 Advanced Portfolio Risk Engine  ✅ Done
+31 Strategy Orchestration Engine ✅ Done
 ---
+CRITICAL OUTPUT RULES
+
+You are working on a large existing codebase.
+
+DO NOT rewrite entire files.
+
+DO NOT regenerate functions that are not being changed.
+
+DO NOT output complete files unless I explicitly request FULL FILE.
+
+Default behavior:
+
+1. First analyze current architecture.
+2. Identify exact insertion points.
+3. Return ONLY:
+   - new functions
+   - modified functions
+   - changed imports
+   - changed constants
+   - changed SQL
+
+4. Use PATCH FORMAT:
+
+=== FILE: risk/portfolio_risk.py ===
+
+ADD AFTER:
+def existing_function():
+
+<new code>
+
+=== FILE: app.py ===
+
+REPLACE:
+
+<old code>
+
+WITH:
+
+<new code>
+
+5. Minimize token usage.
+6. Never repeat unchanged code.
+7. If a change affects less than 20% of a file, return patch only.
+8. Ask for the file if needed rather than guessing.
+
+FULL FILE OUTPUT IS FORBIDDEN UNLESS I EXPLICITLY SAY:
+"GENERATE FULL FILE"
+
+PROJECT MODE: TOKEN EFFICIENT
+
+This project is approximately:
+- 17,000+ LOC
+- 34+ Python files
+- Streamlit
+- Supabase
+- Google Sheets
+
+Rules:
+
+- Assume existing code works.
+- Preserve architecture.
+- Make smallest possible change.
+- Prefer patches over rewrites.
+- Prefer function-level changes over file-level changes.
+- Never regenerate files larger than 300 lines.
+- Show exact insertion locations.
+- Output only changed code.
+- Explain integration points before code.
+
+
+
 CURRENT RISK SETTINGS
 SettingValueStop Loss6%Profit Target15%Trailing Stop4% below peakMax Position Size10% of capitalMax Open Positions5 stocksStarting Capital (paper)₹1,00,000Brokerage0.1% per tradeDaily Loss Limit5%
 All configurable via Google Sheets (no code changes needed).
@@ -705,6 +778,473 @@ Reason: Composite score 48/100 — below 60 threshold
 Reason: Only 1/4 strategies voting BUY
 Reason: Volume below average — no confirmation
 Action: Added to WATCHLIST for tomorrow
+
+# MILESTONE 32 — EXPLAINABLE AUTONOMOUS DECISION ENGINE
+
+## OBJECTIVE
+
+Build a transparent decision engine that explains EVERY autonomous trading decision before execution.
+
+The system must never return only BUY or SELL.
+
+Every decision must include:
+
+* What decision was made
+* Why it was made
+* Why it might fail
+* Portfolio impact
+* Risk assessment
+* Confidence level
+* Supporting signals
+* Conflicting signals
+
+The goal is to make Trading OS auditable, trustworthy, and suitable for future fully autonomous execution.
+
+---
+
+# FILE
+
+engine/decision_engine.py
+
+---
+
+# WHY THIS MILESTONE EXISTS
+
+Current system can calculate:
+
+* Composite scores
+* Risk metrics
+* Market structure
+* Portfolio exposure
+* Orchestrator routing
+
+But the final output is still difficult to audit.
+
+Example:
+
+BAD:
+
+BUY RELIANCE
+
+GOOD:
+
+BUY RELIANCE
+
+Because:
+
+* EMA crossover confirmed
+* MACD bullish
+* Volume expansion
+* Market regime bullish
+
+Risks:
+
+* RSI elevated
+* Sector concentration increasing
+
+Expected reward exceeds risk by 3.3x
+
+This milestone creates that explanation layer.
+
+---
+
+# CORE RESPONSIBILITY
+
+Create a centralized engine that converts all trading intelligence into a single explainable decision object.
+
+The engine must support:
+
+BUY
+
+SELL
+
+HOLD
+
+NO_TRADE
+
+---
+
+# INPUTS
+
+Decision engine should consume outputs from:
+
+## Orchestrator
+
+* bucket assignment
+* composite score
+* signal contributions
+* confidence score
+
+## Portfolio Risk Engine
+
+* deployment %
+* bucket utilization
+* drawdown status
+* correlation warnings
+* sector concentration
+
+## Market Structure
+
+* trend state
+* breakout status
+* breakdown status
+* consolidation status
+
+## Scoring Engine
+
+* technical score
+* volume score
+* sentiment score
+* structure score
+
+## Position Lifecycle
+
+* current state
+* cooldown status
+* holding duration
+
+---
+
+# OUTPUT OBJECT
+
+Standardized structure:
+
+
+---
+
+# DECISION TYPES
+
+## BUY
+
+Conditions:
+
+* score above threshold
+* risk engine approval
+* not in cooldown
+* capital available
+* bucket capacity available
+
+---
+
+## SELL
+
+Conditions:
+
+* stop hit
+* target hit
+* trailing stop triggered
+* structure breakdown
+* risk override
+* lifecycle exit
+
+---
+
+## HOLD
+
+Conditions:
+
+* existing position
+* no exit trigger
+
+---
+
+## NO_TRADE
+
+Conditions:
+
+* weak score
+* risk rejection
+* correlation rejection
+* exposure limits reached
+* cooldown active
+
+---
+
+# REASONS FOR
+
+Must provide human-readable positives.
+
+Examples:
+
+```text
+EMA crossover confirmed
+
+MACD bullish crossover
+
+Volume 2.3x average
+
+Breakout above resistance
+
+Higher highs / higher lows structure
+
+Bull market regime
+
+Strong relative strength
+
+Composite score above threshold
+```
+
+---
+
+# REASONS AGAINST
+
+Must provide human-readable warnings.
+
+Examples:
+
+```text
+RSI approaching overbought
+
+Sector exposure elevated
+
+Portfolio already heavily deployed
+
+Correlation with existing holdings
+
+Market volatility increasing
+
+Weak sentiment
+
+Near major resistance
+```
+
+---
+
+# CONFIDENCE SCORE
+
+Range:
+
+0-100
+
+Source:
+
+Orchestrator confidence score.
+
+Decision engine should display:
+
+```text
+Low Confidence:
+0-49
+
+Medium Confidence:
+50-69
+
+High Confidence:
+70-84
+
+Very High Confidence:
+85+
+```
+
+---
+
+# RISK ASSESSMENT BLOCK
+
+
+```
+
+Data source:
+
+Portfolio Risk Engine.
+
+---
+
+# PORTFOLIO IMPACT BLOCK
+
+
+```
+
+Purpose:
+
+Show exactly how this trade changes portfolio risk.
+
+---
+
+# DECISION EXPLANATION TEXT
+
+Create formatted summary.
+
+Example:
+
+DECISION: BUY
+
+Stock: RELIANCE
+
+Bucket: Swing Trading
+
+Confidence: 78%
+
+Composite Score: 72/100
+
+REASONS FOR:
+
+EMA crossover confirmed
+
+MACD bullish crossover
+
+Volume 2.3x average
+
+Hammer pattern near MA20 support
+
+Bull market regime
+
+REASONS AGAINST:
+
+RSI elevated
+
+Sector exposure already 25%
+
+RISK:
+
+Entry ₹2847
+
+Stop ₹2762
+
+Target ₹3130
+
+Risk Reward 1:3.3
+
+Position Size 7%
+
+PORTFOLIO IMPACT:
+
+Current Deployment 45%
+
+Post Trade Deployment 52%
+
+Bucket Usage 3/5
+
+FINAL VERDICT:
+
+BUY APPROVED
+
+---
+
+# DECISION LOGGING
+
+Create new persistent log.
+
+File:
+
+logs/decision_log.csv
+
+Optional Supabase table:
+
+decision_log
+
+Columns:
+
+timestamp
+
+stock
+
+bucket
+
+decision
+
+confidence
+
+composite_score
+
+reasons_for
+
+reasons_against
+
+entry
+
+stop
+
+target
+
+risk_reward
+
+portfolio_impact
+
+execution_allowed
+
+---
+
+# STREAMLIT INTEGRATION
+
+Create display-ready dataframe.
+
+Function:
+
+get_decision_dashboard_df()
+
+Purpose:
+
+Show latest decisions.
+
+Columns:
+
+Timestamp
+
+Stock
+
+Bucket
+
+Decision
+
+Confidence
+
+Score
+
+Risk Reward
+
+Deployment Impact
+
+Approved
+
+---
+
+# FUTURE USE
+
+Milestone 33+
+
+Execution loop should NOT make decisions directly.
+
+Execution loop must call:
+
+decision_engine
+
+and only execute trades that return:
+
+execution_allowed = True
+
+Decision engine becomes the final approval layer before trade execution.
+
+---
+
+# SUCCESS CRITERIA
+
+Milestone is complete when:
+
+✓ Every BUY has a full explanation
+
+✓ Every SELL has a full explanation
+
+✓ Every HOLD has a full explanation
+
+✓ Every NO_TRADE has a full explanation
+
+✓ Portfolio impact is shown
+
+✓ Risk assessment is shown
+
+✓ Confidence is shown
+
+✓ Decisions are logged
+
+✓ Streamlit can display latest decisions
+
+✓ Execution loop can consume decision output
+
+This milestone is primarily an explainability and audit layer, not a signal generation engine.
+
+
+
+
 ---
 Milestone 33 — Zerodha Integration (Live Paper → Real)
 File: brokers/zerodha\_connector.py

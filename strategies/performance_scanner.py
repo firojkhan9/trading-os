@@ -14,6 +14,7 @@
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from strategies.indicators import calculate_ma20, calculate_rsi, analyze_stock
 from strategies.ema_strategy import calculate_ema_signals, get_ema_summary
@@ -41,6 +42,14 @@ except ImportError:
     MARKET_STRUCTURE_AVAILABLE = False
 
 NIFTY_SYMBOL = "^NSEI"
+
+# ── Scanner mode: skip slow per-stock API calls (fundamentals/sentiment) ──
+# In scanner mode we use neutral 50 for fundamental and sentiment scores
+# to match what the full Stock Score page actually calculates.
+# This makes scores CONSISTENT and scanning FAST.
+SCANNER_SKIP_FUNDAMENTALS = True   # ~2s per stock → skip in scanner
+SCANNER_SKIP_SENTIMENT    = True   # ~3s per stock → always skip in scanner
+SCANNER_MAX_WORKERS       = 8      # parallel threads for price fetching
 
 
 def days_to_yf_period(days):
@@ -159,7 +168,7 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
         }
 
         fund_score = 50
-        if FUNDAMENTALS_AVAILABLE:
+        if FUNDAMENTALS_AVAILABLE and not SCANNER_SKIP_FUNDAMENTALS:
             try:
                 fund_score = get_fundamental_score_only(symbol)
             except Exception:
@@ -205,17 +214,50 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
         return None
 
 
+def _fetch_single_stock_data(args):
+    """
+    Worker function for parallel fetching.
+    Returns (name, symbol, data_60d, data_1y) tuple.
+    """
+    name, symbol = args
+    try:
+        # Single yf.download call with 1y — reuse for both return calc and indicators
+        data = yf.download(
+            tickers=symbol, period="1y",
+            interval="1d", progress=False,
+            auto_adjust=True
+        )
+        if data.empty:
+            return name, symbol, None, None
+        data.columns = [col[0] for col in data.columns]
+        data = data.dropna(subset=["Close"])
+        data = data[data["Close"] > 0]
+        if len(data) < 5:
+            return name, symbol, None, None
+        # Use tail 60 for indicators, full for return calc
+        data_60d = data.tail(60).copy()
+        return name, symbol, data_60d, data
+    except Exception:
+        return name, symbol, None, None
+
+
 def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
     """
-    Master scan function.
+    Master scan function — parallelized for large watchlists.
 
-    KEY FIX for vs NIFTY / RS Rating N/A:
-      NIFTY is always fetched with period="1y" regardless of what
-      the user picked. This guarantees we get 250 trading days of
-      data. We then slice to period_days for the return calculation.
-      Previously NIFTY was fetched with the same short period as
-      the scan (e.g. "5d"), which gave fewer than 30 rows and
-      triggered the None return — making ALL stocks show N/A.
+    SPEED IMPROVEMENTS:
+      1. Parallel fetching (8 threads) — fetches all stocks simultaneously
+      2. Single 1y download per stock reused for both indicators AND return calc
+         (was 2 separate downloads before)
+      3. Fundamentals and sentiment skipped in scanner mode (use neutral 50)
+         This also ensures scores MATCH the Stock Score tab which also uses
+         neutral 50 for these dimensions at scan time.
+
+    SCORE CONSISTENCY FIX:
+      Scanner now uses identical dimension inputs to Stock Score tab
+      (sentiment=None, fundamental=50) so scores match.
+      The only remaining difference: Stock Score uses full 1y data for
+      indicators while scanner uses tail 60 — acceptable tradeoff for speed.
     """
 
     # Always fetch NIFTY with 1y — then slice to period_days
@@ -224,19 +266,30 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
     if nifty_data is not None:
         nifty_return = calculate_period_return(nifty_data, period_days)
 
+    # ── Parallel data fetch ───────────────────────────
+    stock_items   = list(watchlist_dict.items())
+    fetched       = {}   # name → (data_60d, data_1y)
+
+    with ThreadPoolExecutor(max_workers=SCANNER_MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_fetch_single_stock_data, item): item
+            for item in stock_items
+        }
+        for future in as_completed(futures):
+            try:
+                name, symbol, data_60d, data_1y = future.result()
+                if data_60d is not None:
+                    fetched[name] = (symbol, data_60d, data_1y)
+            except Exception:
+                pass
+
     rows = []
 
-    for name, symbol in watchlist_dict.items():
+    for name, symbol in stock_items:
+        if name not in fetched:
+            continue
         try:
-            # 60d data for indicators
-            data = fetch_stock_for_scan(symbol, "60d", min_rows=5)
-            if data is None:
-                continue
-
-            # 1y data for return calculation (sliced to period_days)
-            long_data = fetch_stock_for_scan(symbol, "1y", min_rows=5)
-            if long_data is None:
-                long_data = data
+            symbol, data, long_data = fetched[name]
 
             current_price = round(float(data['Close'].iloc[-1]), 2)
             period_return = calculate_period_return(long_data, period_days)
@@ -270,17 +323,6 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                     composite_score = score_result["Composite Score"]
                     score_action    = score_result["Action"]
 
-            # Dividend yield — fetched separately (lightweight)
-            div_yield_pct = "N/A"
-            try:
-                from strategies.fundamental_engine import fetch_fundamentals as _ff
-                _fd = _ff(symbol)
-                dv  = _fd.get("dividend_yield")
-                if dv is not None:
-                    div_yield_pct = f"{round(float(dv), 2)}%"
-            except Exception:
-                pass
-            
             # Market Structure (Milestone 29)
             ms_trend   = "N/A"
             ms_score_v = 50
@@ -318,7 +360,6 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                 "Buy Votes":       buy_votes,
                 "Score":           composite_score if composite_score is not None else 0,
                 "Action":          score_action,
-                "Dividend Yield":  div_yield_pct,
                 "Trend State":     ms_trend,
                 "Struct Score":    ms_score_v,
                 "Support":         ms_support,

@@ -846,7 +846,7 @@ def run_one_cycle(
         # ── POST-RUN: Update loop state ────────────
         loop_state  = load_loop_state()
         interval    = loop_state.get("interval_minutes", 15)
-        next_run    = (datetime.now() + timedelta(minutes=interval)).strftime(
+        next_run    = (datetime.now(IST) + timedelta(minutes=interval)).strftime(
             '%Y-%m-%d %H:%M:%S'
         )
         update_after_run(
@@ -916,11 +916,9 @@ def run_continuous():
 
             # Daily reset at 9:00 AM IST
             now_date = datetime.now().date()
+            now_ist = datetime.now(IST)
+            now_date = now_ist.date()     # use IST date, not local date
             if last_daily_reset != now_date and is_trading_day():
-                from engine.loop_state import IST
-                from datetime import time as dtime
-                import pytz
-                now_ist  = datetime.now(IST)
                 if now_ist.time() >= dtime(9, 0):
                     reset_daily_counters()
                     last_daily_reset = now_date

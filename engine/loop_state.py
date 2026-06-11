@@ -88,7 +88,7 @@ def save_loop_state(state: dict):
     Save loop state to JSON file.
     Simple and fast — called frequently.
     """
-    state["last_updated"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    state["last_updated"] = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
     try:
         with open(LOOP_STATE_FILE, "w") as f:
             json.dump(state, f, indent=2, default=str)
@@ -157,7 +157,7 @@ def update_after_run(
     Called at the end of every loop run.
     """
     state = load_loop_state()
-    state["last_run"]        = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    state["last_run"]        = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
     state["next_run"]        = next_run_time
     state["runs_today"]      = state.get("runs_today", 0) + 1
     state["decisions_today"] = state.get("decisions_today", 0) + decisions_made
@@ -229,7 +229,7 @@ def log_decision(
     It lets you audit why the system stayed out.
     """
     entry = {
-        "Timestamp":   datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "Timestamp":   datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S'),
         "Stock":       stock,
         "Bucket":      bucket,
         "Decision":    decision,
