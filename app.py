@@ -1437,7 +1437,7 @@ with tab4:
                 "Volume":         "9%",
                 "Candlestick":    "8%",
                 "Mkt Structure":  "8%",
-                "FII/DII Flow":   "5%",
+                "FII/DII":        "5%",
             }
             
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
