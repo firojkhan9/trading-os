@@ -147,6 +147,7 @@ COMPLETED MILESTONES ✅
 33 Database & State Foundation ✅ Done
 34 Execution Loop Bug Fixes + Partial Exit ✅ Done
 35 Speed, Caching & Score Consistency ✅ Done
+36 FII/DII Intelligence Layer ✅ Done
 ---
 CRITICAL OUTPUT RULES
 
@@ -1310,8 +1311,8 @@ Provide production-ready Python code compatible with Trading OS architecture.
 
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
-Last completed milestone: Milestone 35 — Speed, Caching & Score Consistency
-Next planned milestone:   Milestone 36 — FII/DII Intelligence Layer  (also see how we can work on intraday trading setup, I have provided some ideas for reference above)
+Last completed milestone: Milestone 36 — FII/DII Intelligence Layer
+Next planned milestone:    see how we can work on intraday trading setup, I have provided one strategy from youtube video  Volume_Based_Counter_Trend_Entry.md 
 
 
 

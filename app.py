@@ -3800,9 +3800,13 @@ with tab12:
 
     if GOOGLE_SHEET_URL:
         st.caption(f"📎 Sheet: {GOOGLE_SHEET_URL[:80]}...")
+        # Build editable URL from published CSV URL
+        _sheet_edit_url = GOOGLE_SHEET_URL.replace(
+            "/pub?gid=", "/edit#gid="
+        ).replace("&single=true&output=csv", "").replace("/pub?", "/edit?").replace("&output=csv", "")
         st.link_button(
             "✏️ Open Settings in Google Sheet",
-            url=GOOGLE_SHEET_URL.replace("/pub?", "/edit?").replace("&output=csv", ""),
+            url=_sheet_edit_url,
             use_container_width=True,
         )
 

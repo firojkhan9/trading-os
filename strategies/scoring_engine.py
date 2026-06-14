@@ -297,12 +297,12 @@ def build_composite_score(
     combined_weighted_score,
     regime,
     rs_score=None,
-    fundamental_score=None,   # M22 — pass None for neutral 50
-    sentiment_score=None,     # M23 — pass None for neutral 50
-    volume_score=None,        # M27 — pass None for neutral 50
-    candlestick_score=None,   # M28 — pass None for neutral 50
-    market_structure_score=None,  # M29 — pass None for neutral 50
-    fii_dii_score=None,           # M36 — pass None for neutral 50
+    fundamental_score=None,
+    sentiment_score=None,
+    volume_score=None,
+    candlestick_score=None,
+    market_structure_score=None,
+    fii_dii_score=None,
 ):
     """
     Master scoring function.
