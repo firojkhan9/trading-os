@@ -315,5 +315,47 @@ else:
     sells = len(decision_df[decision_df["Decision"] == "SELL"])
     st.caption(f"Last {total} decisions | BUY: {buys} | SELL: {sells} | NO-TRADE: {total - buys - sells}")
 
+
+
+st.divider()
+
+# ── Orchestration Log ─────────────────────────────
+st.subheader("🎯 Orchestration Log")
+st.caption("Routing decisions — which bucket each stock was sent to and why")
+
+try:
+    from strategies.orchestrator import load_orchestration_log, get_orchestration_stats
+    orch_stats = get_orchestration_stats()
+    oc1, oc2, oc3, oc4 = st.columns(4)
+    oc1.metric("Evaluated", orch_stats["total"])
+    oc2.metric("Accepted",  orch_stats["accepted"])
+    oc3.metric("Rejected",  orch_stats["rejected"])
+    oc4.metric("Accept %",  orch_stats["accept_rate"])
+
+    orch_df = load_orchestration_log(max_rows=50)
+    if orch_df.empty:
+        st.info("No orchestration decisions yet.")
+    else:
+        def _color_orch(val):
+            if val == "ACCEPT": return "color: green; font-weight: bold"
+            if val == "REJECT": return "color: red; font-weight: bold"
+            if val == "REVIEW": return "color: orange; font-weight: bold"
+            return ""
+        show = [c for c in ["Timestamp","Stock","Bucket","Decision","Bucket_Score","Confluence_Level","Summary"] if c in orch_df.columns]
+        st.dataframe(
+            orch_df[show].style.map(_color_orch, subset=["Decision"]),
+            use_container_width=True, hide_index=True
+        )
+except Exception as e:
+    st.info(f"Orchestration log unavailable: {e}")
+
 st.divider()
 st.caption("🤖 Trading OS — Auto Pilot Runner | Data: Yahoo Finance | Not financial advice")
+
+if old in content:
+    content = content.replace(old, new)
+    with open('/mnt/project/autopilot_runner.py', 'w') as f:
+        f.write(content)
+    print("SUCCESS")
+else:
+    print("NOT FOUND")

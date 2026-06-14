@@ -745,11 +745,14 @@ def bucket_buy(bucket_name, stock_name, price, composite_score=None):
     }
 
 
-def bucket_sell(bucket_name, stock_name, price):
+def bucket_sell(bucket_name, stock_name, price, quantity_to_sell=None):
     """
     Execute a paper SELL from a specific bucket.
     Finds the original BUY to calculate P&L.
     Saves to both Supabase and CSV.
+
+    quantity_to_sell: optional int. If set, sells only that many shares
+                      (used for partial exits — M34). If None, sells all.
     """
     state     = load_bucket_state()
     trades_df = load_bucket_trades()
@@ -774,18 +777,27 @@ def bucket_sell(bucket_name, stock_name, price):
 
     buy_row   = b_trades.iloc[-1]
     buy_price = float(buy_row["Price"])
-    quantity  = int(buy_row["Quantity"])
+    full_qty  = int(buy_row["Quantity"])
     buy_value = float(buy_row["Value"])
 
+    # ── Determine quantity to sell ────────────────
+    # Full exit: sell everything. Partial exit: sell only N shares.
+    is_partial = (quantity_to_sell is not None and quantity_to_sell < full_qty)
+    quantity   = quantity_to_sell if is_partial else full_qty
+
+    # Proportional cost for partial exits
+    cost_per_share = buy_value / full_qty if full_qty > 0 else buy_price
+    partial_cost   = round(cost_per_share * quantity, 2)
+
     sell_value = round(quantity * price, 2)
-    pnl        = round(sell_value - buy_value, 2)
-    pnl_pct    = round((pnl / buy_value) * 100, 2)
+    pnl        = round(sell_value - partial_cost, 2)
+    pnl_pct    = round((pnl / partial_cost) * 100, 2) if partial_cost > 0 else 0
 
     state[bucket_name]["Available_Cash"]   = round(
         state[bucket_name]["Available_Cash"] + sell_value, 2
     )
     state[bucket_name]["Deployed_Capital"] = round(
-        max(0, state[bucket_name]["Deployed_Capital"] - buy_value), 2
+        max(0, state[bucket_name]["Deployed_Capital"] - partial_cost), 2
     )
     state[bucket_name]["Total_PNL"] = round(
         state[bucket_name]["Total_PNL"] + pnl, 2
@@ -795,22 +807,26 @@ def bucket_sell(bucket_name, stock_name, price):
 
     save_bucket_state(state)
     _log_bucket_trade(bucket_name, "SELL", stock_name, price, quantity, sell_value, pnl)
-        # ── Update lifecycle record to EXITED ─────────
-    try:
-        from portfolio.position_manager import load_lifecycle, mark_exited
-        df = load_lifecycle()
-        # Find the active lifecycle record for this stock+bucket
-        active = df[
-            (df["stock"]  == stock_name) &
-            (df["bucket"] == bucket_name) &
-            (df["state"].isin(["ENTERED","HOLDING","TRAILING","PARTIAL_EXIT"]))
-        ]
-        if not active.empty:
-            pos_id = active.iloc[-1]["position_id"]
-            exit_reason = "STOP_LOSS" if pnl < 0 else "TARGET"
-            mark_exited(pos_id, round(price, 2), exit_reason)
-    except Exception as e:
-        print(f"⚠️ Lifecycle exit update failed (non-critical): {e}")
+
+        # ── Update lifecycle record ───────────────────
+        # Partial sells: keep position alive (mark_partial_exit_done
+        # is called by the exit monitor — don't mark_exited here).
+        # Full sells: mark position EXITED.
+    if not is_partial:
+        try:
+            from portfolio.position_manager import load_lifecycle, mark_exited
+            df = load_lifecycle()
+            active = df[
+                (df["stock"]  == stock_name) &
+                (df["bucket"] == bucket_name) &
+                (df["state"].isin(["ENTERED","HOLDING","TRAILING","PARTIAL_EXIT"]))
+            ]
+            if not active.empty:
+                pos_id      = active.iloc[-1]["position_id"]
+                exit_reason = "STOP_LOSS" if pnl < 0 else "TARGET"
+                mark_exited(pos_id, round(price, 2), exit_reason)
+        except Exception as e:
+            print(f"⚠️ Lifecycle exit update failed (non-critical): {e}")
     
     return {
         "status":   "EXECUTED",

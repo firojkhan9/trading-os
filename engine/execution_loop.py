@@ -101,6 +101,14 @@ from portfolio.position_manager     import (
 
 from strategies.orchestrator import orchestrate_opportunity, DECISION_ACCEPT, DECISION_REVIEW
 
+from engine.decision_engine import (
+    make_buy_decision,
+    make_sell_decision,
+    make_no_trade_decision,
+    DECISION_BUY,
+    DECISION_NO_TRADE,
+)
+
 import yfinance as yf
 import pandas as pd
 
@@ -267,17 +275,18 @@ def _analyse_stock_signals(
         )
 
         return {
-            "stock":          stock_name,
-            "symbol":         symbol,
-            "price":          s_close,
-            "composite_score":score_result["Composite Score"],
-            "action":         score_result["Action"],
-            "final_signal":   combined["Final Signal"],
-            "buy_votes":      combined["Strategies Buy"],
-            "sell_votes":     combined["Strategies Sell"],
-            "confidence":     score_result["Confidence"],
-            "position_size":  score_result["Position Size"],
-            "regime":         regime,
+            "stock":             stock_name,
+            "symbol":            symbol,
+            "price":             s_close,
+            "composite_score":   score_result["Composite Score"],
+            "action":            score_result["Action"],
+            "final_signal":      combined["Final Signal"],
+            "buy_votes":         combined["Strategies Buy"],
+            "sell_votes":        combined["Strategies Sell"],
+            "confidence":        score_result["Confidence"],
+            "position_size":     score_result["Position Size"],
+            "regime":            regime,
+            "individual_scores": score_result.get("Individual Scores", {}),
         }
 
     except Exception as e:
@@ -407,8 +416,6 @@ def _is_ok_to_buy(
 
     return True, ""
 
-    return True, ""
-
 
 # ════════════════════════════════════════════════
 # BUY SCANNER
@@ -530,6 +537,16 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
         if orch_result["decision"] == DECISION_REVIEW:
             print(f"  🟡 REVIEW: {stock_name} — {orch_result['summary']}")
 
+        # ── Stock-level safety gate ────────────────
+        # (orchestrator already ran portfolio-level checks;
+        #  this adds cooldown + already-holding + cash checks)
+        approved, reject_reason = _is_ok_to_buy(
+            stock_name  = stock_name,
+            bucket_name = target_bucket,
+            score       = score,
+            regime      = regime,
+        )
+
         if not approved:
             log_decision(
                 stock=stock_name, bucket=target_bucket,
@@ -544,6 +561,33 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
             })
             continue
 
+        # ── Get explainable decision ───────────────
+        dec_result = make_buy_decision(
+            stock_name    = stock_name,
+            symbol        = symbol,
+            bucket_name   = target_bucket,
+            current_price = price,
+            orch_result   = orch_result,
+            score_result  = result,   # full score dict
+            regime        = regime,
+            proposed_value= price * 10,   # rough estimate
+            write_log     = True,
+        )
+
+        if not dec_result["execution_allowed"]:
+            log_decision(
+                stock=stock_name, bucket=target_bucket,
+                decision="NO-TRADE",
+                score=score, signal=final_signal,
+                price=price, regime=regime,
+                reason=dec_result["rejection_reason"],
+            )
+            decisions.append({
+                "stock": stock_name, "decision": "NO-TRADE",
+                "reason": dec_result["rejection_reason"],
+            })
+            continue
+
         # ── EXECUTE BUY ───────────────────────────
         buy_result = bucket_buy(
             bucket_name     = target_bucket,
@@ -553,30 +597,24 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
         )
 
         if buy_result["status"] == "EXECUTED":
-            reason_text = (
-                f"Score {score}/100 | Signal: {final_signal} | "
-                f"{buy_votes}/4 strategies agree | "
-                f"Regime: {regime} | "
-                f"Bought {buy_result['quantity']} shares @ ₹{price} | "
-                f"Cash left in {target_bucket}: ₹{buy_result['cash_left']:,.0f}"
-            )
             log_decision(
                 stock=stock_name, bucket=target_bucket,
                 decision="BUY",
                 score=score, signal=final_signal,
                 price=price, regime=regime,
-                reason=reason_text,
+                reason=dec_result["text_summary"][:500],
             )
             decisions.append({
                 "stock": stock_name, "decision": "BUY",
                 "bucket": target_bucket, "price": price,
                 "score": score, "quantity": buy_result["quantity"],
+                "confidence": dec_result["confidence"],
             })
             print(
                 f"  ✅ BUY: {stock_name} → {target_bucket} | "
-                f"Score={score} | ₹{price} x {buy_result['quantity']} shares"
+                f"Score={score} | Confidence={dec_result['confidence']} | "
+                f"₹{price} x {buy_result['quantity']} shares"
             )
-
         else:
             log_decision(
                 stock=stock_name, bucket=target_bucket,
@@ -587,7 +625,7 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
             )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
-                "reason": buy_result.get("reason", "")
+                "reason": buy_result.get("reason", ""),
             })
 
     return decisions
@@ -658,6 +696,18 @@ def _run_exit_monitor(watchlist: dict, regime: str) -> list[dict]:
             if sell_result["status"] == "EXECUTED":
                 actual_pnl = sell_result.get("pnl", 0)
                 pnl_pct    = sell_result.get("pnl_pct", pnl_pct)
+                # Explainable SELL decision record
+                make_sell_decision(
+                    stock_name        = stock,
+                    symbol            = symbol,
+                    bucket_name       = bucket,
+                    current_price     = current_price,
+                    exit_action       = action,
+                    lifecycle_result  = result,
+                    individual_scores = {},
+                    regime            = regime,
+                    write_log         = True,
+                )
                 log_decision(
                     stock=stock, bucket=bucket,
                     decision="SELL",
@@ -704,20 +754,86 @@ def _run_exit_monitor(watchlist: dict, regime: str) -> list[dict]:
             )
 
         elif action == "PARTIAL_EXIT":
-            # Suggest but don't auto-execute partial exits yet
-            # Automation of partial exits comes in Milestone 27
-            log_decision(
-                stock=stock, bucket=bucket,
-                decision="PARTIAL_EXIT_SUGGESTED",
-                score=0, signal="PARTIAL",
-                price=current_price,
-                regime=regime,
-                reason=reason_txt,
-            )
-            print(
-                f"  📊 PARTIAL EXIT SUGGESTED: {stock} ({bucket}) | "
-                f"Gain {pnl_pct:+.1f}% — consider selling 50%"
-            )
+            # ── AUTO-EXECUTE partial exit (M34) ───────
+            # Sell 50% of the position to lock in profit.
+            # The remaining 50% continues with trailing stop.
+            try:
+                from portfolio.position_manager import mark_partial_exit_done
+                # Fetch current quantity from lifecycle record
+                lc_df   = load_lifecycle()
+                lc_mask = lc_df["position_id"] == pos_id
+                qty_str = lc_df.loc[lc_mask, "quantity"].iloc[0] if lc_mask.any() else "0"
+                qty_held = int(float(qty_str)) if str(qty_str).replace(".", "").isdigit() else 0
+
+                if qty_held >= 2:
+                    qty_to_sell = qty_held // 2   # sell exactly half
+
+                    partial_result = bucket_sell(
+                        bucket_name      = bucket,
+                        stock_name       = stock,
+                        price            = current_price,
+                        quantity_to_sell = qty_to_sell,
+                    )
+
+                    if partial_result["status"] == "EXECUTED":
+                        mark_partial_exit_done(pos_id, current_price, qty_to_sell)
+
+                        log_decision(
+                            stock=stock, bucket=bucket,
+                            decision="SELL",
+                            score=0, signal="PARTIAL_EXIT",
+                            price=current_price,
+                            regime=regime,
+                            reason=(
+                                f"Partial exit: sold {qty_to_sell} of {qty_held} shares "
+                                f"@ ₹{current_price} | Gain {pnl_pct:+.1f}% | "
+                                f"Locking profit, {qty_held - qty_to_sell} shares remain."
+                            ),
+                            exit_reason="PARTIAL_EXIT",
+                        )
+                        decisions.append({
+                            "stock":    stock,
+                            "decision": "SELL",
+                            "action":   "PARTIAL_EXIT",
+                            "bucket":   bucket,
+                            "price":    current_price,
+                            "pnl_pct":  pnl_pct,
+                            "pnl":      partial_result.get("pnl", 0),
+                        })
+                        print(
+                            f"  ✅ PARTIAL EXIT: {stock} ({bucket}) | "
+                            f"Sold {qty_to_sell} shares @ ₹{current_price} | "
+                            f"Gain {pnl_pct:+.1f}%"
+                        )
+                    else:
+                        print(
+                            f"  ⚠️ Partial exit failed for {stock}: "
+                            f"{partial_result.get('reason','')}"
+                        )
+                else:
+                    # Only 1 share held — can't split; log as suggestion
+                    log_decision(
+                        stock=stock, bucket=bucket,
+                        decision="PARTIAL_EXIT_SUGGESTED",
+                        score=0, signal="PARTIAL",
+                        price=current_price,
+                        regime=regime,
+                        reason=f"Only {qty_held} share(s) held — too few to split. Manual review.",
+                    )
+                    print(
+                        f"  📊 PARTIAL EXIT (too few shares): {stock} ({bucket}) | "
+                        f"Hold: {qty_held} share(s) | Gain {pnl_pct:+.1f}%"
+                    )
+            except Exception as e:
+                print(f"  ⚠️ Partial exit error for {stock}: {e}")
+                log_decision(
+                    stock=stock, bucket=bucket,
+                    decision="PARTIAL_EXIT_SUGGESTED",
+                    score=0, signal="PARTIAL",
+                    price=current_price,
+                    regime=regime,
+                    reason=f"Partial exit failed ({e}) — manual review needed.",
+                )
 
     return decisions
 
@@ -793,15 +909,80 @@ def run_one_cycle(
         if expired:
             print(f"✅ Cooldowns expired: {', '.join(expired)}")
 
-        # ── STEP 2: Market regime ──────────────────
+        # ── STEP 2: Market regime — 5-tier fallback ────
+        # Tier 1: ^NSEI live fetch (normal)
+        # Tier 2: NIFTYBEES.NS scaled ×100 (yfinance fallback)
+        # Tier 3: Supabase loop_state last known regime
+        # Tier 4: Local loop_state.json last known regime
+        # Tier 5: "SIDEWAYS" safe default (allows trading at reduced size)
         print("📡 Fetching market regime...")
+        regime = None
+
+        # Tier 1 — primary
         try:
             regime_data = get_full_regime_analysis(period="1y")
-            regime      = regime_data.get("regime", "UNKNOWN ❓")
-        except Exception:
-            regime = "UNKNOWN ❓"
+            regime = regime_data.get("regime")
+            if regime and "UNKNOWN" not in str(regime):
+                print(f"  ✅ Regime from NIFTY: {regime}")
+        except Exception as _e:
+            print(f"  ⚠️ NIFTY fetch failed: {_e}")
 
-        summary["regime"] = regime
+        # Tier 2 — NIFTYBEES ETF as proxy
+        if not regime or "UNKNOWN" in str(regime):
+            try:
+                _bees = yf.download(
+                    tickers="NIFTYBEES.NS", period="1y",
+                    interval="1d", progress=False, auto_adjust=True
+                )
+                if not _bees.empty:
+                    _bees.columns = [c[0] for c in _bees.columns]
+                    _bees["Close"] = _bees["Close"] * 100   # scale to NIFTY units
+                    from strategies.market_regime import _classify_regime
+                    regime = _classify_regime(_bees) if hasattr(
+                        __import__("strategies.market_regime", fromlist=["_classify_regime"]),
+                        "_classify_regime"
+                    ) else None
+                    if regime:
+                        print(f"  ✅ Regime from NIFTYBEES: {regime}")
+            except Exception as _e2:
+                print(f"  ⚠️ NIFTYBEES fetch failed: {_e2}")
+
+        # Tier 3 — Supabase last known regime
+        if not regime or "UNKNOWN" in str(regime):
+            try:
+                from config.supabase_client import get_client as _gc
+                _cl = _gc()
+                if _cl:
+                    _res = _cl.table("loop_state").select("regime").eq("id", 1).execute()
+                    if _res.data and _res.data[0].get("regime"):
+                        regime = _res.data[0]["regime"]
+                        print(f"  ✅ Regime from Supabase: {regime} (last known)")
+            except Exception:
+                pass
+
+        # Tier 4 — local JSON last known regime
+        if not regime or "UNKNOWN" in str(regime):
+            try:
+                _ls = load_loop_state()
+                if _ls.get("last_regime"):
+                    regime = _ls["last_regime"]
+                    print(f"  ✅ Regime from local JSON: {regime} (last known)")
+            except Exception:
+                pass
+
+        # Tier 5 — safe default
+        if not regime or "UNKNOWN" in str(regime):
+            regime = "SIDEWAYS ↔️"
+            print(f"  ℹ️ Regime defaulted to: {regime}")
+
+        # Save last known regime for future fallback
+        try:
+            _ls2 = load_loop_state()
+            _ls2["last_regime"] = regime
+            save_loop_state(_ls2)
+        except Exception:
+            pass
+
         print(f"🌡️ Regime: {regime}")
 
         # ── STEP 3: Portfolio safety ───────────────

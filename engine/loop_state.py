@@ -27,6 +27,14 @@ import sys
 import json
 from datetime import datetime
 
+try:
+    from config.supabase_client import get_client as _get_supabase_client
+    _LOOP_SUPABASE = True
+except ImportError:
+    _LOOP_SUPABASE = False
+    def _get_supabase_client():
+        return None
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ── File path for local fallback ──────────────────
@@ -65,35 +73,82 @@ DEFAULT_STATE = {
 def load_loop_state() -> dict:
     """
     Load the current loop state.
-    Returns a dict — always safe to call, never crashes.
+    Priority: Supabase (persists across Cloud restarts) → local JSON → defaults.
     """
-    # Try local JSON file
+    # ── Layer 1: Supabase ─────────────────────────
+    try:
+        client = _get_supabase_client()
+        if client:
+            response = client.table("loop_state").select("*").eq("id", 1).execute()
+            if response.data:
+                row = response.data[0]
+                state = DEFAULT_STATE.copy()
+                state["status"]           = row.get("status",           DEFAULT_STATE["status"])
+                state["interval_minutes"] = row.get("interval_minutes", DEFAULT_STATE["interval_minutes"])
+                state["last_run"]         = row.get("last_run")
+                state["next_run"]         = row.get("next_run")
+                state["runs_today"]       = row.get("runs_today",       0)
+                state["decisions_today"]  = row.get("decisions_today",  0)
+                state["buys_today"]       = row.get("buys_today",       0)
+                state["sells_today"]      = row.get("sells_today",      0)
+                state["pnl_today"]        = float(row.get("pnl_today",  0))
+                state["last_updated"]     = row.get("last_updated")
+                state["error_count"]      = row.get("error_count",      0)
+                state["last_error"]       = row.get("last_error")
+                return state
+    except Exception as e:
+        print(f"⚠️ Supabase loop_state load failed: {e} — trying JSON")
+
+    # ── Layer 2: Local JSON ───────────────────────
     if os.path.exists(LOOP_STATE_FILE):
         try:
             with open(LOOP_STATE_FILE, "r") as f:
                 state = json.load(f)
-            # Fill any missing keys with defaults
             for key, default_val in DEFAULT_STATE.items():
                 if key not in state:
                     state[key] = default_val
             return state
         except Exception as e:
-            print(f"⚠️ Could not load loop state: {e}")
+            print(f"⚠️ Could not load loop state JSON: {e}")
 
     return DEFAULT_STATE.copy()
 
 
 def save_loop_state(state: dict):
     """
-    Save loop state to JSON file.
-    Simple and fast — called frequently.
+    Save loop state to Supabase (primary) and local JSON (fallback).
+    Supabase uses a single row (id=1), upserted on every save.
     """
     state["last_updated"] = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
+
+    # ── Layer 1: Supabase ─────────────────────────
+    try:
+        client = _get_supabase_client()
+        if client:
+            client.table("loop_state").upsert({
+                "id":               1,
+                "status":           state.get("status",           STATUS_STOPPED),
+                "interval_minutes": state.get("interval_minutes", 15),
+                "last_run":         state.get("last_run"),
+                "next_run":         state.get("next_run"),
+                "runs_today":       state.get("runs_today",       0),
+                "decisions_today":  state.get("decisions_today",  0),
+                "buys_today":       state.get("buys_today",       0),
+                "sells_today":      state.get("sells_today",      0),
+                "pnl_today":        float(state.get("pnl_today",  0)),
+                "last_updated":     state["last_updated"],
+                "error_count":      state.get("error_count",      0),
+                "last_error":       state.get("last_error"),
+            }, on_conflict="id").execute()
+    except Exception as e:
+        print(f"⚠️ Supabase loop_state save failed: {e} — saved to JSON only")
+
+    # ── Layer 2: Local JSON (always) ─────────────
     try:
         with open(LOOP_STATE_FILE, "w") as f:
             json.dump(state, f, indent=2, default=str)
     except Exception as e:
-        print(f"⚠️ Could not save loop state: {e}")
+        print(f"⚠️ Could not save loop state JSON: {e}")
 
 
 # ════════════════════════════════════════════════
@@ -222,11 +277,9 @@ def log_decision(
     exit_reason: str = "",
 ):
     """
-    Append one decision to the decision log CSV AND Supabase.
-    Called for EVERY decision the loop makes — including NO-TRADE.
-
-    Logging NO-TRADE is just as important as logging BUY/SELL.
-    It lets you audit why the system stayed out.
+    Append one decision to the decision log.
+    Written to Supabase (primary) and CSV (fallback).
+    Duplicate Supabase block removed in M33.
     """
     entry = {
         "Timestamp":   datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S'),
@@ -241,27 +294,26 @@ def log_decision(
         "Exit_Reason": exit_reason,
     }
 
-    # ── Layer 1: Supabase (permanent across restarts) ──
+    # ── Layer 1: Supabase ─────────────────────────
     try:
-        from config.supabase_client import get_client
-        client = get_client()
+        client = _get_supabase_client()
         if client:
             client.table("loop_decisions").insert({
                 "timestamp":   entry["Timestamp"],
                 "stock":       entry["Stock"],
                 "bucket":      entry["Bucket"],
                 "decision":    entry["Decision"],
-                "score":       entry["Score"],
+                "score":       float(entry["Score"]),
                 "signal":      entry["Signal"],
-                "price":       entry["Price"],
+                "price":       float(entry["Price"]),
                 "reason":      entry["Reason"],
                 "regime":      entry["Regime"],
                 "exit_reason": entry["Exit_Reason"],
             }).execute()
     except Exception as e:
-        print(f"⚠️ Supabase decision log failed: {e}")
+        print(f"⚠️ Supabase loop_decisions insert failed: {e}")
 
-    # ── Layer 2: CSV fallback ──────────────────────────
+    # ── Layer 2: CSV fallback ─────────────────────
     df = pd.DataFrame([entry])
     try:
         if os.path.exists(LOOP_LOG_FILE):
@@ -272,16 +324,15 @@ def log_decision(
         print(f"⚠️ Could not write decision log CSV: {e}")
 
 
-def load_decision_log(max_rows: int = 200) -> pd.DataFrame:
+
+def load_decision_log(max_rows: int = 5000) -> pd.DataFrame:
     """
     Load the decision log for dashboard display.
-    Tries Supabase first (survives restarts), falls back to CSV.
-    Returns last N rows, newest first.
+    Tries Supabase first, falls back to CSV.
     """
     # ── Layer 1: Supabase ─────────────────────────
     try:
-        from config.supabase_client import get_client
-        client = get_client()
+        client = _get_supabase_client()
         if client:
             response = (
                 client.table("loop_decisions")
@@ -308,12 +359,11 @@ def load_decision_log(max_rows: int = 200) -> pd.DataFrame:
                 return df[cols].reset_index(drop=True)
             return pd.DataFrame(columns=DECISION_LOG_COLS)
     except Exception as e:
-        print(f"\u26a0\ufe0f Supabase decision log load failed: {e}")
+        print(f"⚠️ Supabase loop_decisions load failed: {e} — using CSV")
 
     # ── Layer 2: CSV fallback ─────────────────────
     if not os.path.exists(LOOP_LOG_FILE):
         return pd.DataFrame(columns=DECISION_LOG_COLS)
-
     try:
         df = pd.read_csv(LOOP_LOG_FILE)
         df = df.sort_values("Timestamp", ascending=False).head(max_rows)
@@ -324,18 +374,16 @@ def load_decision_log(max_rows: int = 200) -> pd.DataFrame:
 
 def clear_decision_log():
     """
-    Clear the decision log from CSV and Supabase.
+    Clear the decision log from Supabase and CSV.
     Called by the dashboard reset button.
     """
-    # Clear Supabase
     try:
-        from config.supabase_client import get_client
-        client = get_client()
+        client = _get_supabase_client()
         if client:
             client.table("loop_decisions").delete().neq("id", 0).execute()
     except Exception as e:
-        print(f"⚠️ Could not clear Supabase decision log: {e}")
-    # Clear CSV
+        print(f"⚠️ Could not clear Supabase loop_decisions: {e}")
+
     if os.path.exists(LOOP_LOG_FILE):
         try:
             os.remove(LOOP_LOG_FILE)
@@ -359,17 +407,53 @@ PRE_MARKET   = dtime(9,  0)    # Pre-market prep: 9:00 AM IST
 POST_MARKET  = dtime(15, 35)   # Post-market summary: 3:35 PM IST
 
 
+def _is_nse_holiday(date_str: str) -> bool:
+    """
+    Check if a given date (YYYY-MM-DD) is an NSE holiday.
+    Tries Supabase first, falls back to a local hardcoded set.
+    """
+    # ── Try Supabase ──────────────────────────────
+    try:
+        client = _get_supabase_client()
+        if client:
+            response = (
+                client.table("nse_holidays")
+                .select("date")
+                .eq("date", date_str)
+                .execute()
+            )
+            return len(response.data) > 0
+    except Exception:
+        pass
+
+    # ── Hardcoded fallback (subset of known holidays) ─
+    KNOWN_HOLIDAYS = {
+        "2025-01-26", "2025-02-26", "2025-03-14", "2025-03-31",
+        "2025-04-10", "2025-04-14", "2025-04-18", "2025-05-01",
+        "2025-08-15", "2025-08-27", "2025-10-02", "2025-10-21",
+        "2025-10-22", "2025-11-05", "2025-12-25",
+        "2026-01-26", "2026-03-03", "2026-03-20", "2026-04-02",
+        "2026-04-03", "2026-04-14", "2026-05-01", "2026-08-15",
+        "2026-09-18", "2026-10-02", "2026-10-28", "2026-11-10",
+        "2026-12-25",
+    }
+    return date_str in KNOWN_HOLIDAYS
+
+
 def is_market_open() -> bool:
     """
     Returns True if NSE is currently open for trading.
-    Checks time (IST) and day of week (Mon-Fri only).
-    Does NOT check public holidays (keep it simple for now).
+    Checks: (1) Mon–Fri, (2) market hours IST, (3) not an NSE holiday.
     """
-    now_ist    = datetime.now(IST)
-    weekday    = now_ist.weekday()     # 0=Mon, 4=Fri, 5=Sat, 6=Sun
-    now_time   = now_ist.time()
+    now_ist  = datetime.now(IST)
+    weekday  = now_ist.weekday()   # 0=Mon, 4=Fri, 5=Sat, 6=Sun
+    now_time = now_ist.time()
+    today    = now_ist.strftime('%Y-%m-%d')
 
-    if weekday >= 5:      # Saturday or Sunday
+    if weekday >= 5:
+        return False
+
+    if _is_nse_holiday(today):
         return False
 
     return MARKET_OPEN <= now_time <= MARKET_CLOSE

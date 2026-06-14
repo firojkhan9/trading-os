@@ -1,155 +1,165 @@
 # ================================================
 # FILE: config/settings_loader.py
-# PURPOSE: Load strategy settings from Google Sheets
-#          Falls back to safe defaults if unreachable
-#
-# HOW IT WORKS:
-#   1. You create a Google Sheet with settings
-#   2. Publish it as CSV (File > Share > Publish to web)
-#   3. Paste the CSV URL in GOOGLE_SHEET_URL below
-#   4. The system reads it every 5 minutes
-#   5. Change a number in the sheet → system picks it up
-#
-# FALLBACK:
-#   If Google Sheet is unreachable for any reason,
-#   the system uses the DEFAULT_SETTINGS below.
-#   Your trading never stops due to a config error.
+# PURPOSE: Reads ALL settings from Google Sheets.
+#          Supports both the old "Setting/Value" format
+#          AND the new "Category/Parameter/Value" format.
+#          Falls back to safe defaults if sheet unreachable.
 # ================================================
 
 import pandas as pd
 import os
-import sys
 
-# ── Safe default settings ─────────────────────────
-# These are used if Google Sheet is unreachable
-# Edit these as your baseline safe values
+# ── PASTE YOUR GOOGLE SHEET URL HERE ──────────────
+# This is the "Publish to web" CSV URL from Step 1
+GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQf-czW9ofaGEgrWjvR8tq-Wqyr6BaB7n-48NcwXYz-_z26yQdrurSrlGPG57Jbpgb_7UM5WvZ_U54x/pub?gid=0&single=true&output=csv"   # ← paste between the quotes
+
+# ── Safe defaults (used when sheet is unreachable) ─
 DEFAULT_SETTINGS = {
-    "STOP_LOSS_PCT":      0.06,    # 6% hard stop loss
-    "TARGET_PROFIT_PCT":  0.15,    # 15% profit target
-    "USE_TRAILING_STOP":  True,    # Enable trailing stop
-    "TRAILING_STOP_PCT":  0.04,    # 4% trail below peak
-    "MAX_POSITION_PCT":   0.10,    # 10% max per trade
-    "WEAK_POSITION_PCT":  0.05,    # 5% for weaker signals
-    "BROKERAGE_PCT":      0.001,   # 0.1% brokerage
-    "STRONG_BUY_VOTES":   3,       # Votes for strong entry
-    "WEAK_BUY_VOTES":     2,       # Votes for normal entry
-    "MACD_MOMENTUM_EXIT": 0.03,    # 3% MACD momentum exit
-    "STARTING_CAPITAL":   100000,  # Paper trading capital
+    # Risk
+    "STOP_LOSS_PCT":         6,
+    "TARGET_PROFIT_PCT":     15,
+    "TRAILING_STOP_PCT":     4,
+    "TRAIL_ACTIVATION_PCT":  6,
+    "PARTIAL_EXIT_PCT":      8,
+    # Position
+    "MAX_POSITION_PCT":      10,
+    "WEAK_POSITION_PCT":     5,
+    "INTRADAY_MAX_PCT":      3.3,
+    # Portfolio
+    "TOTAL_CAPITAL":         600000,
+    "DAILY_LOSS_HALT_PCT":   5,
+    "MAX_DEPLOYMENT_PCT":    85,
+    "COOLDOWN_DAYS":         3,
+    "BROKERAGE_PCT":         0.1,
+    # Scanner
+    "SCANNER_MAX_WORKERS":   10,
+    "ABSOLUTE_MIN_SCORE":    50,
+    "FUNDAMENTAL_CACHE_TTL": 3,
+    # Bucket minimums
+    "LONGTERM_MIN_SCORE":    70,
+    "SWING_MIN_SCORE":       60,
+    "INTRADAY_MIN_SCORE":    55,
+    # Bucket capital split
+    "LONGTERM_CAPITAL_PCT":  60,
+    "SWING_CAPITAL_PCT":     30,
+    "INTRADAY_CAPITAL_PCT":  10,
+    # Score weights
+    "WEIGHT_TREND":            16,
+    "WEIGHT_MOMENTUM":         12,
+    "WEIGHT_VOLATILITY":        7,
+    "WEIGHT_SIGNAL":           10,
+    "WEIGHT_REGIME":           10,
+    "WEIGHT_RS":                4,
+    "WEIGHT_FUNDAMENTAL":       8,
+    "WEIGHT_SENTIMENT":         7,
+    "WEIGHT_VOLUME":           10,
+    "WEIGHT_CANDLESTICK":       8,
+    "WEIGHT_MARKET_STRUCTURE":  8,
+    # Legacy keys (kept for backward compatibility)
+    "STRONG_BUY_VOTES":      3,
+    "WEAK_BUY_VOTES":        2,
+    "MACD_MOMENTUM_EXIT":    0.03,
+    "USE_TRAILING_STOP":     True,
+    "WEAK_POSITION_PCT":     0.05,
+    "STARTING_CAPITAL":      100000,
 }
 
-# ── Your Google Sheet CSV URL ─────────────────────
-# SETUP INSTRUCTIONS (do this once):
-#
-# Step 1: Go to Google Sheets
-# Step 2: Create a new sheet
-# Step 3: Add these columns in Row 1:
-#         Setting | Value | Description
-# Step 4: Add your settings (copy from DEFAULT_SETTINGS above)
-# Step 5: Go to File > Share > Publish to web
-# Step 6: Choose "Sheet1" and "Comma-separated values (.csv)"
-# Step 7: Click Publish and copy the URL
-# Step 8: Paste it below replacing the placeholder
 
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOe2wfjwRAJJO_yBoR0rCHd7UPQrAAVoHlsarjEAvT7LFM4Y0uKWFBWRmCIIbosy8d_5-kCUsbkj78/pub?gid=0&single=true&output=csv"
-# Example URL format:
-# "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv&gid=0"
-# OR the "published to web" CSV URL which looks like:
-# "https://docs.google.com/spreadsheets/d/e/YOUR_PUBLISHED_ID/pub?output=csv"
-
-
-def load_settings_from_sheet(url):
-    """
-    Fetch settings from Google Sheet CSV URL.
-    Returns a dictionary of settings or None if failed.
-    """
+def _parse_value(value_str):
+    """Convert string to correct Python type."""
+    v = str(value_str).strip()
+    if v.lower() == "true":   return True
+    if v.lower() == "false":  return False
+    if v == "" or v == "nan": return None
     try:
-        # Read the CSV directly from Google Sheets
-        df = pd.read_csv(url)
+        return int(v) if "." not in v else float(v)
+    except ValueError:
+        return v
 
-        # Expecting columns: Setting, Value, Description
-        if 'Setting' not in df.columns or 'Value' not in df.columns:
-            print("⚠️ Google Sheet format incorrect. Expected columns: Setting, Value, Description")
-            return None
 
-        # Convert to dictionary
-        settings = {}
-        for _, row in df.iterrows():
-            key   = str(row['Setting']).strip()
-            value = str(row['Value']).strip()
-
-            # Skip empty rows
-            if not key or key == 'nan':
-                continue
-
-            # Convert to correct type
-            try:
-                # Boolean check first
-                if value.lower() == 'true':
-                    settings[key] = True
-                elif value.lower() == 'false':
-                    settings[key] = False
-                # Integer check
-                elif '.' not in value:
-                    settings[key] = int(value)
-                # Float
-                else:
-                    settings[key] = float(value)
-            except ValueError:
-                # Keep as string if conversion fails
-                settings[key] = value
-
-        return settings
-
-    except Exception as e:
-        print(f"⚠️ Could not load settings from Google Sheet: {e}")
+def _load_new_format(df):
+    """
+    Parse Category/Parameter/Value format.
+    This is the format used by trading_config.py.
+    """
+    settings = {}
+    required = ["Category", "Parameter", "Value"]
+    if not all(c in df.columns for c in required):
         return None
+
+    for _, row in df.iterrows():
+        key = str(row.get("Parameter", "")).strip()
+        val = row.get("Value")
+        if key and key != "nan":
+            parsed = _parse_value(val)
+            if parsed is not None:
+                settings[key] = parsed
+
+    return settings if settings else None
+
+
+def _load_old_format(df):
+    """
+    Parse Setting/Value format (original settings_loader format).
+    Kept for backward compatibility.
+    """
+    settings = {}
+    if "Setting" not in df.columns or "Value" not in df.columns:
+        return None
+
+    for _, row in df.iterrows():
+        key = str(row.get("Setting", "")).strip()
+        val = row.get("Value")
+        if key and key != "nan":
+            parsed = _parse_value(val)
+            if parsed is not None:
+                settings[key] = parsed
+
+    return settings if settings else None
 
 
 def get_settings():
     """
-    Master function — returns final settings dictionary.
-
-    Priority:
-    1. Google Sheet values (if URL set and reachable)
-    2. DEFAULT_SETTINGS (always available as fallback)
-
-    Individual settings from sheet OVERRIDE defaults.
-    Settings not in sheet use the default value.
-    This means you can control just a few settings
-    from the sheet and let others use defaults.
+    Load settings from Google Sheet.
+    Tries new Category/Parameter/Value format first,
+    then old Setting/Value format.
+    Falls back to DEFAULT_SETTINGS if sheet unreachable.
+    Returns a flat dictionary of parameter → value.
     """
+    final = DEFAULT_SETTINGS.copy()
+    source = "defaults"
 
-    # Start with defaults
-    final_settings = DEFAULT_SETTINGS.copy()
-    source         = "defaults"
+    if not GOOGLE_SHEET_URL or not GOOGLE_SHEET_URL.strip():
+        print("ℹ️ No Google Sheet URL set — using default settings")
+        final["_source"] = source
+        return final
 
-    # Try to load from Google Sheet if URL is set
-    if GOOGLE_SHEET_URL and GOOGLE_SHEET_URL.strip():
-        sheet_settings = load_settings_from_sheet(GOOGLE_SHEET_URL)
+    try:
+        df = pd.read_csv(GOOGLE_SHEET_URL)
+
+        # Try new format first
+        sheet_settings = _load_new_format(df)
+
+        # Fall back to old format
+        if sheet_settings is None:
+            sheet_settings = _load_old_format(df)
 
         if sheet_settings:
-            # Override defaults with sheet values
-            for key, value in sheet_settings.items():
-                if key in final_settings:
-                    final_settings[key] = value
-
+            final.update(sheet_settings)
             source = "Google Sheet"
-            print(f"✅ Settings loaded from Google Sheet ({len(sheet_settings)} values)")
+            print(f"✅ Config loaded from Google Sheet ({len(sheet_settings)} values)")
         else:
-            print("⚠️ Using default settings — Google Sheet unreachable")
-    else:
-        print("ℹ️ No Google Sheet URL set — using default settings")
+            print("⚠️ Could not parse sheet — check column names. Using defaults.")
 
-    final_settings['_source'] = source
-    return final_settings
+    except Exception as e:
+        print(f"⚠️ Could not reach Google Sheet: {e}. Using defaults.")
+
+    final["_source"] = source
+    return final
 
 
-# ── Convenience function ──────────────────────────
-# Call this from any strategy file to get one setting
+# ── Convenience function — unchanged for backward compatibility ──
 def get(key, fallback=None):
-    """
-    Get a single setting value.
-    Example: get("STOP_LOSS_PCT") returns 0.06
-    """
+    """Get a single setting value."""
     settings = get_settings()
-    return settings.get(key, fallback or DEFAULT_SETTINGS.get(key))
+    return settings.get(key, fallback if fallback is not None else DEFAULT_SETTINGS.get(key))

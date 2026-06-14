@@ -136,6 +136,13 @@ from engine.loop_state import (
 )
 from engine.execution_loop import run_one_cycle
 
+from engine.decision_engine import (
+    get_decision_dashboard_df,
+    get_decision_stats,
+    clear_decision_log as clear_explainable_log,
+    DECISION_BUY, DECISION_SELL, DECISION_NO_TRADE,
+)
+
 from risk.portfolio_risk import get_risk_dashboard_data, format_risk_level
 
 # ── Page configuration ───────────────────────────
@@ -328,7 +335,7 @@ def render_quick_buy_panel(
                 st.error(f"🛑 {result['reason']}")
 
 # ── Fetch functions ───────────────────────────────
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def fetch_all_stocks():
     summary  = []
     watchlist = get_watchlist_dict()
@@ -381,7 +388,7 @@ def fetch_stock_data(symbol):
     return data
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def fetch_regime_analysis():
     return get_full_regime_analysis(period="1y")
 
@@ -398,7 +405,7 @@ def fetch_market_sentiment_cached():
 
 
 # ── Navigation Tabs ───────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
     "📊 Dashboard",
     "🌡️ Market Regime",
     "📡 Scanner",
@@ -409,7 +416,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "📋 Logs",
     "🪣 Portfolio Buckets",
     "🔄 Position Lifecycle",
-    "🤖 Auto Pilot"
+    "🤖 Auto Pilot",
+    "⚙️ Settings",          # ← NEW
 ])
 
 # ════════════════════════════════════════════════
@@ -1079,6 +1087,11 @@ with tab3:
 
         # ── Full scan table with row selection ────
         st.caption("👆 Click any row to instantly select that stock for trading")
+        st.info(
+            "ℹ️ **Score (approx)** = fast scanner score using neutral values for "
+            "Fundamentals & Sentiment. For the precise score with real fundamental "
+            "and sentiment data, open the **💯 Stock Score** tab."
+        )
         scan_selection = st.dataframe(
             styled,
             use_container_width=True,
@@ -3571,7 +3584,287 @@ with tab11:
                     st.rerun()
             st.divider()
 
+        # ── Explainable Decision Log ──────────────────
+        st.subheader("🧠 Explainable Decision Log")
+        st.caption(
+            "Every BUY, SELL, and NO_TRADE with full reasoning — "
+            "confidence score, risk:reward, portfolio impact, and exact rejection reasons. "
+            "This is Milestone 32."
+        )
 
+        dec_stats = get_decision_stats()
+        ds1, ds2, ds3, ds4, ds5 = st.columns(5)
+        ds1.metric("Total Decisions", dec_stats["total"])
+        ds2.metric("BUYs",            dec_stats["buys"])
+        ds3.metric("SELLs",           dec_stats["sells"])
+        ds4.metric("NO_TRADEs",       dec_stats["no_trades"])
+        ds5.metric("Avg Confidence",  f"{dec_stats['avg_confidence']}/100")
+
+        dec_df = get_decision_dashboard_df(max_rows=50)
+
+        if dec_df.empty:
+            st.info(
+                "No explainable decisions yet. "
+                "Run a cycle to see full reasoning here."
+            )
+        else:
+            def color_dec_decision(val):
+                if val == "BUY":      return "color: green;  font-weight: bold"
+                if val == "SELL":     return "color: orange; font-weight: bold"
+                if val == "NO_TRADE": return "color: gray"
+                return ""
+
+            def color_approved(val):
+                if str(val).upper() in ("TRUE", "1", "YES"): return "color: green"
+                return "color: red"
+
+            st.dataframe(
+                dec_df.style
+                    .map(color_dec_decision, subset=["Decision"] if "Decision" in dec_df.columns else [])
+                    .map(color_approved,     subset=["Execution_Allowed"] if "Execution_Allowed" in dec_df.columns else []),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            col_dec1, col_dec2 = st.columns(2)
+            with col_dec1:
+                from engine.decision_engine import load_decision_log as load_explainable_log
+                full_dec_df = load_explainable_log(max_rows=200)
+                st.download_button(
+                    label     = "⬇️ Download Explainable Decision Log",
+                    data      = full_dec_df.to_csv(index=False),
+                    file_name = "explainable_decision_log.csv",
+                    mime      = "text/csv",
+                )
+            with col_dec2:
+                if st.button("🗑️ Clear Explainable Log", key="clear_expl_log"):
+                    clear_explainable_log()
+                    st.info("Explainable decision log cleared")
+                    st.rerun()
+
+        # ── Sample decision viewer ────────────────────
+        with st.expander("🔍 View Full Decision Text (last approved BUY)"):
+            full_dec_df = get_decision_dashboard_df(max_rows=100)
+            if not full_dec_df.empty:
+                # Find last BUY if any
+                buys_only = full_dec_df[full_dec_df.get("Decision", pd.Series()) == "BUY"]
+                if not buys_only.empty:
+                    last_buy = buys_only.iloc[0]
+                    st.markdown(f"**{last_buy.get('Stock','')} → {last_buy.get('Bucket','')}**")
+                    st.markdown(f"Confidence: **{last_buy.get('Confidence','?')}/100**")
+                    st.markdown(f"Entry: ₹{last_buy.get('Entry_Price','?')} | Stop: ₹{last_buy.get('Stop_Price','?')} | Target: ₹{last_buy.get('Target_Price','?')} | R:R = 1:{last_buy.get('Risk_Reward','?')}")
+                    st.markdown(f"Deployment: {last_buy.get('Deployed_Before','?')}% → {last_buy.get('Deployed_After','?')}%")
+                else:
+                    st.info("No BUY decisions in log yet.")
+            else:
+                st.info("No decisions logged yet.")
+
+# ════════════════════════════════════════════════
+# TAB 12: SETTINGS — Live Configuration Editor
+# ════════════════════════════════════════════════
+with tab12:
+
+    st.title("⚙️ Live Settings — Configuration Control")
+    st.caption(
+        "All settings are controlled from your Google Sheet. "
+        "Edit values in the sheet and click Reload to apply instantly — "
+        "no code changes or restarts needed."
+    )
+    st.divider()
+
+    # ── Import config ─────────────────────────────
+    from config.trading_config import (
+        STOP_LOSS_PCT, TARGET_PROFIT_PCT, TRAILING_STOP_PCT,
+        TRAIL_ACTIVATION_PCT, PARTIAL_EXIT_PCT,
+        MAX_POSITION_PCT, TOTAL_CAPITAL, DAILY_LOSS_HALT_PCT,
+        MAX_DEPLOYMENT_PCT, COOLDOWN_DAYS, BROKERAGE_PCT,
+        SCANNER_MAX_WORKERS, ABSOLUTE_MIN_SCORE, FUNDAMENTAL_CACHE_TTL,
+        BUCKET_MIN_SCORES, BUCKET_CAPITAL_PCT, SCORING_WEIGHTS,
+        CONFIG_SOURCE, validate_config,
+    )
+    from config.settings_loader import GOOGLE_SHEET_URL, DEFAULT_SETTINGS
+
+    # ── Config source banner ──────────────────────
+    if CONFIG_SOURCE == "Google Sheet":
+        st.success(
+            "✅ **Live config loaded from Google Sheet** — "
+            "edit the sheet and click Reload below to apply changes instantly."
+        )
+    else:
+        st.warning(
+            "⚠️ **Using default settings** — "
+            "add your Google Sheet URL to `config/settings_loader.py` "
+            "to enable remote control."
+        )
+
+    if GOOGLE_SHEET_URL:
+        st.caption(f"📎 Sheet: {GOOGLE_SHEET_URL[:80]}...")
+
+    if st.button("🔄 Reload Config from Google Sheet", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    st.divider()
+
+    # ── Validation warnings ────────────────────────
+    config_warnings = validate_config()
+    if config_warnings:
+        st.subheader("⚠️ Configuration Warnings")
+        for w in config_warnings:
+            st.warning(w)
+        st.divider()
+
+    # ── Risk settings ─────────────────────────────
+    st.subheader("🛡️ Risk Settings")
+    st.caption("These protect your capital — change carefully.")
+
+    rc1, rc2, rc3, rc4, rc5 = st.columns(5)
+    rc1.metric("Stop Loss",          f"{round(STOP_LOSS_PCT*100,1)}%",
+               help="Sell immediately if stock falls this % from buy price")
+    rc2.metric("Profit Target",      f"{round(TARGET_PROFIT_PCT*100,1)}%",
+               help="Take profit when stock gains this %")
+    rc3.metric("Trailing Stop",      f"{round(TRAILING_STOP_PCT*100,1)}%",
+               help="After activation, stop trails this % below peak")
+    rc4.metric("Trail Activates At", f"{round(TRAIL_ACTIVATION_PCT*100,1)}%",
+               help="Trailing stop activates when gain reaches this %")
+    rc5.metric("Partial Exit At",    f"{round(PARTIAL_EXIT_PCT*100,1)}%",
+               help="Book 50% profit when gain reaches this %")
+
+    st.divider()
+
+    # ── Portfolio settings ────────────────────────
+    st.subheader("💼 Portfolio Settings")
+
+    pc1, pc2, pc3, pc4 = st.columns(4)
+    pc1.metric("Total Capital",     f"₹{TOTAL_CAPITAL:,.0f}")
+    pc2.metric("Daily Loss Halt",   f"{DAILY_LOSS_HALT_PCT}%",
+               help="Halt all new buys if portfolio down this % today")
+    pc3.metric("Max Deployment",    f"{MAX_DEPLOYMENT_PCT}%",
+               help="Never deploy more than this % of capital at once")
+    pc4.metric("Cooldown Days",     f"{COOLDOWN_DAYS} days",
+               help="Block re-entry after stop loss for this many days")
+
+    st.divider()
+
+    # ── Bucket settings ───────────────────────────
+    st.subheader("🪣 Bucket Settings")
+
+    bucket_display = []
+    total_cap_check = 0
+    for bname in ["Long-Term", "Swing", "Intraday"]:
+        cap_pct = BUCKET_CAPITAL_PCT.get(bname, 0)
+        min_score = BUCKET_MIN_SCORES.get(bname, 0)
+        cap_amount = round(TOTAL_CAPITAL * cap_pct / 100)
+        total_cap_check += cap_pct
+        bucket_display.append({
+            "Bucket":          bname,
+            "Capital %":       f"{cap_pct}%",
+            "Capital ₹":       f"₹{cap_amount:,.0f}",
+            "Min Score":       f"{min_score}/100",
+        })
+
+    st.dataframe(
+        pd.DataFrame(bucket_display),
+        use_container_width=True, hide_index=True
+    )
+
+    if abs(total_cap_check - 100) > 1:
+        st.error(f"⚠️ Bucket %s sum to {total_cap_check}% — should be 100%")
+    else:
+        st.caption(f"✅ Bucket capital allocations sum to {total_cap_check}% — correct")
+
+    st.divider()
+
+    # ── Score weights ─────────────────────────────
+    st.subheader("📊 Composite Score Weights")
+    st.caption(
+        "These control how much each dimension contributes to the 0-100 score. "
+        "Weights are auto-normalised so they always sum to 100% even if you "
+        "change individual values."
+    )
+
+    weight_rows = []
+    for dim, weight in SCORING_WEIGHTS.items():
+        pct = round(weight * 100, 1)
+        bar = "█" * int(pct // 2) + "░" * (10 - int(pct // 2))
+        weight_rows.append({
+            "Dimension": dim.replace("_", " ").title(),
+            "Weight":    f"{pct}%",
+            "Visual":    bar,
+        })
+
+    st.dataframe(
+        pd.DataFrame(weight_rows),
+        use_container_width=True, hide_index=True
+    )
+
+    weight_sum = round(sum(SCORING_WEIGHTS.values()) * 100, 1)
+    if abs(weight_sum - 100) < 0.5:
+        st.caption(f"✅ Weights sum to {weight_sum}% — correct")
+    else:
+        st.warning(f"⚠️ Weights sum to {weight_sum}% — check your sheet values")
+
+    st.divider()
+
+    # ── Scanner settings ──────────────────────────
+    st.subheader("📡 Scanner Settings")
+
+    sc1, sc2, sc3 = st.columns(3)
+    sc1.metric("Parallel Workers",    SCANNER_MAX_WORKERS,
+               help="Higher = faster but may hit API rate limits. Keep 8-12.")
+    sc2.metric("Minimum Score Gate",  ABSOLUTE_MIN_SCORE,
+               help="Stocks scoring below this are skipped entirely")
+    sc3.metric("Fundamental Cache",   f"{FUNDAMENTAL_CACHE_TTL} days",
+               help="Reuse fundamental data for this many days before refreshing")
+
+    st.divider()
+
+    # ── How to edit settings ──────────────────────
+    st.subheader("📖 How to Change Settings")
+
+    st.markdown("""
+**Option 1 — Google Sheet (recommended):**
+1. Open your Trading OS Config Google Sheet
+2. Find the Parameter you want to change
+3. Edit the Value column
+4. Come back here and click **Reload Config** above
+5. Changes apply instantly — no restarts needed
+
+**Option 2 — If you don't have the sheet set up yet:**
+1. Follow the setup in the project docs to create your Google Sheet
+2. Paste the published CSV URL into `config/settings_loader.py`
+3. Come back and click Reload
+
+**Important rules:**
+- Score weights don't need to sum to 100 — the system normalises them automatically
+- Bucket capital % should sum to 100 (Long-Term + Swing + Intraday = 100)
+- Stop loss % should always be less than profit target % for positive risk:reward
+- TOTAL_CAPITAL should match your actual available capital
+""")
+
+    st.divider()
+
+    # ── Full settings dump for debugging ──────────
+    with st.expander("🔍 Full Settings Dump (for debugging)"):
+        st.caption("All current values loaded into the system")
+        from config.settings_loader import get_settings
+        all_settings = get_settings()
+        settings_rows = []
+        for k, v in sorted(all_settings.items()):
+            if k.startswith("_"):
+                continue
+            default = DEFAULT_SETTINGS.get(k, "N/A")
+            changed = str(v) != str(default)
+            settings_rows.append({
+                "Parameter":  k,
+                "Current":    str(v),
+                "Default":    str(default),
+                "Modified":   "✏️" if changed else "—",
+            })
+        st.dataframe(
+            pd.DataFrame(settings_rows),
+            use_container_width=True, hide_index=True
+        )
 
 st.divider()
 st.caption("📌 Data: Yahoo Finance | Refreshes every 5 min | Not financial advice")

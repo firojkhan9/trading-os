@@ -1,0 +1,3982 @@
+{
+  "RELIANCE.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "MRF.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "OIL.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "IREDA.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "ETERNAL.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "TVSMOTOR.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "RVNL.NS": {
+    "score": 39,
+    "date": "2026-06-13"
+  },
+  "COCHINSHIP.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "BDL.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "MAZDOCK.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "GRSE.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "JSL.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "TMPV.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "JINDALSTEL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "IDEA.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "DMART.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "IRCTC.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "HAL.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "BEL.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "TCS.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "HDFCBANK.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "INFY.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "ICICIBANK.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "HINDUNILVR.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "SBIN.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ONGC.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "COALINDIA.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "TMCV.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "TATASTEEL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "HCLTECH.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "JSWSTEEL.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "BAJAJFINSV.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "LT.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "M&M.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "BHARTIARTL.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ITC.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "KOTAKBANK.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BAJFINANCE.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "WIPRO.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "AXISBANK.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ASIANPAINT.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "MARUTI.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "TITAN.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "SUNPHARMA.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "ULTRACEMCO.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "NESTLEIND.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "ADANIENT.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ADANIPORTS.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "POWERGRID.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "NTPC.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "TECHM.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "TARSONS.NS": {
+    "score": 39,
+    "date": "2026-06-13"
+  },
+  "SWSOLAR.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "SANDUMA.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "REDINGTON.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "PPLPHARMA.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "NH.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "IRB.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "DBL.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "CARYSIL.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "BLAL.NS": {
+    "score": 28,
+    "date": "2026-06-13"
+  },
+  "BHEL.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ABB.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "SIEMENS.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "IRFC.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "PFC.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "RECLTD.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "SHRIRAMFIN.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "CHOLAFIN.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "MUTHOOTFIN.NS": {
+    "score": 81,
+    "date": "2026-06-13"
+  },
+  "CANBK.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "BANKBARODA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "PNB.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "IDFCFIRSTB.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "FEDERALBNK.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "BANDHANBNK.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "INDUSINDBK.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "GRASIM.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "BERGEPAINT.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "PIDILITIND.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "MPHASIS.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "PERSISTENT.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "INDIGO.NS": {
+    "score": 27,
+    "date": "2026-06-13"
+  },
+  "UBL.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "VBL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "BATAINDIA.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "VOLTAS.NS": {
+    "score": 39,
+    "date": "2026-06-13"
+  },
+  "HAVELLS.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "POLYCAB.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "PAGEIND.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "TRENT.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "NYKAA.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "BANKINDIA.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "ARE&M.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "MUFTI.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "NMDC.NS": {
+    "score": 90,
+    "date": "2026-06-13"
+  },
+  "VEDL.NS": {
+    "score": 79,
+    "date": "2026-06-13"
+  },
+  "HINDALCO.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "BPCL.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "IOC.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "GAIL.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "TORNTPOWER.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "ADANIGREEN.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "TATAPOWER.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "HINDCOPPER.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "SAIL.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "DELHIVERY.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "CONCOR.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "GPPL.NS": {
+    "score": 86,
+    "date": "2026-06-13"
+  },
+  "RAILTEL.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "TATACOMM.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "TORNTPHARM.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "LUPIN.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "GLENMARK.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ESCORTS.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "DLF.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "DEEPAKNTR.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "DALBHARAT.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "CUMMINSIND.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "CGPOWER.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "BOSCHLTD.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BIOCON.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "BAJAJHLDNG.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "CARBORUNIV.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "NHPC.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "HINDPETRO.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "SUPREMEIND.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "SRF.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "SHREECEM.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "SBICARD.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "RAMCOCEM.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "PRESTIGE.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "PIIND.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "PETRONET.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "OBEROIRLTY.NS": {
+    "score": 80,
+    "date": "2026-06-13"
+  },
+  "NAUKRI.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "MOTHERSON.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "LICI.NS": {
+    "score": 85,
+    "date": "2026-06-13"
+  },
+  "LICHSGFIN.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "KPITTECH.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "JUBLFOOD.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "STARCEMENT.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "SPARC.NS": {
+    "score": 81,
+    "date": "2026-06-13"
+  },
+  "SONACOMS.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "INDIAMART.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "AARTIIND.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "ABFRL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "AUROPHARMA.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "ASTRAL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "ASHOKLEY.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "AMBUJACEM.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ACC.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "YESBANK.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "UPL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "TATACHEM.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "SYNGENE.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "NAVA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "NATIONALUM.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "UNIONBANK.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "AFFLE.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "TATAELXSI.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "BEML.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "APARINDS.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ACE.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "ZFCVINDIA.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "VAKRANGEE.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "VAIBHAVGBL.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "UTIAMC.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "UCOBANK.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "TIMKEN.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "TCI.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "AUBANK.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "EQUITASBNK.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "UJJIVANSFB.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "IDBI.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "SHK.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "SHILPAMED.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "SHARDACROP.NS": {
+    "score": 80,
+    "date": "2026-06-13"
+  },
+  "SAREGAMA.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "RITES.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "PRAJIND.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "POONAWALLA.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "PATANJALI.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ORIENTCEM.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "NESCO.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "NEOGEN.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "NELCO.NS": {
+    "score": 35,
+    "date": "2026-06-13"
+  },
+  "KFINTECH.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "TATAINVEST.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "POLICYBZR.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "ANGELONE.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "CDSL.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CAMS.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "BSE.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "GICRE.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "NIACL.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "STARHEALTH.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ICICIGI.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "HDFCAMC.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "BAJAJHFL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "M&MFIN.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "MANAPPURAM.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "MAHSCOOTER.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "KPRMILL.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "KIRLOSENG.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "KIRLOSBROS.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "KCP.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "KAMATHOTEL.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "JTEKTINDIA.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "JMFINANCIL.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "JKCEMENT.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "JINDALSAW.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "JAMNAAUTO.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "HUDCO.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "CREDITACC.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "AAVAS.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "APOLLOTYRE.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "MEDPLUS.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "LALPATHLAB.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "AJANTPHARM.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "LAURUSLABS.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "MEDANTA.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "FORTIS.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "MAXHEALTH.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "METROPOLIS.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "ABBOTINDIA.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "IPCALAB.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "ALKEM.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "MPSLTD.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "MINDACORP.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "IIFL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "IFBIND.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "HOMEFIRST.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "HLEGLAS.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "HINDOILEXP.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "HCC.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "GUJGASLTD.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "GRINDWELL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "GMDCLTD.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "GLAXO.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "GESHIP.NS": {
+    "score": 89,
+    "date": "2026-06-13"
+  },
+  "EXIDEIND.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "OLECTRA.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ENDURANCE.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BALKRISIND.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "AMBER.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "DIXON.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "ELGIEQUIP.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "SCHAEFFLER.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "SOLARINDS.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "DATAPATTNS.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "KAYNES.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "TIINDIA.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "BHARATFORG.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "THERMAX.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "JAICORPLTD.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "J&KBANK.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "ITI.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "IRCON.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ATUL.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "FINEORG.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "GALAXYSURF.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "CLEAN.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "VINATIORGA.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "ALKYLAMINE.NS": {
+    "score": 37,
+    "date": "2026-06-13"
+  },
+  "NAVINFLUOR.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "VGUARD.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ENGINERSIN.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "KEC.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "KEI.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "EPL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "EMIL.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ELECTCAST.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "ELECON.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "EDELWEISS.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "ECLERX.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "DISHTV.NS": {
+    "score": 35,
+    "date": "2026-06-13"
+  },
+  "DEEPAKFERT.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "DCMSHRIRAM.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "DBREALTY.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "CYBERTECH.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "PHOENIXLTD.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "GODREJPROP.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "BRIGADE.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "NBCC.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "SUZLON.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "ZYDUSWELL.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "EMAMILTD.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "BIKAJI.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "RELAXO.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "RAJESHEXPO.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "KALYANKJIL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "PVRINOX.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "INDHOTEL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "FLUOROCHEM.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "FDC.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "FACT.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "EROSMEDIA.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "AVANTIFEED.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "KRBL.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "GODREJAGRO.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "COROMANDEL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "CHAMBLFERT.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "SUNTV.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ZEEL.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "STLTECH.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "HFCL.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "CASTROLIND.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "SJVN.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "JSWENERGY.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "INOXGREEN.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "INOXWIND.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "CRAFTSMAN.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "CHENNPETRO.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "INDIANB.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "BOMDYEING.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "BLISSGVS.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "BASF.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "BORORENEW.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "BOROLTD.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "BBTC.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "BAYERCROP.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "BANCOINDIA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "AUTOAXLES.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "ASAHIINDIA.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ARVINDFASN.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "BALRAMCHIN.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "ARVIND.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ANANTRAJ.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "FIRSTCRY.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "SWIGGY.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "RAYMOND.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "BIRLACORPN.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CERA.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "CENTURYPLY.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "ALLCARGO.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "BLUEDART.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "GSFC.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "CUPID.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "CUB.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "COLPAL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "MARICO.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "DABUR.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "GODREJCP.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "BRITANNIA.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "TATACONSUM.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "EICHERMOT.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "HEROMOTOCO.NS": {
+    "score": 81,
+    "date": "2026-06-13"
+  },
+  "BAJAJ-AUTO.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "APOLLOHOSP.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "CIPLA.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "DRREDDY.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "DIVISLAB.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ICICIPRULI.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "SBILIFE.NS": {
+    "score": 39,
+    "date": "2026-06-13"
+  },
+  "HDFCLIFE.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "NIRAJ.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "NIPPOBATRY.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "NILKAMAL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "NILASPACES.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "NILAINFRA.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "NGLFINE.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "NEXTMEDIA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "NELCAST.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "NDRAUTO.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "NDL.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "NDGL.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "NCLIND.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "NBIFIN.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "NAVNETEDUL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "NAVKARCORP.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "NATHBIOGEN.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "CHALET.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "MHRIL.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "TRIVENI.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "TNPL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "SKIPPER.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "GREENPLY.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "GREENPANEL.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "WABAG.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "WELCORP.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "JKPAPER.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "JKLAKSHMI.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "NUVOCO.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "MAHLOG.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "DHANUKA.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "RALLIS.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "MRPL.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "DODLA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "HATSUN.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "RADICO.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "DELTACORP.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "WESTLIFE.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "DEVYANI.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "SAPPHIRE.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "SHOPERSTOP.NS": {
+    "score": 28,
+    "date": "2026-06-13"
+  },
+  "VMART.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "SENCO.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "WONDERLA.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "LEMONTREE.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "MAHLIFE.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "KOLTEPATIL.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "SOBHA.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "ASHOKA.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "PNCINFRA.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "HGINFRA.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "NCC.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "GNFC.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "KIRIINDUS.NS": {
+    "score": 90,
+    "date": "2026-06-13"
+  },
+  "PCBL.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "GHCL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "NOCIL.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "SUDARSCHEM.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "ROSSARI.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "IGARASHI.NS": {
+    "score": 39,
+    "date": "2026-06-13"
+  },
+  "GOODYEAR.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "FORCEMOT.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "CEATLTD.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "HIKAL.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "NEULANDLAB.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "CAPLIPOINT.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "ERIS.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "KIMS.NS": {
+    "score": 37,
+    "date": "2026-06-13"
+  },
+  "RAINBOW.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "THYROCARE.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "SUVEN.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "JBCHEPHARM.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "GRANULES.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "MMTC.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "APTUS.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "SPANDANA.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "PNBHOUSING.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "CANFINHOME.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "SUNDARMFIN.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "ESAFSFB.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "SURYODAY.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "QUESS.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "MAHABANK.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "CENTRALBK.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "IOB.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "SOUTHBANK.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "DCBBANK.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "CSBBANK.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "KARURVYSYA.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "RBLBANK.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "IXIGO.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "NAZARA.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CARTRADE.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "JUSTDIAL.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "TEAMLEASE.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "SIS.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ROUTE.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "NEWGEN.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "BSOFT.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "HAPPSTMNDS.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "LATENTVIEW.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "TANLA.NS": {
+    "score": 80,
+    "date": "2026-06-13"
+  },
+  "INTELLECT.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "SONATSOFTW.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "MASTEK.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "RATEGAIN.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "CYIENT.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "GTLINFRA.NS": {
+    "score": 35,
+    "date": "2026-06-13"
+  },
+  "GULPOLY.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "TBZ.NS": {
+    "score": 79,
+    "date": "2026-06-13"
+  },
+  "CESC.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "COFORGE.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "PAYTM.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "UNITDSPR.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "WHIRLPOOL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "CROMPTON.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "AAREYDRUGS.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "AAKASH.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "A2ZINFRA.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "OLAELEC.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "MSTCLTD.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "AHLADA.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "ADVANIHOTR.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "ADSL.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "ADL.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "ADFFOODS.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "ACI.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "ACEINTEG.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "ACCELYA.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "ABMINTLLTD.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "ABAN.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "AARVI.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "AARTISURF.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "AARTECH.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "AARON.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "ALMONDZ.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ALKALI.NS": {
+    "score": 37,
+    "date": "2026-06-13"
+  },
+  "ALICON.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "ALEMBICLTD.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "ALBERTDAVD.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ALANKIT.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "AKSHOPTFBR.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "AKSHAR.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "AKI.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "AKG.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "AKASH.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "AJMERA.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "AIRAN.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "AIAENG.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "AHLUCONT.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "APTECHT.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "APOLSINHOT.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "APEX.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "APCOTEXIND.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "APCL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "ANURAS.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "ANUP.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "ANTGRAPHIC.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "ANKITMETAL.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "ANIKINDS.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "ANDHRSUGAR.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "ANDHRAPAP.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "AMRUTANJAN.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "AMJLAND.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "AMBIKCO.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "AMBICAAGAR.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "ASHIMASYN.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "ASHAPURMIN.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "ASALCBR.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "ASAL.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "ASAHISONG.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "ARVEE.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ARTEMISMED.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "ARSHIYA.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "ARROWGREEN.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "AROGRANITE.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "ARIHANTSUP.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "ARIHANTCAP.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "ARIES.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "ARENTERP.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "ARCHIES.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "ARCHIDPLY.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "BALMLAWRIE.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "BALAXI.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "BALAJITELE.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "BAFNAPH.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "AYMSYNTEX.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "AVROIND.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "AVADHSUGAR.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "AUTOIND.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "AUSOMENT.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "AURUM.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "AURIONPRO.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "ATALREAL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "ASTEC.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "ASPINWALL.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "ASIANENE.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "BFINVEST.NS": {
+    "score": 79,
+    "date": "2026-06-13"
+  },
+  "BEPL.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "BEDMUTHA.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "BECTORFOOD.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "BEARDSELL.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BCONCEPTS.NS": {
+    "score": 35,
+    "date": "2026-06-13"
+  },
+  "BCLIND.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "BCG.NS": {
+    "score": 79,
+    "date": "2026-06-13"
+  },
+  "BASML.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "BANSWRAS.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "BANKA.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "BANG.NS": {
+    "score": 84,
+    "date": "2026-06-13"
+  },
+  "BANARISUG.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "BANARBEADS.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "BALPHARMA.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "BLKASHYAP.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "BLBLIMITED.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "BIRLAMONEY.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "BIRLACABLE.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "BIOFILCHEM.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "BIL.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "BIGBLOC.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "BHARATWIRE.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "BHARATRAS.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "BHARATGEAR.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BHANDARI.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "BHAGYANGR.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "BHAGERIA.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "BGRENERGY.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "BFUTILITIE.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "CAPACITE.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "CANTABIL.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "CAMLINFINE.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "CALSOFT.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "BUTTERFLY.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "BSL.NS": {
+    "score": 27,
+    "date": "2026-06-13"
+  },
+  "BSHSL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "BROOKS.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "BRNL.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "BRFL.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "BPL.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "BOHRAIND.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "BODALCHEM.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "BLUESTARCO.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "BLUECOAST.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "BLS.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "COMPUSOFT.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "CLOUD.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CLEDUCATE.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CHOLAHLDNG.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "CHEMPLASTS.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "CHEMFAB.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "CHEMBOND.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "CEREBRAINT.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "CENTRUM.NS": {
+    "score": 29,
+    "date": "2026-06-13"
+  },
+  "CENTEXT.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "CENTENKA.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "CELEBRITY.NS": {
+    "score": 25,
+    "date": "2026-06-13"
+  },
+  "CCCL.NS": {
+    "score": 83,
+    "date": "2026-06-13"
+  },
+  "CARERATING.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "DCI.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "DBOL.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "DBCORP.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "DATAMATICS.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "DAMODARIND.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "DALMIASUG.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "CYBERMEDIA.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "CTE.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "CSLFINANCE.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "CROWN.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "CREST.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "CREATIVEYE.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "COUNCODOS.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "COSMOFIRST.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "CORDSCABLE.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "CONTROLPR.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "DIVGIITTS.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "DIGISPICE.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "DIAMONDYD.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "DHUNINV.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "DHAMPURSUG.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "DEVIT.NS": {
+    "score": 80,
+    "date": "2026-06-13"
+  },
+  "DEN.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "DELPHIFX.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "DEEPINDS.NS": {
+    "score": 77,
+    "date": "2026-06-13"
+  },
+  "DECCANCE.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "DCW.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "DCMNVL.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "DCMFINSERV.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "DCM.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "DYNPRO.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "DYNAMATECH.NS": {
+    "score": 35,
+    "date": "2026-06-13"
+  },
+  "DWARKESH.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "DVL.NS": {
+    "score": 79,
+    "date": "2026-06-13"
+  },
+  "DUCON.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "DTIL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "DSSL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "DREDGECORP.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "DPWIRES.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "DPSCLTD.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "DPABHUSHAN.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "DONEAR.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "DOLLAR.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "DOLATALGO.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "DLINKINDIA.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "DJML.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "EUROTEXIND.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "ESTER.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "ESSARSHPNG.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "ESABINDIA.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "ENIL.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "ENERGYDEV.NS": {
+    "score": 29,
+    "date": "2026-06-13"
+  },
+  "EMMBI.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "EMKAY.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "EMAMIPAP.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "ELGIRUBCO.NS": {
+    "score": 30,
+    "date": "2026-06-13"
+  },
+  "ELDEHSG.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "EKC.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "EIMCOELECO.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "EIHAHOTELS.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "EASEMYTRIP.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "E2E.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "FSL.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "FOODSIN.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "FOCUS.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "FIVESTAR.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "FILATEX.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "FELDVR.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "FEL.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "FEDFINA.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "FCSSOFT.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "FCONSUMER.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "FCL.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "FAIRCHEMOR.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "EXPLEOSOL.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "EXCELINDUS.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "EVEREADY.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "GENUSPOWER.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "GENUSPAPER.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "GENESYS.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "GENCON.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "GAYAPROJ.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "GAYAHWS.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "GARFIBRES.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "GANGESSECU.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "GANECOS.NS": {
+    "score": 47,
+    "date": "2026-06-13"
+  },
+  "GANDHITUBE.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "GALLANTT.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "GABRIEL.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "GOKUL.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "GOKEX.NS": {
+    "score": 41,
+    "date": "2026-06-13"
+  },
+  "GOCOLORS.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "GOACARBON.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "GMBREW.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "GLOBUSSPR.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "GLOBE.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "GLOBALVECT.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "GLFL.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "GLAND.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "GKWLIMITED.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "GIPCL.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "GILLANDERS.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "GICHSGFIN.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "GFLLIMITED.NS": {
+    "score": 81,
+    "date": "2026-06-13"
+  },
+  "GEOJITFSL.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "GULFPETRO.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "GULFOILLUB.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "GUJAPOLLO.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "GUJALKALI.NS": {
+    "score": 85,
+    "date": "2026-06-13"
+  },
+  "GUFICBIO.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "GTPL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "GTL.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "GSS.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "GRPLTD.NS": {
+    "score": 25,
+    "date": "2026-06-13"
+  },
+  "GREENLAM.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "GRAUWEIL.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "GOYALALUM.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "GOODLUCK.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "GOLDTECH.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "GOLDIAM.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "GOKULAGRO.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "HILTON.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "HEXATRADEX.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "HERCULES.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "HERANBA.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "HEMIPROP.NS": {
+    "score": 31,
+    "date": "2026-06-13"
+  },
+  "HEIDELBERG.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "HEG.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "HECPROJECT.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "HDIL.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "HCG.NS": {
+    "score": 31,
+    "date": "2026-06-13"
+  },
+  "HBSL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "HATHWAY.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "HARRMALAYA.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "HALDER.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "GVKPIL.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "HTMEDIA.NS": {
+    "score": 38,
+    "date": "2026-06-13"
+  },
+  "HPL.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "HPAL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "HONDAPOWER.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "HMT.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "HLVLTD.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "HITECHGEAR.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "HITECHCORP.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "HITECH.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "HISARMETAL.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "HIRECT.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "HINDWAREAP.NS": {
+    "score": 36,
+    "date": "2026-06-13"
+  },
+  "HINDCON.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "HINDCOMPOS.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "INDIAGLYCO.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "INDBANK.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "IMPAL.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "IMFA.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "IMAGICAA.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "IL&FSENGG.NS": {
+    "score": 31,
+    "date": "2026-06-13"
+  },
+  "IITL.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "IGPL.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "IFGLEXPOR.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "IFCI.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "IFBAGRO.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "IDFNIFTYET.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "ICRA.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "ICEMAKE.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "HUHTAMAKI.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "HUBTOWN.NS": {
+    "score": 75,
+    "date": "2026-06-13"
+  },
+  "IRISDOREME.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "INVENTURE.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "INTENTECH.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "INSECTICID.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "INGERRAND.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "INFOBEAN.NS": {
+    "score": 80,
+    "date": "2026-06-13"
+  },
+  "INDTERRAIN.NS": {
+    "score": 63,
+    "date": "2026-06-13"
+  },
+  "INDSWFTLAB.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "INDRAMEDCO.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "INDOWIND.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "INDNIPPON.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "INDLMETER.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "INDIANHUME.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "JHS.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "JETAIRWAYS.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "JAYSREETEA.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "JAYNECOIND.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "JAYBARMARU.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "JAYAGROGN.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "JASH.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "JAIPURKURT.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "JAIBALAJI.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "JAGRAN.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "IZMO.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "IVC.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "ITDC.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "ISFT.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "KABRAEXTRU.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "JYOTISTRUC.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "JUNIORBEES.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "JTLIND.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "JPPOWER.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "JPOLYINVST.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "JMA.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "JKTYRE.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "JKIL.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "JISLJALEQS.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "JISLDVREQS.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "JINDWORLD.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "JINDRILL.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "JINDALPOLY.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "KKCL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "KITEX.NS": {
+    "score": 32,
+    "date": "2026-06-13"
+  },
+  "KIRLPNU.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "KIRLOSIND.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "KILITCH.NS": {
+    "score": 74,
+    "date": "2026-06-13"
+  },
+  "KICL.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "KHAICHEM.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "KEYFINSERV.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "KESORAMIND.NS": {
+    "score": 40,
+    "date": "2026-06-13"
+  },
+  "KERNEX.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "KELLTONTEC.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "KECL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "KDDL.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "KCPSUGIND.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "KAYA.NS": {
+    "score": 37,
+    "date": "2026-06-13"
+  },
+  "KAUSHALYA.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "LAKPRE.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "LAGNAM.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "KUANTUM.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "KTKBANK.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "KSL.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "KSCL.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "KSB.NS": {
+    "score": 45,
+    "date": "2026-06-13"
+  },
+  "KRSNAA.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "KRIDHANINF.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "KPIGREEN.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "KOTHARIPRO.NS": {
+    "score": 55,
+    "date": "2026-06-13"
+  },
+  "KOTHARIPET.NS": {
+    "score": 72,
+    "date": "2026-06-13"
+  },
+  "KOTARISUG.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "KOPRAN.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "KOKUYOCMLN.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "KMSUGAR.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "LPDC.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "LOVABLE.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "LOTUSEYE.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "LOKESHMACH.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "LIQUIDBEES.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "LINCOLN.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "LICNETFGSC.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "LIBERTSHOE.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "LIBAS.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "LFIC.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "LAXMICOT.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "LAWSIKHO.NS": {
+    "score": 43,
+    "date": "2026-06-13"
+  },
+  "LATTEYS.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "LASA.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "LAMBODHARA.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "MANAKALUCO.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "MALLCOM.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "MAITHANALL.NS": {
+    "score": 73,
+    "date": "2026-06-13"
+  },
+  "MAHSEAMLES.NS": {
+    "score": 67,
+    "date": "2026-06-13"
+  },
+  "MAHESHWARI.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "MAHEPC.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "MAHASTEEL.NS": {
+    "score": 42,
+    "date": "2026-06-13"
+  },
+  "MAGNUM.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "MAGADSUGAR.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "MADRASFERT.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "LYPSAGEMS.NS": {
+    "score": 52,
+    "date": "2026-06-13"
+  },
+  "LYKALABS.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "LUXIND.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "LUMAXTECH.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "LUMAXIND.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "MCL.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "MAXIND.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "MAWANASUG.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "MATRIMONY.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "MARKSANS.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "MARINE.NS": {
+    "score": 57,
+    "date": "2026-06-13"
+  },
+  "MARATHON.NS": {
+    "score": 68,
+    "date": "2026-06-13"
+  },
+  "MARALOVER.NS": {
+    "score": 22,
+    "date": "2026-06-13"
+  },
+  "MANOMAY.NS": {
+    "score": 58,
+    "date": "2026-06-13"
+  },
+  "MANINDS.NS": {
+    "score": 48,
+    "date": "2026-06-13"
+  },
+  "MANGLMCEM.NS": {
+    "score": 56,
+    "date": "2026-06-13"
+  },
+  "MANALIPETC.NS": {
+    "score": 82,
+    "date": "2026-06-13"
+  },
+  "MANAKSTEEL.NS": {
+    "score": 71,
+    "date": "2026-06-13"
+  },
+  "MANAKSIA.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "MANAKCOAT.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "MORARJEE.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "MONTECARLO.NS": {
+    "score": 76,
+    "date": "2026-06-13"
+  },
+  "MOLDTKPAC.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "MOLDTECH.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "MMP.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "MMFL.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "MITCON.NS": {
+    "score": 69,
+    "date": "2026-06-13"
+  },
+  "MIRZAINT.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "MIRCELECTR.NS": {
+    "score": 34,
+    "date": "2026-06-13"
+  },
+  "MINDTECK.NS": {
+    "score": 66,
+    "date": "2026-06-13"
+  },
+  "MIDHANI.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "MICEL.NS": {
+    "score": 53,
+    "date": "2026-06-13"
+  },
+  "MERCATOR.NS": {
+    "score": 59,
+    "date": "2026-06-13"
+  },
+  "MEP.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "NAHARSPING.NS": {
+    "score": 50,
+    "date": "2026-06-13"
+  },
+  "NAHARPOLY.NS": {
+    "score": 70,
+    "date": "2026-06-13"
+  },
+  "NAHARINDUS.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "NAHARCAP.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "NAGREEKEXP.NS": {
+    "score": 54,
+    "date": "2026-06-13"
+  },
+  "NAGREEKCAP.NS": {
+    "score": 60,
+    "date": "2026-06-13"
+  },
+  "NAGAFERT.NS": {
+    "score": 49,
+    "date": "2026-06-13"
+  },
+  "NACLIND.NS": {
+    "score": 44,
+    "date": "2026-06-13"
+  },
+  "MUTHOOTCAP.NS": {
+    "score": 33,
+    "date": "2026-06-13"
+  },
+  "MURUDCERA.NS": {
+    "score": 65,
+    "date": "2026-06-13"
+  },
+  "MUNJALSHOW.NS": {
+    "score": 62,
+    "date": "2026-06-13"
+  },
+  "MUNJALAU.NS": {
+    "score": 61,
+    "date": "2026-06-13"
+  },
+  "MUKTAARTS.NS": {
+    "score": 46,
+    "date": "2026-06-13"
+  },
+  "MUKANDLTD.NS": {
+    "score": 78,
+    "date": "2026-06-13"
+  },
+  "MOREPENLAB.NS": {
+    "score": 51,
+    "date": "2026-06-13"
+  },
+  "MFSL.NS": {
+    "score": 27,
+    "date": "2026-06-13"
+  },
+  "MOIL.NS": {
+    "score": 64,
+    "date": "2026-06-13"
+  },
+  "CYIENTDLM.NS": {
+    "score": 44,
+    "date": "2026-06-14"
+  },
+  "ZENTEC.NS": {
+    "score": 48,
+    "date": "2026-06-14"
+  },
+  "SAFARI.NS": {
+    "score": 57,
+    "date": "2026-06-14"
+  },
+  "VIPIND.NS": {
+    "score": 16,
+    "date": "2026-06-14"
+  },
+  "BAJAJELEC.NS": {
+    "score": 39,
+    "date": "2026-06-14"
+  },
+  "ORIENTELEC.NS": {
+    "score": 56,
+    "date": "2026-06-14"
+  },
+  "SHAKTIPUMP.NS": {
+    "score": 65,
+    "date": "2026-06-14"
+  },
+  "TITAGARH.NS": {
+    "score": 38,
+    "date": "2026-06-14"
+  },
+  "JWL.NS": {
+    "score": 40,
+    "date": "2026-06-14"
+  },
+  "ROTO.NS": {
+    "score": 47,
+    "date": "2026-06-14"
+  },
+  "RAJOOENG.NS": {
+    "score": 59,
+    "date": "2026-06-14"
+  },
+  "TEXRAIL.NS": {
+    "score": 59,
+    "date": "2026-06-14"
+  },
+  "EIDPARRY.NS": {
+    "score": 65,
+    "date": "2026-06-14"
+  },
+  "NETWORK18.NS": {
+    "score": 51,
+    "date": "2026-06-14"
+  },
+  "TEJASNET.NS": {
+    "score": 35,
+    "date": "2026-06-14"
+  },
+  "APLAPOLLO.NS": {
+    "score": 58,
+    "date": "2026-06-14"
+  },
+  "AGI.NS": {
+    "score": 74,
+    "date": "2026-06-14"
+  },
+  "KAJARIACER.NS": {
+    "score": 66,
+    "date": "2026-06-14"
+  },
+  "AEGISLOG.NS": {
+    "score": 65,
+    "date": "2026-06-14"
+  },
+  "ETHOSLTD.NS": {
+    "score": 51,
+    "date": "2026-06-14"
+  },
+  "BAJAJHIND.NS": {
+    "score": 50,
+    "date": "2026-06-14"
+  },
+  "VTL.NS": {
+    "score": 56,
+    "date": "2026-06-14"
+  },
+  "WELSPUNLIV.NS": {
+    "score": 38,
+    "date": "2026-06-14"
+  },
+  "METROBRAND.NS": {
+    "score": 65,
+    "date": "2026-06-14"
+  },
+  "MANYAVAR.NS": {
+    "score": 70,
+    "date": "2026-06-14"
+  },
+  "KNRCON.NS": {
+    "score": 60,
+    "date": "2026-06-14"
+  },
+  "AKZOINDIA.NS": {
+    "score": 64,
+    "date": "2026-06-14"
+  },
+  "POWERINDIA.NS": {
+    "score": 69,
+    "date": "2026-06-14"
+  },
+  "HBLENGINE.NS": {
+    "score": 77,
+    "date": "2026-06-14"
+  },
+  "SANDHAR.NS": {
+    "score": 61,
+    "date": "2026-06-14"
+  },
+  "KPIL.NS": {
+    "score": 65,
+    "date": "2026-06-14"
+  },
+  "FINCABLES.NS": {
+    "score": 74,
+    "date": "2026-06-14"
+  },
+  "SKFINDIA.NS": {
+    "score": 51,
+    "date": "2026-06-14"
+  },
+  "MTARTECH.NS": {
+    "score": 58,
+    "date": "2026-06-14"
+  },
+  "IIFLCAPS.NS": {
+    "score": 71,
+    "date": "2026-06-14"
+  },
+  "SHARDAMOTR.NS": {
+    "score": 74,
+    "date": "2026-06-14"
+  },
+  "NATCOPHARM.NS": {
+    "score": 70,
+    "date": "2026-06-14"
+  },
+  "REPCOHOME.NS": {
+    "score": 64,
+    "date": "2026-06-14"
+  },
+  "NAM-INDIA.NS": {
+    "score": 72,
+    "date": "2026-06-14"
+  },
+  "FIEMIND.NS": {
+    "score": 75,
+    "date": "2026-06-14"
+  },
+  "SUBROS.NS": {
+    "score": 59,
+    "date": "2026-06-14"
+  },
+  "LMW.NS": {
+    "score": 52,
+    "date": "2026-06-14"
+  },
+  "ZENSARTECH.NS": {
+    "score": 73,
+    "date": "2026-06-14"
+  },
+  "PRICOLLTD.NS": {
+    "score": 69,
+    "date": "2026-06-14"
+  },
+  "GMRAIRPORT.NS": {
+    "score": 50,
+    "date": "2026-06-14"
+  },
+  "RANEHOLDIN.NS": {
+    "score": 56,
+    "date": "2026-06-14"
+  },
+  "UNOMINDA.NS": {
+    "score": 54,
+    "date": "2026-06-14"
+  },
+  "SANSERA.NS": {
+    "score": 61,
+    "date": "2026-06-14"
+  },
+  "SUPRAJIT.NS": {
+    "score": 60,
+    "date": "2026-06-14"
+  },
+  "ABREL.NS": {
+    "score": 41,
+    "date": "2026-06-14"
+  },
+  "STEELCAS.NS": {
+    "score": 53,
+    "date": "2026-06-14"
+  },
+  "GNA.NS": {
+    "score": 68,
+    "date": "2026-06-14"
+  },
+  "RML.NS": {
+    "score": 46,
+    "date": "2026-06-14"
+  },
+  "RISHABH.NS": {
+    "score": 68,
+    "date": "2026-06-14"
+  },
+  "SIRCA.NS": {
+    "score": 67,
+    "date": "2026-06-14"
+  },
+  "RATNAMANI.NS": {
+    "score": 51,
+    "date": "2026-06-14"
+  },
+  "PRSMJOHNSN.NS": {
+    "score": 43,
+    "date": "2026-06-14"
+  },
+  "SAGCEM.NS": {
+    "score": 52,
+    "date": "2026-06-14"
+  },
+  "PSPPROJECT.NS": {
+    "score": 63,
+    "date": "2026-06-14"
+  },
+  "MAPMYINDIA.NS": {
+    "score": 61,
+    "date": "2026-06-14"
+  },
+  "SFL.NS": {
+    "score": 58,
+    "date": "2026-06-14"
+  },
+  "UFLEX.NS": {
+    "score": 55,
+    "date": "2026-06-14"
+  },
+  "SCHNEIDER.NS": {
+    "score": 48,
+    "date": "2026-06-14"
+  },
+  "TDPOWERSYS.NS": {
+    "score": 66,
+    "date": "2026-06-14"
+  },
+  "TRITURBINE.NS": {
+    "score": 63,
+    "date": "2026-06-14"
+  },
+  "WENDT.NS": {
+    "score": 41,
+    "date": "2026-06-14"
+  },
+  "SHANTIGEAR.NS": {
+    "score": 52,
+    "date": "2026-06-14"
+  },
+  "WPIL.NS": {
+    "score": 61,
+    "date": "2026-06-14"
+  }
+}

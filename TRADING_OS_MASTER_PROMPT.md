@@ -142,6 +142,7 @@ COMPLETED MILESTONES ✅
 29 Market Structure Engine ✅ Done
 30 Advanced Portfolio Risk Engine  ✅ Done
 31 Strategy Orchestration Engine ✅ Done
+32 Explainable Autonomous Decision Engine ✅ Done
 ---
 CRITICAL OUTPUT RULES
 
@@ -1340,10 +1341,131 @@ Handle failures gracefully — every external call needs try/except
 One milestone at a time — don't overwhelm, build incrementally
 
 ---
+
+Trading OS — Roadmap Gap Analysis & Implementation Plan
+1. Gaps in the Current Roadmap
+From reviewing the source code, implementation_plan2.md, and the master prompt, these are the real gaps between what exists today and what a reliable autonomous system needs:
+Critical gaps (blocking automation):
+
+execution_loop._run_buy_scan() uses approved and reject_reason variables that are never defined after the orchestrator integration — the loop will crash on any BUY attempt
+loop_state.py has two duplicate Supabase insert blocks in log_decision() — every decision is written twice
+loop_state.py uses a local JSON file for loop status — wiped on every Streamlit Cloud restart, meaning the loop appears STOPPED after every deploy
+supabase_setup.sql is missing DDL for three tables: orchestration_log, loop_decisions, and decision_log — these are referenced by code but don't exist in the DB script
+No NSE holiday calendar — the loop runs on market holidays (Republic Day, Diwali etc.)
+Partial exit is detected but never executed — PARTIAL_EXIT is logged as a suggestion only
+
+Functional gaps (reducing intelligence quality):
+
+Scanner uses SCANNER_SKIP_FUNDAMENTALS = False but fetches fundamentals synchronously per stock — on a 1,000-stock watchlist this takes 30-60 minutes
+Composite score differs between Scanner and Stock Score tab because Scanner uses tail(60) data while Stock Score uses 1y data — users notice this and it erodes trust
+Fundamental data has no cache — every scan re-fetches yfinance fundamentals, hammering the API
+Market regime has no fallback — if ^NSEI fails, the entire cycle fails
+No intraday mandatory same-day exit safety net
+
+Infrastructure gaps:
+
+SCANNER_MAX_WORKERS is hardcoded at 20 in performance_scanner.py, not in settings.py
+No loop_state Supabase table — state is local JSON only
+No nse_holidays table — holidays not handled
+capital_engine.bucket_sell doesn't accept a quantity_to_sell parameter — partial exits can't be automated
+
+
+2. Milestone Dependencies
+M33 (DB fixes + loop state)
+  └─► M34 (execution loop bug fixes + partial exit)
+        └─► M35 (speed + caching)
+              └─► M36 (Zerodha live data)
+M33 must go first — the database is the foundation. You can't reliably test the loop until the Supabase tables exist and loop state persists across restarts.
+M34 fixes the code bugs that would cause crashes. Once M33 and M34 are done, the loop is genuinely autonomous and reliable for the first time.
+M35 is a performance milestone — the system works correctly after M34 but is slow on large watchlists. M35 makes it fast enough for 1,000 stocks.
+M36 (Zerodha) depends on everything before it being stable — you don't connect live broker API to a buggy loop.
+
+3. Recommended Implementation Order
+M33 — Database & State Foundation
+Files: supabase_setup.sql, loop_state.py
+Deliverables:
+
+Add missing DDL for orchestration_log, loop_decisions, decision_log to supabase_setup.sql
+Add loop_state table DDL (persists loop status, interval, last_run, regime across restarts)
+Add nse_holidays table DDL with 2025–2026 NSE holiday data pre-populated
+Fix loop_state.py: remove duplicate Supabase insert block in log_decision()
+Fix loop_state.py: read/write loop status from Supabase loop_state table instead of local JSON
+
+M34 — Execution Loop Bug Fixes + Partial Exit
+Files: execution_loop.py, capital_engine.py, position_manager.py
+Deliverables:
+
+Fix undefined approved / reject_reason in _run_buy_scan() — call _is_ok_to_buy() before checking orchestrator result
+Implement automated partial exit: when update_position_price() returns PARTIAL_EXIT, calculate qty // 2, call bucket_sell(quantity_to_sell=qty//2), then call mark_partial_exit_done()
+Add quantity_to_sell optional parameter to capital_engine.bucket_sell()
+Update position_manager.mark_partial_exit_done() to subtract sold quantity from position_lifecycle
+Add NSE holiday check using nse_holidays Supabase table in is_market_open()
+
+M35 — Speed, Caching & Score Consistency
+Files: performance_scanner.py, fundamental_engine.py, settings.py, market_regime.py
+Deliverables:
+
+Move SCANNER_MAX_WORKERS to settings.py (default 8, configurable via Google Sheets)
+Add fundamental cache: store results in logs/fundamental_cache.json with TTL of 3 days — avoids re-fetching on every scan
+Fix score consistency: Scanner and Stock Score both use same indicator period (1y data, tail(60) for indicators) so scores match
+Implement 5-tier regime fallback: ^NSEI → NIFTYBEES.NS scaled → Supabase last known → local JSON last known → "SIDEWAYS" default
+Expose FUNDAMENTAL_CACHE_TTL_DAYS = 3 in settings.py
+
+M36 — Zerodha Kite API Integration
+Files: brokers/zerodha_connector.py (new), execution_loop.py (patch)
+Deliverables:
+
+Create brokers/zerodha_connector.py with Kite Connect integration
+Replace yfinance live price fetch in execution loop with Kite quote API
+Paper order routing: log orders to loop_decisions with source=KITE_PAPER
+Real order routing: kite.place_order() with manual confirmation gate
+GTT (Good Till Triggered) orders for stop losses
+Real-time P&L tracking via Kite portfolio API
+
+
+4. Risks
+M33 risks:
+
+Running the new supabase_setup.sql on a production DB that already has some tables — mitigated by CREATE TABLE IF NOT EXISTS (already used in existing script)
+If loop_state Supabase table is added but old JSON still exists locally, there's a brief conflict window — mitigated by reading Supabase first, JSON as fallback
+
+M34 risks:
+
+Partial exit sends a sell order for half the position — if the price fetch fails mid-cycle, the partial sell could execute at a stale price — mitigate with a fresh price fetch immediately before partial sell execution
+The approved/reject_reason bug has been silently catching exceptions in the loop — fixing it may reveal other issues downstream that were masked
+
+M35 risks:
+
+Fundamental cache of 3 days means Scanner may show slightly stale PE/ROE data — acceptable for a daily scanner, document this limitation clearly
+Score consistency fix (using same data period for Scanner and Stock Score) will change Scanner scores slightly — users will notice different numbers initially, then see them stabilize
+
+M36 risks:
+
+Zerodha Kite Connect requires a daily token refresh (login) — the autonomous loop needs a token manager that handles re-auth without manual intervention
+Rate limits: Kite API allows 3 requests/second for quotes — on a 1,000-stock watchlist this is a bottleneck; need to batch quote requests (Kite supports up to 500 symbols per quote call)
+Live trading risk: even "paper" mode using Kite sandbox can have subtle differences from production — keep yfinance as a parallel fallback for validation
+
+
+5. Expected Impact
+MilestoneWhat changes for youM33Loop status survives Streamlit Cloud restarts. No more "loop appears stopped after deploy." Decision log writes correctly — no duplicates.M34Loop runs without crashing. Partial profits are automatically booked. Loop respects market holidays. The system is genuinely autonomous for the first time.M351,000-stock watchlist scans in under 3 minutes instead of 30+. Scanner scores match Stock Score tab — no more confusion. Fundamentals load from cache — less API hammering.M36Real-time prices replace 15-minute delayed yfinance data. Stop losses execute at accurate prices. Path to live trading is open.
+
+
+
+
+
+
+
+
+
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
 Last completed milestone: Milestone 30 — Advanced Portfolio Risk Engine
 Next planned milestone:   Milestone 31 — Strategy Orchestration Engine
+
+
+
+
+
 ---
 Trading OS v4.0 — Firoj Khan
 "Survive first. Profit second. Automate third."

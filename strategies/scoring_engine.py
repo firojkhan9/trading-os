@@ -42,21 +42,20 @@
 import pandas as pd
 
 
-# ── Score Weights ─────────────────────────────────
-# Must sum to 1.0
-WEIGHTS = {
-    "trend":             0.16,   # Trend direction and strength        (-0.02)
-    "momentum":          0.12,   # RSI and MACD momentum               (-0.02)
-    "volatility":        0.07,   # Bollinger Bands position            (-0.01)
-    "signal":            0.10,   # Combined strategy votes             (-0.02)
-    "regime":            0.10,   # Market regime favorability
-    "rs":                0.04,   # Relative strength vs NIFTY          (-0.01)
-    "fundamental":       0.08,   # Business health (M22)
-    "sentiment":         0.07,   # News sentiment (M23)
-    "volume":            0.10,   # Volume confirmation (M27)
-    "candlestick":       0.08,   # Candlestick pattern confidence (M28)
-    "market_structure":  0.08,   # Market structure score (M29) NEW
-}
+# ── Load weights from trading_config (Google Sheets controlled) ──
+try:
+    from config.trading_config import SCORING_WEIGHTS
+    WEIGHTS = SCORING_WEIGHTS
+except ImportError:
+    # Hard fallback if trading_config not yet created
+    WEIGHTS = {
+        "trend":            0.16, "momentum":         0.12,
+        "volatility":       0.07, "signal":           0.10,
+        "regime":           0.10, "rs":               0.04,
+        "fundamental":      0.08, "sentiment":        0.07,
+        "volume":           0.10, "candlestick":      0.08,
+        "market_structure": 0.08,
+    }
 # Weights sum = 1.0 ✓
 
 # ── Score thresholds ──────────────────────────────

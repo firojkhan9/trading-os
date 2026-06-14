@@ -1,43 +1,41 @@
 # ================================================
 # FILE: config/strategy_settings.py
-# PURPOSE: Expose settings to all strategy files
-#          Reads from Google Sheets via settings_loader
-#          Falls back to safe defaults automatically
-#
-# HOW TO USE IN ANY STRATEGY FILE:
-#   from config.strategy_settings import (
-#       STOP_LOSS_PCT,
-#       TARGET_PROFIT_PCT,
-#       ...
-#   )
-#
-# TO CHANGE SETTINGS:
-#   Edit your Google Sheet — no code changes needed.
-#   If no Google Sheet set up yet, edit DEFAULT_SETTINGS
-#   in config/settings_loader.py
+# PURPOSE: Backward compatibility layer.
+#          All strategy files that do:
+#            from config.strategy_settings import STOP_LOSS_PCT
+#          will now get values from trading_config.py
+#          which reads from Google Sheets.
+#          No changes needed in strategy files.
 # ================================================
 
-import os
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.trading_config import (
+    STOP_LOSS_PCT,
+    TARGET_PROFIT_PCT,
+    TRAILING_STOP_PCT,
+    TRAIL_ACTIVATION_PCT,
+    PARTIAL_EXIT_PCT,
+    MAX_POSITION_PCT,
+    WEAK_POSITION_PCT,
+    INTRADAY_MAX_PCT,
+    TOTAL_CAPITAL,
+    DAILY_LOSS_HALT_PCT,
+    MAX_DEPLOYMENT_PCT,
+    COOLDOWN_DAYS,
+    BROKERAGE_PCT,
+    SCANNER_MAX_WORKERS,
+    ABSOLUTE_MIN_SCORE,
+    FUNDAMENTAL_CACHE_TTL,
+    BUCKET_MIN_SCORES,
+    BUCKET_CAPITAL_PCT,
+    SCORING_WEIGHTS,
+    CONFIG_SOURCE,
+)
 
-from config.settings_loader import get_settings
-
-# ── Load all settings at import time ─────────────
-# This runs once when the module is first imported
-_settings = get_settings()
-
-# ── Expose as module-level variables ─────────────
-# All strategy files import these directly
-STOP_LOSS_PCT      = _settings["STOP_LOSS_PCT"]
-TARGET_PROFIT_PCT  = _settings["TARGET_PROFIT_PCT"]
-USE_TRAILING_STOP  = _settings["USE_TRAILING_STOP"]
-TRAILING_STOP_PCT  = _settings["TRAILING_STOP_PCT"]
-MAX_POSITION_PCT   = _settings["MAX_POSITION_PCT"]
-WEAK_POSITION_PCT  = _settings["WEAK_POSITION_PCT"]
-BROKERAGE_PCT      = _settings["BROKERAGE_PCT"]
-STRONG_BUY_VOTES   = _settings["STRONG_BUY_VOTES"]
-WEAK_BUY_VOTES     = _settings["WEAK_BUY_VOTES"]
-MACD_MOMENTUM_EXIT = _settings["MACD_MOMENTUM_EXIT"]
-STARTING_CAPITAL   = _settings["STARTING_CAPITAL"]
-SETTINGS_SOURCE    = _settings["_source"]
+# ── Legacy names kept for backward compatibility ──
+# Files that import these names will still work
+USE_TRAILING_STOP  = True
+STRONG_BUY_VOTES   = 3
+WEAK_BUY_VOTES     = 2
+MACD_MOMENTUM_EXIT = 0.03
+STARTING_CAPITAL   = TOTAL_CAPITAL
+SETTINGS_SOURCE    = CONFIG_SOURCE

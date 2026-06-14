@@ -51,3 +51,9 @@ WATCHLIST = {
 # This runs automatically when settings.py is imported
 for folder in [DATA_DIR, LOGS_DIR]:
     os.makedirs(folder, exist_ok=True)
+
+# ── Scanner performance settings ──────────────────
+SCANNER_MAX_WORKERS        = 20    # Parallel threads for watchlist scanning
+                                  # Increase on fast machines, decrease on Cloud
+FUNDAMENTAL_CACHE_TTL_DAYS = 3   # Days to reuse fundamental data before re-fetching
+                                  # Fundamentals change quarterly — 3 days is safe

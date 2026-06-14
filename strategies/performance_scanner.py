@@ -47,10 +47,16 @@ NIFTY_SYMBOL = "^NSEI"
 # In scanner mode we use neutral 50 for fundamental and sentiment scores
 # to match what the full Stock Score page actually calculates.
 # This makes scores CONSISTENT and scanning FAST.
-SCANNER_SKIP_FUNDAMENTALS = True   # ~2s per stock → skip in scanner
-SCANNER_SKIP_SENTIMENT    = True   # ~3s per stock → always skip in scanner
-SCANNER_MAX_WORKERS       = 8      # parallel threads for price fetching
+SCANNER_SKIP_FUNDAMENTALS     = False
+SCANNER_SKIP_SENTIMENT        = False
+SCANNER_SKIP_MARKET_STRUCTURE = False
+SCANNER_SKIP_CANDLESTICK      = False
 
+# Read worker count from settings — configurable without touching this file
+try:
+    from config.settings import SCANNER_MAX_WORKERS
+except ImportError:
+    SCANNER_MAX_WORKERS = 20   # Safe fallback
 
 def days_to_yf_period(days):
     if days <= 5:    return "5d"
@@ -358,7 +364,7 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
                 "RS Rating":       rs_rating,
                 "Combined Signal": combined_signal,
                 "Buy Votes":       buy_votes,
-                "Score":           composite_score if composite_score is not None else 0,
+                "Score (approx)":  composite_score if composite_score is not None else 0,
                 "Action":          score_action,
                 "Trend State":     ms_trend,
                 "Struct Score":    ms_score_v,
@@ -413,5 +419,8 @@ def scan_all_stocks(watchlist_dict, period_days=30, regime="UNKNOWN ❓"):
         .drop(columns=['_return','_score','_rs','_price'], errors='ignore')
         .reset_index(drop=True)
     )
+    # Rename for clarity in display
+    if "Score" in full_display_df.columns:
+        full_display_df = full_display_df.rename(columns={"Score": "Score (approx)"})
 
     return full_display_df, best_return_df, worst_return_df, best_score_df

@@ -580,15 +580,75 @@ def get_fundamental_display(symbol, stock_name):
     }
 
 
+import json
+import os as _os
+
+# ── Fundamental cache path ────────────────────────
+_BASE   = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+_CACHE  = _os.path.join(_BASE, "logs", "fundamental_cache.json")
+
+def _load_fund_cache() -> dict:
+    """Load fundamental score cache from disk. Returns empty dict on any error."""
+    try:
+        if _os.path.exists(_CACHE):
+            with open(_CACHE, "r") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+def _save_fund_cache(cache: dict):
+    """Save fundamental score cache to disk."""
+    try:
+        _os.makedirs(_os.path.dirname(_CACHE), exist_ok=True)
+        with open(_CACHE, "w") as f:
+            json.dump(cache, f, indent=2)
+    except Exception:
+        pass
+
 def get_fundamental_score_only(symbol):
     """
-    Lightweight version — just returns the score integer (0-100).
-    Used by scoring_engine.py to add fundamental dimension.
+    Lightweight version — returns the score integer (0-100).
+    Used by scoring_engine.py and performance_scanner.py.
+
+    CACHING: Results cached in logs/fundamental_cache.json for
+    FUNDAMENTAL_CACHE_TTL_DAYS (default 3 days).
+    Fundamentals change quarterly — daily re-fetching is wasteful.
     """
     try:
+        # ── Try cache first ───────────────────────
+        try:
+            from config.settings import FUNDAMENTAL_CACHE_TTL_DAYS as _TTL
+        except ImportError:
+            _TTL = 3
+
+        cache    = _load_fund_cache()
+        entry    = cache.get(symbol)
+        now_str  = datetime.now().strftime('%Y-%m-%d')
+
+        if entry:
+            cached_date  = entry.get("date", "")
+            cached_score = entry.get("score", 50)
+            try:
+                from datetime import datetime as _dt, timedelta
+                age = (_dt.strptime(now_str, '%Y-%m-%d') -
+                       _dt.strptime(cached_date, '%Y-%m-%d')).days
+                if age < _TTL:
+                    return cached_score   # ✅ Fresh cache hit — no API call
+            except Exception:
+                pass
+
+        # ── Cache miss or stale — fetch from yfinance ──
         fundamentals = fetch_fundamentals(symbol)
         score_result = build_fundamental_score(fundamentals)
-        return score_result["Fundamental Score"]
+        score        = score_result["Fundamental Score"]
+
+        # ── Write back to cache ───────────────────
+        cache[symbol] = {"score": score, "date": now_str}
+        _save_fund_cache(cache)
+
+        return score
+
     except Exception:
         return 50  # Neutral fallback — never crash the main engine
 
