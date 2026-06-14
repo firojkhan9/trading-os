@@ -106,6 +106,11 @@ from strategies.market_structure import (
     get_market_structure_score_only,
 )
 
+from strategies.institutional_flow import (
+    get_fii_dii_analysis,
+    get_fii_dii_score_only,
+)
+
 from portfolio.capital_engine import (
     get_bucket_summary,
     get_portfolio_totals,
@@ -904,6 +909,25 @@ with tab2:
             )
 
     st.divider()
+
+    # ── FII/DII Banner ────────────────────────────
+    st.subheader("🏦 FII/DII Institutional Flow")
+    st.caption("Institutional money drives the market — check where the smart money is going")
+    with st.spinner("Fetching FII/DII data..."):
+        fii_regime_data = get_fii_dii_analysis(days=5)
+    fr1, fr2, fr3, fr4 = st.columns(4)
+    fr1.metric("FII/DII Score",  f"{fii_regime_data['score']}/100")
+    fr2.metric("FII Net Today",  f"₹{fii_regime_data['latest_fii_net']:+,.0f} Cr")
+    fr3.metric("DII Net Today",  f"₹{fii_regime_data['latest_dii_net']:+,.0f} Cr")
+    fr4.metric("FII 5D Total",   f"₹{fii_regime_data['fii_5d_total']:+,.0f} Cr")
+    if fii_regime_data["data_available"]:
+        fii_lbl = fii_regime_data["label"]
+        if "BUYING" in fii_lbl and "HEAVY" not in fii_lbl: st.success(f"📊 {fii_lbl}")
+        elif "HEAVY" in fii_lbl and "SELLING" not in fii_lbl: st.success(f"📊 {fii_lbl}")
+        elif "SELLING" in fii_lbl: st.error(f"📊 {fii_lbl}")
+        else: st.info(f"📊 {fii_lbl}")
+    st.divider()
+
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
         {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},
@@ -1255,6 +1279,9 @@ with tab4:
                 from strategies.candlestick_engine import get_candlestick_analysis
                 candle_result      = get_candlestick_analysis(score_stock, score_data.copy(), regime=score_regime)
                 candle_score_value = candle_result["candlestick_score"]
+            with st.spinner(f"Fetching FII/DII institutional flow data..."):
+                fii_dii_result      = get_fii_dii_analysis(days=10)
+                fii_dii_score_value = fii_dii_result["score"]    
             score_result = build_composite_score(
                 stock_name=score_stock, latest_close=s_close,
                 ma20=s_ma20, rsi=s_rsi, ema9=s_ema9, ema21=s_ema21,
@@ -1268,6 +1295,7 @@ with tab4:
                 volume_score=volume_score_value,
                 candlestick_score=candle_score_value,
                 market_structure_score=ms_score_value,
+                fii_dii_score=fii_dii_score_value,
             )
  
             # Get full explanation
@@ -1398,17 +1426,18 @@ with tab4:
         breakdown_rows = []
         for dim, val in score_result["Individual Scores"].items():
             weight_map = {
-                "Trend":          "16%",
-                "Momentum":       "12%",
+                "Trend":          "15%",
+                "Momentum":       "11%",
                 "Volatility":     "7%",
-                "Signal":         "10%",
+                "Signal":         "9%",
                 "Regime":         "10%",
                 "Rel. Strength":  "4%",
                 "Fundamental":    "8%",
-                "Sentiment":      "7%",
-                "Volume":         "10%",
+                "Sentiment":      "6%",
+                "Volume":         "9%",
                 "Candlestick":    "8%",
                 "Mkt Structure":  "8%",
+                "FII/DII Flow":   "5%",
             }
             
             bar = "█" * (val // 10) + "░" * (10 - val // 10)
@@ -1985,6 +2014,78 @@ with tab4:
                     )
                 else:
                     st.info("No swing lows found")
+
+        st.divider()
+
+        # ════════════════════════════════════════
+        # FII/DII INTELLIGENCE SECTION — M36
+        # ════════════════════════════════════════
+        st.subheader("🏦 Institutional Flow Intelligence (FII/DII)")
+        st.caption("What are Foreign and Domestic institutions doing? Their moves drive 70%+ of market direction.")
+
+        fii_score_v = fii_dii_result["score"]
+        fii_label   = fii_dii_result["label"]
+        fii_latest  = fii_dii_result["latest_fii_net"]
+        dii_latest  = fii_dii_result["latest_dii_net"]
+        fii_5d      = fii_dii_result["fii_5d_total"]
+        dii_5d      = fii_dii_result["dii_5d_total"]
+        fii_pos_days= fii_dii_result["positive_fii_days"]
+        fii_avail   = fii_dii_result["data_available"]
+
+        if not fii_avail:
+            st.warning(
+                "⚠️ FII/DII data not available right now — NSE may be down or market is closed. "
+                "Score defaults to neutral 50. Will retry next analysis."
+            )
+        else:
+            if fii_score_v >= 70:
+                st.success(f"### FII/DII Score: {fii_score_v}/100 — {fii_label}")
+            elif fii_score_v >= 50:
+                st.info(f"### FII/DII Score: {fii_score_v}/100 — {fii_label}")
+            else:
+                st.warning(f"### FII/DII Score: {fii_score_v}/100 — {fii_label}")
+
+            fi1, fi2, fi3, fi4 = st.columns(4)
+            fi1.metric(
+                "FII Net Today",
+                f"₹{fii_latest:+,.0f} Cr",
+                help="Positive = FIIs buying, Negative = FIIs selling (₹ Crores)"
+            )
+            fi2.metric(
+                "DII Net Today",
+                f"₹{dii_latest:+,.0f} Cr",
+                help="DII = LIC, Mutual Funds. Positive = buying"
+            )
+            fi3.metric(
+                "FII 5-Day Total",
+                f"₹{fii_5d:+,.0f} Cr",
+                help="Net FII flow over last 5 trading days"
+            )
+            fi4.metric(
+                "DII 5-Day Total",
+                f"₹{dii_5d:+,.0f} Cr",
+            )
+
+            st.caption(f"FII bought on {fii_pos_days}/5 days this week | Data: {fii_dii_result['fetched_at']}")
+
+            # Show raw data table
+            raw_df = fii_dii_result.get("raw_data", pd.DataFrame())
+            if not raw_df.empty:
+                with st.expander("📋 Daily FII/DII Data (last 10 days)"):
+                    def color_fii(val):
+                        try:
+                            if float(val) > 0: return "color: green"
+                            if float(val) < 0: return "color: red"
+                        except Exception:
+                            pass
+                        return ""
+                    display_cols = [c for c in ["Date","FII_Net","DII_Net","FII_Buy","FII_Sell","DII_Buy","DII_Sell"] if c in raw_df.columns]
+                    st.dataframe(
+                        raw_df[display_cols].style
+                            .map(color_fii, subset=["FII_Net","DII_Net"]),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
 
         st.divider()
 
@@ -3699,6 +3800,11 @@ with tab12:
 
     if GOOGLE_SHEET_URL:
         st.caption(f"📎 Sheet: {GOOGLE_SHEET_URL[:80]}...")
+        st.link_button(
+            "✏️ Open Settings in Google Sheet",
+            url=GOOGLE_SHEET_URL.replace("/pub?", "/edit?").replace("&output=csv", ""),
+            use_container_width=True,
+        )
 
     if st.button("🔄 Reload Config from Google Sheet", use_container_width=True):
         st.cache_data.clear()

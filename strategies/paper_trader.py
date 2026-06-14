@@ -489,18 +489,18 @@ def get_portfolio_summary(current_prices, combined_signals=None):
 
     total_row = {
         "Stock":        "📊 TOTAL",
-        "Buy ₹":        "",
-        "Now ₹":        "",
+        "Buy ₹":        None,
+        "Now ₹":        None,
         "Qty":          int(df["Qty"].sum()),
         "Invested ₹":   round(total_invested, 2),
         "Value ₹":      round(total_curr_value, 2),
         "P&L ₹":        total_pnl,
         "P&L %":        total_pnl_pct,
-        "Stop ₹":       "",
-        "Stop Away":    "",
-        "Target ₹":     "",
-        "Target Away":  "",
-        "Days Held":    "",
+        "Stop ₹":       None,
+        "Stop Away":    None,
+        "Target ₹":     None,
+        "Target Away":  None,
+        "Days Held":    None,
         "Suggestion":   "✅ Overall Profit" if total_pnl >= 0 else "⚠️ Overall Loss",
     }
 

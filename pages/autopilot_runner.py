@@ -352,10 +352,3 @@ except Exception as e:
 st.divider()
 st.caption("🤖 Trading OS — Auto Pilot Runner | Data: Yahoo Finance | Not financial advice")
 
-if old in content:
-    content = content.replace(old, new)
-    with open('/mnt/project/autopilot_runner.py', 'w') as f:
-        f.write(content)
-    print("SUCCESS")
-else:
-    print("NOT FOUND")

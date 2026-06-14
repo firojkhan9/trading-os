@@ -145,17 +145,18 @@ BUCKET_CAPITAL_PCT = {
 # ════════════════════════════════════════════════
 
 _raw_weights = {
-    "trend":            _get_raw("WEIGHT_TREND",            16),
-    "momentum":         _get_raw("WEIGHT_MOMENTUM",         12),
+    "trend":            _get_raw("WEIGHT_TREND",            15),
+    "momentum":         _get_raw("WEIGHT_MOMENTUM",         11),
     "volatility":       _get_raw("WEIGHT_VOLATILITY",        7),
-    "signal":           _get_raw("WEIGHT_SIGNAL",           10),
+    "signal":           _get_raw("WEIGHT_SIGNAL",            9),
     "regime":           _get_raw("WEIGHT_REGIME",           10),
     "rs":               _get_raw("WEIGHT_RS",                4),
     "fundamental":      _get_raw("WEIGHT_FUNDAMENTAL",       8),
-    "sentiment":        _get_raw("WEIGHT_SENTIMENT",         7),
-    "volume":           _get_raw("WEIGHT_VOLUME",           10),
+    "sentiment":        _get_raw("WEIGHT_SENTIMENT",         6),
+    "volume":           _get_raw("WEIGHT_VOLUME",            9),
     "candlestick":      _get_raw("WEIGHT_CANDLESTICK",       8),
     "market_structure": _get_raw("WEIGHT_MARKET_STRUCTURE",  8),
+    "fii_dii":          _get_raw("WEIGHT_FII_DII",           5),
 }
 
 # Auto-normalise so weights always sum to 1.0

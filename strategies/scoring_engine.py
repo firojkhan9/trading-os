@@ -49,13 +49,19 @@ try:
 except ImportError:
     # Hard fallback if trading_config not yet created
     WEIGHTS = {
-        "trend":            0.16, "momentum":         0.12,
-        "volatility":       0.07, "signal":           0.10,
-        "regime":           0.10, "rs":               0.04,
-        "fundamental":      0.08, "sentiment":        0.07,
-        "volume":           0.10, "candlestick":      0.08,
-        "market_structure": 0.08,
-    }
+    "trend":             0.15,
+    "momentum":          0.11,
+    "volatility":        0.07,
+    "signal":            0.09,
+    "regime":            0.10,
+    "rs":                0.04,
+    "fundamental":       0.08,
+    "sentiment":         0.06,
+    "volume":            0.09,
+    "candlestick":       0.08,
+    "market_structure":  0.08,
+    "fii_dii":           0.05,   # M36 — Institutional flow (5%)
+}
 # Weights sum = 1.0 ✓
 
 # ── Score thresholds ──────────────────────────────
@@ -296,6 +302,7 @@ def build_composite_score(
     volume_score=None,        # M27 — pass None for neutral 50
     candlestick_score=None,   # M28 — pass None for neutral 50
     market_structure_score=None,  # M29 — pass None for neutral 50
+    fii_dii_score=None,           # M36 — pass None for neutral 50
 ):
     """
     Master scoring function.
@@ -314,12 +321,13 @@ def build_composite_score(
     regime_score     = calculate_regime_score(regime)
     rs_score_norm    = calculate_rs_score_normalized(rs_score)
 
-    # Optional dimensions — neutral 50 if not provided
+     # Optional dimensions — neutral 50 if not provided
     fund_score   = fundamental_score     if fundamental_score     is not None else 50
     sent_score   = sentiment_score       if sentiment_score       is not None else 50
     vol_score    = volume_score          if volume_score          is not None else 50
     candle_score = candlestick_score     if candlestick_score     is not None else 50
     ms_score     = market_structure_score if market_structure_score is not None else 50
+    fii_score    = fii_dii_score         if fii_dii_score         is not None else 50
 
     individual_scores = {
         "Trend":            trend_score,
@@ -333,6 +341,7 @@ def build_composite_score(
         "Volume":           vol_score,
         "Candlestick":      candle_score,
         "Mkt Structure":    ms_score,
+        "FII/DII":          fii_score,
     }
 
     # ── Step 2: Weighted composite score ──────────
@@ -347,7 +356,8 @@ def build_composite_score(
         sent_score       * WEIGHTS["sentiment"]        +
         vol_score        * WEIGHTS["volume"]           +
         candle_score     * WEIGHTS["candlestick"]      +
-        ms_score         * WEIGHTS["market_structure"]
+        ms_score         * WEIGHTS["market_structure"] +
+        fii_score        * WEIGHTS["fii_dii"]
     )
     composite = round(composite)
 
@@ -372,17 +382,18 @@ def build_composite_score(
         "Individual Scores":  individual_scores,
         "Explanation":        explanation,
         "Score Breakdown": {
-            "Trend Score":            f"{trend_score}/100      (weight: 16%)",
-            "Momentum Score":         f"{momentum_score}/100   (weight: 12%)",
+            "Trend Score":            f"{trend_score}/100      (weight: 15%)",
+            "Momentum Score":         f"{momentum_score}/100   (weight: 11%)",
             "Volatility Score":       f"{volatility_score}/100 (weight: 7%)",
-            "Signal Score":           f"{signal_score}/100     (weight: 10%)",
+            "Signal Score":           f"{signal_score}/100     (weight: 9%)",
             "Regime Score":           f"{regime_score}/100     (weight: 10%)",
             "Rel. Strength Score":    f"{rs_score_norm}/100    (weight: 4%)",
             "Fundamental Score":      f"{fund_score}/100       (weight: 8%)",
-            "Sentiment Score":        f"{sent_score}/100       (weight: 7%)",
-            "Volume Score":           f"{vol_score}/100        (weight: 10%)",
+            "Sentiment Score":        f"{sent_score}/100       (weight: 6%)",
+            "Volume Score":           f"{vol_score}/100        (weight: 9%)",
             "Candlestick Score":      f"{candle_score}/100     (weight: 8%)",
             "Mkt Structure Score":    f"{ms_score}/100         (weight: 8%)",
+            "FII/DII Score":          f"{fii_score}/100        (weight: 5%)",
         }
     }
 

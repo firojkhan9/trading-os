@@ -215,6 +215,7 @@ def calculate_composite_score_for_stock(stock_name, symbol, data, signal_info, r
             volume_score=vol_score,
             candlestick_score=candle_score,
             market_structure_score=ms_score,
+            fii_dii_score=None
         )
     except Exception:
         return None

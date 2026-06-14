@@ -74,6 +74,7 @@ trading\_os/
 ├── config/
 │   ├── settings.py                 ← Central path + risk settings
 │   ├── settings\_loader.py          ← Google Sheets settings loader
+│   ├── settings\_trading_config.py  ← Google Sheets settings setting database fetcher
 │   └── strategy\_settings.py       ← Exposes settings to all modules
 ├── strategies/
 │   ├── indicators.py               ← MA20 + RSI
@@ -143,6 +144,9 @@ COMPLETED MILESTONES ✅
 30 Advanced Portfolio Risk Engine  ✅ Done
 31 Strategy Orchestration Engine ✅ Done
 32 Explainable Autonomous Decision Engine ✅ Done
+33 Database & State Foundation ✅ Done
+34 Execution Loop Bug Fixes + Partial Exit ✅ Done
+35 Speed, Caching & Score Consistency ✅ Done
 ---
 CRITICAL OUTPUT RULES
 
@@ -474,265 +478,7 @@ Reject weak setups before they reach execution
 Identify confluence (multiple signals agreeing = higher confidence)
 Log all routing decisions with reasons
 
-# Milestone 31 – Strategy Orchestration Engine
 
-## Objective
-
-Build a Strategy Orchestration Engine that acts as the central decision layer between scanners/signals and trade execution.
-
-The goal is to ensure that every stock opportunity is evaluated according to the rules of the target bucket before reaching the execution engine.
-
-The orchestrator should not execute trades.
-
-It should only:
-
-* Evaluate opportunities
-* Calculate confidence scores
-* Route opportunities to the correct bucket
-* Reject weak opportunities
-* Log all decisions
-
----
-
-## Existing System Context
-
-Current system already contains:
-
-* Scanner and signal generation modules
-* Composite scoring framework
-* Bucket-based capital allocation
-* Capital Engine
-* Portfolio Risk Engine
-* Position Lifecycle Manager
-* Trade execution flow
-
-The orchestrator should integrate with these existing components rather than duplicate them.
-
-Before implementation, inspect the current codebase and identify:
-
-* Existing signal generators
-* Existing composite scoring logic
-* Existing bucket definitions
-* Existing risk filters
-* Existing trade entry workflow
-
-Reuse wherever possible.
-
----
-
-## Responsibilities
-
-### 1. Bucket Routing
-
-Determine which bucket a stock belongs to.
-
-Possible buckets:
-
-* Long-Term
-* Swing
-* Intraday (future)
-
-Routing should be rule-driven and configurable.
-
-Examples:
-
-* Strong fundamentals + trend alignment → Long-Term
-* Technical breakout + momentum → Swing
-* Intraday momentum setup → Intraday
-
-The routing decision should always include a reason.
-
----
-
-### 2. Bucket-Specific Scoring
-
-Each bucket should have its own weighting model.
-
-### Long-Term Bucket
-
-Suggested weight model:
-
-* Fundamental Score = 40%
-* Trend Score = 30%
-* Relative Strength = 20%
-* Sentiment = 10%
-
-Minimum entry score:
-70/100
-
-Minimum holding period:
-20 trading days
-
----
-
-### Swing Bucket
-
-Suggested weight model:
-
-* EMA Crossover = 25%
-* MACD = 25%
-* Relative Strength = 20%
-* Volume Confirmation = 15%
-* Candlestick Pattern = 15%
-
-Minimum entry score:
-60/100
-
-Maximum holding period:
-15 trading days
-
----
-
-### Intraday Bucket (Future)
-
-Suggested weight model:
-
-* VWAP Position = 30%
-* Volume Spike = 25%
-* RSI Momentum = 25%
-* ATR Volatility = 20%
-
-Mandatory same-day exit.
-
-Implementation can be placeholder if Intraday is not active yet.
-
----
-
-### 3. Confluence Detection
-
-Identify when multiple independent signals support the same direction.
-
-Examples:
-
-* EMA crossover + MACD bullish
-* Breakout + volume confirmation
-* Relative strength + trend alignment
-
-More confluence should increase confidence.
-
-Confluence should be configurable.
-
----
-
-### 4. Conflict Resolution
-
-Detect conflicting signals.
-
-Examples:
-
-* Bullish EMA crossover but bearish MACD
-* Strong fundamentals but weak trend
-* Breakout candidate during risk-off market regime
-
-The orchestrator should decide whether to:
-
-* Reject
-* Reduce confidence
-* Route differently
-
-All decisions must be explainable.
-
----
-
-### 5. Opportunity Rejection Layer
-
-Reject opportunities before they reach execution.
-
-Examples:
-
-* Score below threshold
-* Risk engine rejection
-* Bucket exposure limits reached
-* Position lifecycle restriction
-* Cooldown active
-* Portfolio risk limits exceeded
-
-Return structured rejection reasons.
-
----
-
-### 6. Confidence Scoring
-
-Produce a normalized confidence score.
-
-Target:
-0–100
-
-Output should include:
-
-* Raw component scores
-* Weighted score
-* Final confidence score
-* Routing reason
-* Rejection reason (if rejected)
-
----
-
-### 7. Logging
-
-Create a full audit trail.
-
-Every opportunity should be logged regardless of outcome.
-
-Log:
-
-* Timestamp
-* Stock
-* Bucket selected
-* Component scores
-* Confidence score
-* Accepted/Rejected
-* Reason
-
-Prefer Supabase-backed persistence if consistent with existing architecture.
-
----
-
-## Suggested Output Structure
-
-For every evaluated opportunity return something similar to:
-
-{
-stock,
-bucket,
-confidence_score,
-decision,
-reasons,
-component_scores,
-confluence_count
-}
-
-Decision values:
-
-* ACCEPT
-* REJECT
-* REVIEW
-
----
-
-## Design Principles
-
-1. Reuse existing scoring systems.
-2. Reuse existing risk engine outputs.
-3. Reuse lifecycle restrictions.
-4. Avoid duplicating calculations already available elsewhere.
-5. Keep bucket rules configurable.
-6. Keep future support for Intraday trading.
-7. Make every routing decision explainable and auditable.
-
----
-
-## Deliverables
-
-Claude should:
-
-1. Review existing codebase.
-2. Identify reusable modules.
-3. Design orchestration architecture.
-4. Recommend required data structures.
-5. Recommend Supabase logging schema if needed.
-6. Implement orchestrator using existing project patterns.
-7. Ensure compatibility with Capital Engine, Risk Engine, and Position Lifecycle Manager.
 
 
 
@@ -780,504 +526,12 @@ Reason: Only 1/4 strategies voting BUY
 Reason: Volume below average — no confirmation
 Action: Added to WATCHLIST for tomorrow
 
-# MILESTONE 32 — EXPLAINABLE AUTONOMOUS DECISION ENGINE
 
-## OBJECTIVE
 
-Build a transparent decision engine that explains EVERY autonomous trading decision before execution.
 
-The system must never return only BUY or SELL.
-
-Every decision must include:
-
-* What decision was made
-* Why it was made
-* Why it might fail
-* Portfolio impact
-* Risk assessment
-* Confidence level
-* Supporting signals
-* Conflicting signals
-
-The goal is to make Trading OS auditable, trustworthy, and suitable for future fully autonomous execution.
-
----
-
-# FILE
-
-engine/decision_engine.py
-
----
-
-# WHY THIS MILESTONE EXISTS
-
-Current system can calculate:
-
-* Composite scores
-* Risk metrics
-* Market structure
-* Portfolio exposure
-* Orchestrator routing
-
-But the final output is still difficult to audit.
-
-Example:
-
-BAD:
-
-BUY RELIANCE
-
-GOOD:
-
-BUY RELIANCE
-
-Because:
-
-* EMA crossover confirmed
-* MACD bullish
-* Volume expansion
-* Market regime bullish
-
-Risks:
-
-* RSI elevated
-* Sector concentration increasing
-
-Expected reward exceeds risk by 3.3x
-
-This milestone creates that explanation layer.
-
----
-
-# CORE RESPONSIBILITY
-
-Create a centralized engine that converts all trading intelligence into a single explainable decision object.
-
-The engine must support:
-
-BUY
-
-SELL
-
-HOLD
-
-NO_TRADE
-
----
-
-# INPUTS
-
-Decision engine should consume outputs from:
-
-## Orchestrator
-
-* bucket assignment
-* composite score
-* signal contributions
-* confidence score
-
-## Portfolio Risk Engine
-
-* deployment %
-* bucket utilization
-* drawdown status
-* correlation warnings
-* sector concentration
-
-## Market Structure
-
-* trend state
-* breakout status
-* breakdown status
-* consolidation status
-
-## Scoring Engine
-
-* technical score
-* volume score
-* sentiment score
-* structure score
-
-## Position Lifecycle
-
-* current state
-* cooldown status
-* holding duration
-
----
-
-# OUTPUT OBJECT
-
-Standardized structure:
 
 
 ---
-
-# DECISION TYPES
-
-## BUY
-
-Conditions:
-
-* score above threshold
-* risk engine approval
-* not in cooldown
-* capital available
-* bucket capacity available
-
----
-
-## SELL
-
-Conditions:
-
-* stop hit
-* target hit
-* trailing stop triggered
-* structure breakdown
-* risk override
-* lifecycle exit
-
----
-
-## HOLD
-
-Conditions:
-
-* existing position
-* no exit trigger
-
----
-
-## NO_TRADE
-
-Conditions:
-
-* weak score
-* risk rejection
-* correlation rejection
-* exposure limits reached
-* cooldown active
-
----
-
-# REASONS FOR
-
-Must provide human-readable positives.
-
-Examples:
-
-```text
-EMA crossover confirmed
-
-MACD bullish crossover
-
-Volume 2.3x average
-
-Breakout above resistance
-
-Higher highs / higher lows structure
-
-Bull market regime
-
-Strong relative strength
-
-Composite score above threshold
-```
-
----
-
-# REASONS AGAINST
-
-Must provide human-readable warnings.
-
-Examples:
-
-```text
-RSI approaching overbought
-
-Sector exposure elevated
-
-Portfolio already heavily deployed
-
-Correlation with existing holdings
-
-Market volatility increasing
-
-Weak sentiment
-
-Near major resistance
-```
-
----
-
-# CONFIDENCE SCORE
-
-Range:
-
-0-100
-
-Source:
-
-Orchestrator confidence score.
-
-Decision engine should display:
-
-```text
-Low Confidence:
-0-49
-
-Medium Confidence:
-50-69
-
-High Confidence:
-70-84
-
-Very High Confidence:
-85+
-```
-
----
-
-# RISK ASSESSMENT BLOCK
-
-
-```
-
-Data source:
-
-Portfolio Risk Engine.
-
----
-
-# PORTFOLIO IMPACT BLOCK
-
-
-```
-
-Purpose:
-
-Show exactly how this trade changes portfolio risk.
-
----
-
-# DECISION EXPLANATION TEXT
-
-Create formatted summary.
-
-Example:
-
-DECISION: BUY
-
-Stock: RELIANCE
-
-Bucket: Swing Trading
-
-Confidence: 78%
-
-Composite Score: 72/100
-
-REASONS FOR:
-
-EMA crossover confirmed
-
-MACD bullish crossover
-
-Volume 2.3x average
-
-Hammer pattern near MA20 support
-
-Bull market regime
-
-REASONS AGAINST:
-
-RSI elevated
-
-Sector exposure already 25%
-
-RISK:
-
-Entry ₹2847
-
-Stop ₹2762
-
-Target ₹3130
-
-Risk Reward 1:3.3
-
-Position Size 7%
-
-PORTFOLIO IMPACT:
-
-Current Deployment 45%
-
-Post Trade Deployment 52%
-
-Bucket Usage 3/5
-
-FINAL VERDICT:
-
-BUY APPROVED
-
----
-
-# DECISION LOGGING
-
-Create new persistent log.
-
-File:
-
-logs/decision_log.csv
-
-Optional Supabase table:
-
-decision_log
-
-Columns:
-
-timestamp
-
-stock
-
-bucket
-
-decision
-
-confidence
-
-composite_score
-
-reasons_for
-
-reasons_against
-
-entry
-
-stop
-
-target
-
-risk_reward
-
-portfolio_impact
-
-execution_allowed
-
----
-
-# STREAMLIT INTEGRATION
-
-Create display-ready dataframe.
-
-Function:
-
-get_decision_dashboard_df()
-
-Purpose:
-
-Show latest decisions.
-
-Columns:
-
-Timestamp
-
-Stock
-
-Bucket
-
-Decision
-
-Confidence
-
-Score
-
-Risk Reward
-
-Deployment Impact
-
-Approved
-
----
-
-# FUTURE USE
-
-Milestone 33+
-
-Execution loop should NOT make decisions directly.
-
-Execution loop must call:
-
-decision_engine
-
-and only execute trades that return:
-
-execution_allowed = True
-
-Decision engine becomes the final approval layer before trade execution.
-
----
-
-# SUCCESS CRITERIA
-
-Milestone is complete when:
-
-✓ Every BUY has a full explanation
-
-✓ Every SELL has a full explanation
-
-✓ Every HOLD has a full explanation
-
-✓ Every NO_TRADE has a full explanation
-
-✓ Portfolio impact is shown
-
-✓ Risk assessment is shown
-
-✓ Confidence is shown
-
-✓ Decisions are logged
-
-✓ Streamlit can display latest decisions
-
-✓ Execution loop can consume decision output
-
-This milestone is primarily an explainability and audit layer, not a signal generation engine.
-
-
-
-
----
-Milestone 33 — Zerodha Integration (Live Paper → Real)
-File: brokers/zerodha\_connector.py
-
-Connect Kite API
-Fetch live quotes (replace yfinance for live data)
-Place paper orders via Kite sandbox
-Place real orders (manual confirmation required initially)
-Real-time P&L tracking
-Order status monitoring
-GTT (Good Till Triggered) order support for stop losses
-
----
-Milestone 34 — Supabase Persistent Storage
-File: database/supabase\_client.py
-
-Replace CSV files with Supabase (PostgreSQL)
-Persist trades across cloud restarts
-Historical performance database
-Multi-session portfolio state
-Audit trail for all decisions
-
----
-Milestone 35 — FII/DII Intelligence Layer
-File: strategies/institutional\_flow.py
-
-Fetch FII/DII daily data from NSE website
-Track net FII buying/selling (₹ crores)
-Track net DII buying/selling (₹ crores)
-Detect institutional accumulation patterns
-Add FII/DII flow score to composite scoring engine
-Alert on unusual institutional activity
 
 ---
 ENGINEERING RULES — ALWAYS FOLLOW
@@ -1374,11 +628,12 @@ capital_engine.bucket_sell doesn't accept a quantity_to_sell parameter — parti
 M33 (DB fixes + loop state)
   └─► M34 (execution loop bug fixes + partial exit)
         └─► M35 (speed + caching)
-              └─► M36 (Zerodha live data)
+            └─► M36 (FII/DII Intelligence)
+                  └─► M37 (Zerodha live data)
 M33 must go first — the database is the foundation. You can't reliably test the loop until the Supabase tables exist and loop state persists across restarts.
 M34 fixes the code bugs that would cause crashes. Once M33 and M34 are done, the loop is genuinely autonomous and reliable for the first time.
 M35 is a performance milestone — the system works correctly after M34 but is slow on large watchlists. M35 makes it fast enough for 1,000 stocks.
-M36 (Zerodha) depends on everything before it being stable — you don't connect live broker API to a buggy loop.
+M37 (Zerodha) depends on everything before it being stable — you don't connect live broker API to a buggy loop.
 
 3. Recommended Implementation Order
 M33 — Database & State Foundation
@@ -1411,7 +666,23 @@ Fix score consistency: Scanner and Stock Score both use same indicator period (1
 Implement 5-tier regime fallback: ^NSEI → NIFTYBEES.NS scaled → Supabase last known → local JSON last known → "SIDEWAYS" default
 Expose FUNDAMENTAL_CACHE_TTL_DAYS = 3 in settings.py
 
-M36 — Zerodha Kite API Integration
+
+
+---
+M36 — FII/DII Intelligence Layer
+File: strategies/institutional_flow.py
+
+Fetch FII/DII daily data from NSE website
+Track net FII buying/selling (₹ crores)
+Track net DII buying/selling (₹ crores)
+Detect institutional accumulation patterns
+Add FII/DII flow score to composite scoring engine
+Alert on unusual institutional activity
+
+
+
+
+M37 — Zerodha Kite API Integration
 Files: brokers/zerodha_connector.py (new), execution_loop.py (patch)
 Deliverables:
 
@@ -1439,7 +710,7 @@ M35 risks:
 Fundamental cache of 3 days means Scanner may show slightly stale PE/ROE data — acceptable for a daily scanner, document this limitation clearly
 Score consistency fix (using same data period for Scanner and Stock Score) will change Scanner scores slightly — users will notice different numbers initially, then see them stabilize
 
-M36 risks:
+M37 risks:
 
 Zerodha Kite Connect requires a daily token refresh (login) — the autonomous loop needs a token manager that handles re-auth without manual intervention
 Rate limits: Kite API allows 3 requests/second for quotes — on a 1,000-stock watchlist this is a bottleneck; need to batch quote requests (Kite supports up to 500 symbols per quote call)
@@ -1450,6 +721,586 @@ Live trading risk: even "paper" mode using Kite sandbox can have subtle differen
 MilestoneWhat changes for youM33Loop status survives Streamlit Cloud restarts. No more "loop appears stopped after deploy." Decision log writes correctly — no duplicates.M34Loop runs without crashing. Partial profits are automatically booked. Loop respects market holidays. The system is genuinely autonomous for the first time.M351,000-stock watchlist scans in under 3 minutes instead of 30+. Scanner scores match Stock Score tab — no more confusion. Fundamentals load from cache — less API hammering.M36Real-time prices replace 15-minute delayed yfinance data. Stop losses execute at accurate prices. Path to live trading is open.
 
 
+# TRADING OS IMPLEMENTATION SPECIFICATION
+
+## FEATURE NAME
+
+Volume Compression Pullback Strategy (VCPS)
+
+Version: 1.0
+
+Category: Intraday Strategy
+
+Priority: High
+
+Goal: Create an institutional-grade intraday continuation strategy by combining:
+
+* Market Structure
+* Sector Strength
+* Volume Contraction
+* Volatility Compression
+* Support/Resistance Zones
+* Dynamic Risk Management
+
+This strategy will replace the subjective YouTube implementation with a fully systematic and backtestable model.
+
+---
+
+# OBJECTIVES
+
+Build a complete intraday engine capable of:
+
+1. Identifying strong trending sectors.
+2. Identifying strong trending stocks inside those sectors.
+3. Detecting low-volume pullbacks.
+4. Detecting volatility compression.
+5. Detecting support and resistance zones.
+6. Validating market structure.
+7. Calculating dynamic stop loss.
+8. Calculating dynamic targets.
+9. Producing trade quality scores.
+10. Supporting future automation.
+
+---
+
+# NEW FILE
+
+Create:
+
+strategies/intraday_engine.py
+
+---
+
+# DEPENDENCIES
+
+Integrate with:
+
+strategies/market_structure.py
+
+Existing Scanner
+
+Composite Score Engine
+
+Capital Engine
+
+Position Manager
+
+Risk Manager
+
+Execution Engine
+
+---
+
+# MODULE 1
+
+MARKET DIRECTION FILTER
+
+Purpose:
+
+Trade only in direction of broader market.
+
+Inputs:
+
+NIFTY
+
+BANKNIFTY
+
+Conditions:
+
+Bullish Market:
+
+* NIFTY above VWAP
+* NIFTY above 20 EMA
+* Market Breadth > 1
+
+Bearish Market:
+
+* NIFTY below VWAP
+* NIFTY below 20 EMA
+* Market Breadth < 1
+
+Output:
+
+market_regime
+
+Values:
+
+BULLISH
+
+BEARISH
+
+NEUTRAL
+
+No trades allowed in NEUTRAL.
+
+---
+
+# MODULE 2
+
+SECTOR STRENGTH ENGINE
+
+Create sector ranking.
+
+Calculate:
+
+Sector Return %
+
+Relative Strength vs Nifty
+
+Sector Breadth
+
+Volume Expansion
+
+Sector Score Formula:
+
+Sector Score =
+0.40 × Relative Strength
++
+0.30 × Sector Return
++
+0.20 × Breadth
++
+0.10 × Volume Expansion
+
+Rank all sectors.
+
+Select:
+
+Top 3 sectors only.
+
+Output:
+
+sector_score
+
+sector_rank
+
+---
+
+# MODULE 3
+
+STOCK SELECTION FILTER
+
+Only allow stocks satisfying:
+
+F&O Stock
+
+Volume > 1.5 × 20-period average volume
+
+ATR above minimum threshold
+
+Price > ₹100
+
+Daily traded value above threshold
+
+Output:
+
+eligible_stocks
+
+---
+
+# MODULE 4
+
+MARKET STRUCTURE VALIDATION
+
+Use market_structure.py
+
+Implement:
+
+Higher Highs
+
+Higher Lows
+
+Lower Highs
+
+Lower Lows
+
+BOS
+
+CHOCH
+
+Bullish Structure:
+
+HH + HL
+
+Bearish Structure:
+
+LH + LL
+
+Outputs:
+
+structure_type
+
+Values:
+
+UPTREND
+
+DOWNTREND
+
+RANGE
+
+Only trade UPTREND or DOWNTREND.
+
+Reject RANGE.
+
+---
+
+# MODULE 5
+
+SUPPLY AND DEMAND ZONES
+
+Use recent swing highs and lows.
+
+Demand Zone:
+
+Most recent valid swing low cluster.
+
+Supply Zone:
+
+Most recent valid swing high cluster.
+
+Store:
+
+zone_low
+
+zone_high
+
+zone_strength
+
+Output:
+
+nearest_demand_zone
+
+nearest_supply_zone
+
+---
+
+# MODULE 6
+
+VOLUME COMPRESSION DETECTION
+
+Purpose:
+
+Identify exhaustion pullbacks.
+
+Requirements:
+
+Current Volume < 50% of 20-bar average volume
+
+AND
+
+Current Volume within lowest 10 percentile of last 20 bars
+
+Output:
+
+volume_compression = True/False
+
+---
+
+# MODULE 7
+
+VOLATILITY COMPRESSION
+
+Calculate:
+
+ATR Compression
+
+Bollinger Band Width Compression
+
+Conditions:
+
+Current ATR < 80% of ATR20 average
+
+AND
+
+BB Width < 20-bar average width
+
+Output:
+
+volatility_compression = True/False
+
+---
+
+# MODULE 8
+
+ENTRY LOGIC
+
+LONG SETUP
+
+Requirements:
+
+Market Regime = BULLISH
+
+Sector Rank <= 3
+
+Structure = UPTREND
+
+Volume Compression = True
+
+Volatility Compression = True
+
+Price near Demand Zone
+
+Entry Trigger:
+
+Break above high of compression candle
+
+Generate:
+
+BUY signal
+
+SHORT SETUP
+
+Requirements:
+
+Market Regime = BEARISH
+
+Sector Rank <= 3
+
+Structure = DOWNTREND
+
+Volume Compression = True
+
+Volatility Compression = True
+
+Price near Supply Zone
+
+Entry Trigger:
+
+Break below low of compression candle
+
+Generate:
+
+SELL signal
+
+---
+
+# MODULE 9
+
+STOP LOSS ENGINE
+
+Long:
+
+Stop = max(
+Demand Zone Low,
+Compression Candle Low,
+ATR Stop
+)
+
+Short:
+
+Stop = min(
+Supply Zone High,
+Compression Candle High,
+ATR Stop
+)
+
+Store:
+
+stop_price
+
+risk_per_share
+
+---
+
+# MODULE 10
+
+TARGET ENGINE
+
+Target 1:
+
+2R
+
+Target 2:
+
+Nearest Supply Zone (Long)
+
+Nearest Demand Zone (Short)
+
+Target 3:
+
+EMA Trail Exit
+
+Store:
+
+target_1
+
+target_2
+
+target_3
+
+---
+
+# MODULE 11
+
+TRADE MANAGEMENT
+
+At Target 1:
+
+Book 50%
+
+Move stop to breakeven.
+
+Remaining quantity:
+
+Trail using:
+
+10 EMA
+
+or
+
+Structure-based trailing stop.
+
+---
+
+# MODULE 12
+
+TRADE QUALITY SCORE
+
+Create score from 0-100.
+
+Components:
+
+Market Regime = 15
+
+Sector Strength = 20
+
+Structure Quality = 20
+
+Zone Quality = 15
+
+Volume Compression = 10
+
+Volatility Compression = 10
+
+Risk Reward = 10
+
+Total = 100
+
+Output:
+
+trade_score
+
+Classification:
+
+90+ = A+
+
+80-89 = A
+
+70-79 = B
+
+60-69 = C
+
+Below 60 = Reject
+
+---
+
+# MODULE 13
+
+SCANNER INTEGRATION
+
+Add new scanner output columns:
+
+Market Regime
+
+Sector Rank
+
+Sector Score
+
+Structure
+
+Demand Zone
+
+Supply Zone
+
+Volume Compression
+
+Volatility Compression
+
+Stop Price
+
+Target 1
+
+Target 2
+
+Trade Score
+
+Trade Grade
+
+---
+
+# MODULE 14
+
+AUTOMATION READY OUTPUT
+
+Return dictionary:
+
+{
+"stock": "",
+"signal": "",
+"entry_price": 0,
+"stop_price": 0,
+"target_1": 0,
+"target_2": 0,
+"trade_score": 0,
+"trade_grade": "",
+"market_regime": "",
+"sector_rank": 0,
+"structure": ""
+}
+
+---
+
+# MODULE 15
+
+BACKTEST REQUIREMENTS
+
+Add strategy to backtesting framework.
+
+Metrics:
+
+Win Rate
+
+Profit Factor
+
+Average R Multiple
+
+Expectancy
+
+Max Drawdown
+
+Sharpe Ratio
+
+Sortino Ratio
+
+Average Holding Time
+
+Sector-wise Performance
+
+Regime-wise Performance
+
+---
+
+# DELIVERABLES
+
+1. Fully coded intraday_engine.py
+
+2. Integration with market_structure.py
+
+3. Integration with scanner
+
+4. Integration with composite score
+
+5. Integration with backtest engine
+
+6. Unit test functions
+
+7. Example output
+
+8. Documentation
+
+Do not provide pseudocode.
+
+Provide production-ready Python code compatible with Trading OS architecture.
 
 
 
@@ -1459,8 +1310,8 @@ MilestoneWhat changes for youM33Loop status survives Streamlit Cloud restarts. N
 
 CURRENT SESSION CONTEXT
 (Update this section at the start of each conversation)
-Last completed milestone: Milestone 30 — Advanced Portfolio Risk Engine
-Next planned milestone:   Milestone 31 — Strategy Orchestration Engine
+Last completed milestone: Milestone 35 — Speed, Caching & Score Consistency
+Next planned milestone:   Milestone 36 — FII/DII Intelligence Layer  (also see how we can work on intraday trading setup, I have provided some ideas for reference above)
 
 
 
