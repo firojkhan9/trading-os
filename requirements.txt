@@ -10,6 +10,7 @@ loguru
 supabase
 pytz              # Timezone handling for IST market hours (Milestone 26)
 streamlit-autorefresh
+kiteconnect
 
 # Backtesting
 # backtrader   # Uncomment when needed
