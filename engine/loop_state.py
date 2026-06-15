@@ -25,7 +25,15 @@
 import os
 import sys
 import json
-from datetime import datetime
+from datetime import datetime, time as dtime
+import pytz
+
+IST = pytz.timezone("Asia/Kolkata")
+
+MARKET_OPEN  = dtime(9, 15)
+MARKET_CLOSE = dtime(15, 30)
+PRE_MARKET   = dtime(9,  0)
+POST_MARKET  = dtime(15, 35)
 
 try:
     from config.supabase_client import get_client as _get_supabase_client
@@ -395,16 +403,6 @@ def clear_decision_log():
 # MARKET HOURS HELPER
 # Used by execution_loop.py to decide whether to run
 # ════════════════════════════════════════════════
-
-from datetime import time as dtime
-import pytz
-
-IST = pytz.timezone("Asia/Kolkata")
-
-MARKET_OPEN  = dtime(9, 15)    # 9:15 AM IST
-MARKET_CLOSE = dtime(15, 30)   # 3:30 PM IST
-PRE_MARKET   = dtime(9,  0)    # Pre-market prep: 9:00 AM IST
-POST_MARKET  = dtime(15, 35)   # Post-market summary: 3:35 PM IST
 
 
 def _is_nse_holiday(date_str: str) -> bool:

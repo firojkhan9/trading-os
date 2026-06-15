@@ -68,6 +68,7 @@ from engine.loop_state import (
     STATUS_RUNNING,
     STATUS_PAUSED,
     STATUS_STOPPED,
+    IST,
 )
 
 # ── Trading system imports ────────────────────────
