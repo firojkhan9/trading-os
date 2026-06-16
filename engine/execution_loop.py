@@ -520,7 +520,7 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
 
         target_bucket = orch_result["bucket"]
 
-        if orch_result["decision"] not in (DECISION_ACCEPT, DECISION_REVIEW):
+        if orch_result["decision"] == "REJECT":
             log_decision(
                 stock=stock_name, bucket=target_bucket or "—",
                 decision="NO-TRADE",
@@ -536,7 +536,7 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
 
         # REVIEW decisions still proceed but get flagged in the log
         if orch_result["decision"] == DECISION_REVIEW:
-            print(f"  🟡 REVIEW: {stock_name} — {orch_result['summary']}")
+            print(f"  🟡 REVIEW: (will execute with caution):{stock_name}}")
 
         # ── Stock-level safety gate ────────────────
         # (orchestrator already ran portfolio-level checks;

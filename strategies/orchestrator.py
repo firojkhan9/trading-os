@@ -353,10 +353,17 @@ def detect_conflicts(
     hold_votes = combined_votes.get("hold", 0)
 
     # Hard: SELL signals present alongside BUY signals
-    if buy_votes > 0 and sell_votes > 0:
+    # Hard: STRONG conflict — 2+ strategies say SELL while others say BUY
+    # A single SELL vote is normal (one strategy lagging) — soft conflict only
+    if buy_votes > 0 and sell_votes >= 2:
         hard.append(
-            f"Conflicting strategy signals: {buy_votes} BUY vs {sell_votes} SELL — "
-            "strategies are disagreeing on direction"
+            f"Strong conflict: {buy_votes} BUY vs {sell_votes} SELL — "
+            "majority disagreement on direction"
+        )
+    elif buy_votes > 0 and sell_votes == 1:
+        soft.append(
+            f"Minor signal conflict: {buy_votes} BUY, 1 SELL — "
+            "one strategy disagrees, proceed with caution"
         )
 
     # Hard: Regime score very low but signal says BUY
@@ -396,7 +403,7 @@ def detect_conflicts(
     # Severity
     if hard:
         severity = "HIGH ⚠️"
-    elif len(soft) >= 2:
+    elif len(soft) >= 3:
         severity = "HIGH ⚠️"
     elif soft:
         severity = "LOW 🟡"
@@ -445,11 +452,16 @@ def apply_rejection_filters(
             f"BEAR market ({regime}) — no new BUY orders. Capital protection mode."
         )
 
-    # 2. Bucket score threshold
+    # 2. Bucket score threshold — use a relaxed version of the minimum
+    # Bucket score uses fewer dimensions than composite, so it's naturally lower.
+    # We use 85% of the minimum as the actual gate to avoid over-blocking.
     min_score = BUCKET_SCORE_WEIGHTS.get(bucket_name, {}).get("_min_score", 60)
-    if bucket_score < min_score:
+    relaxed_min = round(min_score * 0.85)
+    if bucket_score < relaxed_min and composite_score < min_score:
+        # Only block if BOTH bucket score AND composite score are below minimum
         reasons.append(
-            f"Bucket score {bucket_score}/100 below {bucket_name} minimum ({min_score}/100)."
+            f"Both bucket score ({bucket_score}/100) and composite score ({composite_score}/100) "
+            f"are below {bucket_name} minimum ({min_score}/100)."
         )
 
     # 3. Minimum vote count
@@ -758,8 +770,8 @@ def orchestrate_opportunity(
         decision = DECISION_REJECT
     elif hard_conflicts:
         decision = DECISION_REJECT
-    elif soft_conflicts and confluence["confluence_count"] < CONFLUENCE_LOW:
-        # Soft conflicts + low confluence = REVIEW (human should look)
+    elif soft_conflicts and len(soft_conflicts) >= 3 and confluence["confluence_count"] < CONFLUENCE_LOW:
+        # Only REVIEW when many soft conflicts AND very low confluence
         decision = DECISION_REVIEW
     else:
         decision = DECISION_ACCEPT
