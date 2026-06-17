@@ -913,8 +913,16 @@ with tab2:
     # ── FII/DII Banner ────────────────────────────
     st.subheader("🏦 FII/DII Institutional Flow")
     st.caption("Institutional money drives the market — check where the smart money is going")
+    col_fii_hdr, col_fii_refresh = st.columns([4, 1])
+    with col_fii_refresh:
+        if st.button("🔄 Refresh", key="refresh_fii_tab2"):
+            from strategies.institutional_flow import clear_fii_cache
+            clear_fii_cache()
+            st.rerun()
     with st.spinner("Fetching FII/DII data..."):
         fii_regime_data = get_fii_dii_analysis(days=5)
+    if fii_regime_data.get("is_proxy"):
+        st.caption("⚠️ Live FII data unavailable — showing market-derived estimate")
     fr1, fr2, fr3, fr4 = st.columns(4)
     fr1.metric("FII/DII Score",  f"{fii_regime_data['score']}/100")
     fr2.metric("FII Net Today",  f"₹{fii_regime_data['latest_fii_net']:+,.0f} Cr")
@@ -2067,6 +2075,35 @@ with tab4:
             )
 
             st.caption(f"FII bought on {fii_pos_days}/5 days this week | Data: {fii_dii_result['fetched_at']}")
+
+            # ── Promoter Holding ──────────────────────
+            st.write("")
+            st.caption("👔 Promoter Holding (Quarterly)")
+            with st.spinner("Fetching promoter holding..."):
+                from strategies.institutional_flow import fetch_promoter_holding
+                promo = fetch_promoter_holding(score_symbol)
+            if promo["data_available"]:
+                pc1, pc2, pc3 = st.columns(3)
+                pc1.metric(
+                    "Promoter Holding %",
+                    f"{promo['promoter_pct']:.1f}%" if promo['promoter_pct'] else "N/A",
+                    help="Higher promoter holding = management has skin in the game"
+                )
+                pc2.metric(
+                    "Institutional Holding %",
+                    f"{promo.get('fii_holding_pct', 0):.1f}%" if promo.get('fii_holding_pct') else "N/A",
+                    help="FII + DII + Mutual Funds combined"
+                )
+                pc3.metric("Holding Signal", promo["label"].split(" ")[0] + " " + promo["label"].split(" ")[1] if promo["label"] != "N/A" else "N/A")
+                if promo['promoter_pct'] and promo['promoter_pct'] >= 50:
+                    st.success(f"✅ {promo['label']} — strong alignment between management and shareholders")
+                elif promo['promoter_pct'] and promo['promoter_pct'] < 25:
+                    st.warning(f"⚠️ {promo['label']} — low promoter stake may reduce accountability")
+                else:
+                    st.info(f"ℹ️ {promo['label']}")
+                st.caption("Source: yfinance | Updates quarterly with shareholding filings")
+            else:
+                st.caption("Promoter holding data not available for this stock via yfinance")
 
             # Show raw data table
             raw_df = fii_dii_result.get("raw_data", pd.DataFrame())
