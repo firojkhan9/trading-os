@@ -71,7 +71,32 @@ DEFAULT_STATE = {
     "last_updated":    None,
     "error_count":     0,
     "last_error":      None,
+    "last_reset_date": None,   # NEW — tracks which day today's counters belong to
 }
+
+def _maybe_reset_daily(state: dict) -> dict:
+    """
+    Auto-reset today's counters if the date has rolled over.
+    Runs on EVERY load_loop_state() call — dashboard, autopilot
+    runner page, or terminal loop — so it always self-corrects,
+    no matter how the app was opened.
+    """
+    today_str  = datetime.now(IST).strftime('%Y-%m-%d')
+    last_reset = state.get("last_reset_date")
+
+    if last_reset != today_str:
+        state["runs_today"]      = 0
+        state["decisions_today"] = 0
+        state["buys_today"]      = 0
+        state["sells_today"]     = 0
+        state["pnl_today"]       = 0.0
+        state["error_count"]     = 0
+        state["last_error"]      = None
+        state["last_reset_date"] = today_str
+        save_loop_state(state)
+        print(f"✅ Daily counters auto-reset for {today_str}")
+
+    return state
 
 
 # ════════════════════════════════════════════════
@@ -103,7 +128,8 @@ def load_loop_state() -> dict:
                 state["last_updated"]     = row.get("last_updated")
                 state["error_count"]      = row.get("error_count",      0)
                 state["last_error"]       = row.get("last_error")
-                return state
+                state["last_reset_date"]  = row.get("last_reset_date")
+                return _maybe_reset_daily(state)
     except Exception as e:
         print(f"⚠️ Supabase loop_state load failed: {e} — trying JSON")
 
@@ -115,11 +141,11 @@ def load_loop_state() -> dict:
             for key, default_val in DEFAULT_STATE.items():
                 if key not in state:
                     state[key] = default_val
-            return state
+            return _maybe_reset_daily(state)
         except Exception as e:
             print(f"⚠️ Could not load loop state JSON: {e}")
 
-    return DEFAULT_STATE.copy()
+    return _maybe_reset_daily(DEFAULT_STATE.copy())
 
 
 def save_loop_state(state: dict):
@@ -147,6 +173,7 @@ def save_loop_state(state: dict):
                 "last_updated":     state["last_updated"],
                 "error_count":      state.get("error_count",      0),
                 "last_error":       state.get("last_error"),
+                "last_reset_date":  state.get("last_reset_date"),
             }, on_conflict="id").execute()
     except Exception as e:
         print(f"⚠️ Supabase loop_state save failed: {e} — saved to JSON only")

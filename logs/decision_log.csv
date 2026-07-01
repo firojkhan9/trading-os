@@ -1,0 +1,2 @@
+Timestamp,Stock,Symbol,Bucket,Decision,Confidence,Composite_Score,Bucket_Score,Reasons_For,Reasons_Against,Entry_Price,Stop_Price,Target_Price,Risk_Reward,Position_Size_Pct,Deployed_Before,Deployed_After,Execution_Allowed,Rejection_Reason,Regime
+2026-06-17 09:23:30,MPHASIS,MPHASIS.NS,Intraday,BUY,36,0,61,🟡 Weak bull regime — market trending cautiously upward (WEAK BULL 📈) | ✅ Market regime favorable (WEAK BULL 📈),,2329.10009765625,2189.35,2678.47,2.5,3.3,20.4,24.3,True,,WEAK BULL 📈

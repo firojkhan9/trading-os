@@ -1,14 +1,15 @@
 {
   "status": "STOPPED",
-  "interval_minutes": 15,
-  "last_run": "2026-06-05 02:14:47",
-  "next_run": "2026-06-05 02:29:47",
-  "runs_today": 1,
+  "interval_minutes": 10,
+  "last_run": "2026-07-01 14:33:24",
+  "next_run": null,
+  "runs_today": 0,
   "decisions_today": 0,
   "buys_today": 0,
   "sells_today": 0,
   "pnl_today": 0.0,
-  "last_updated": "2026-06-05 02:14:47",
+  "last_updated": "2026-07-02 01:13:00",
   "error_count": 0,
-  "last_error": null
+  "last_error": null,
+  "last_reset_date": "2026-07-02"
 }

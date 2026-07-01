@@ -536,7 +536,7 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
 
         # REVIEW decisions still proceed but get flagged in the log
         if orch_result["decision"] == DECISION_REVIEW:
-            print(f"  🟡 REVIEW: (will execute with caution):{stock_name}}")
+            print(f"  🟡 REVIEW: (will execute with caution):{stock_name}")
 
         # ── Stock-level safety gate ────────────────
         # (orchestrator already ran portfolio-level checks;
