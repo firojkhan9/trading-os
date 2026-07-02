@@ -936,6 +936,46 @@ with tab2:
         else: st.info(f"📊 {fii_lbl}")
     st.divider()
 
+    # ── Sector Strength Banner (M38A) ─────────────
+    st.subheader("🏭 Sector Strength Ranking")
+    st.caption("Which sectors are leading today? Intraday and Swing setups work best in the top sectors.")
+
+    if st.button("🔍 Rank Sectors", key="rank_sectors_btn"):
+        with st.spinner("Scanning all sectors — takes 30-90 seconds depending on watchlist size..."):
+            from strategies.sector_strength import get_sector_strength_summary
+            st.session_state["sector_result"] = get_sector_strength_summary()
+
+    if "sector_result" in st.session_state:
+        sector_result = st.session_state["sector_result"]
+        if not sector_result["data_available"]:
+            st.warning("Could not calculate sector strength — try again.")
+        else:
+            top3 = sector_result["top_sectors"]
+            st.success(f"🏆 Top 3 Sectors Today: **{', '.join(top3)}**")
+
+            def color_sector_score(val):
+                try:
+                    f = float(val)
+                    if f > 0: return "color: green; font-weight: bold"
+                    if f < 0: return "color: red"
+                except Exception:
+                    pass
+                return ""
+
+            st.dataframe(
+                sector_result["ranked_df"].style.map(
+                    color_sector_score,
+                    subset=["Sector Score", "Relative Strength %", "Sector Return %"]
+                ),
+                use_container_width=True, hide_index=True
+            )
+            st.caption(
+                f"Fetched: {sector_result['fetched_at']} | "
+                "Formula: 40% Relative Strength + 30% Sector Return + 20% Breadth + 10% Volume Expansion"
+            )
+
+    st.divider()
+
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
         {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},
