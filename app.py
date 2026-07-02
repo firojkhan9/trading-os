@@ -974,6 +974,65 @@ with tab2:
                 "Formula: 40% Relative Strength + 30% Sector Return + 20% Breadth + 10% Volume Expansion"
             )
 
+    st.divider()    
+
+    # ── Stock Selection Filter (M38B) ─────────────
+    st.subheader("🎯 Intraday Stock Selection Filter")
+    st.caption(
+        "Narrows today's top sectors down to stocks safe enough to trade intraday — "
+        "F&O eligible, liquid volume, real daily range, priced above ₹100."
+    )
+
+    if st.button("🔍 Run Stock Selection Filter", key="run_stock_filter_btn"):
+        with st.spinner("Checking F&O eligibility, volume, ATR, price and liquidity..."):
+            from strategies.stock_selection_filter import get_eligible_intraday_stocks
+            st.session_state["filter_result"] = get_eligible_intraday_stocks()
+
+    if "filter_result" in st.session_state:
+        filter_result = st.session_state["filter_result"]
+
+        if not filter_result["data_available"]:
+            st.warning(
+                "No eligible stocks found — run Sector Strength Ranking above first, "
+                "or check that your watchlist has Sector data filled in."
+            )
+        else:
+            eligible = filter_result["eligible"]
+            rejected = filter_result["rejected"]
+
+            fe1, fe2, fe3 = st.columns(3)
+            fe1.metric("Top Sectors Scanned", len(filter_result["top_sectors"]))
+            fe2.metric("Eligible Stocks", len(eligible))
+            fe3.metric("Rejected Stocks", len(rejected))
+
+            if eligible:
+                st.success(
+                    f"✅ {len(eligible)} stock(s) passed all 5 filters — "
+                    f"ready for the Intraday Entry Engine (M38C)"
+                )
+                elig_df = pd.DataFrame(eligible).rename(columns={
+                    "stock":            "Stock",
+                    "symbol":           "Symbol",
+                    "sector":           "Sector",
+                    "price":            "Price ₹",
+                    "volume_ratio":     "Vol Ratio",
+                    "atr_pct":          "ATR %",
+                    "traded_value_cr":  "Traded Value ₹Cr",
+                })
+                st.dataframe(elig_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No stocks passed all filters today — normal on quiet trading days.")
+
+            if rejected:
+                with st.expander(f"📋 Why {len(rejected)} stock(s) were rejected"):
+                    rej_rows = [
+                        {"Stock": r["stock"], "Sector": r["sector"], "Reasons": " | ".join(r["reasons"])}
+                        for r in rejected
+                    ]
+                    st.dataframe(pd.DataFrame(rej_rows), use_container_width=True, hide_index=True)
+
+            st.caption(f"Fetched: {filter_result['fetched_at']}")
+
     st.divider()
 
     st.subheader("📚 Strategy Guide by Regime")
