@@ -1204,6 +1204,98 @@ with tab2:
 
     st.divider()
 
+    # ── Intraday Entry Signal Scanner (M38E — Module 8) ───────
+    st.subheader("🎯 Intraday Entry Signal Scanner")
+    st.caption(
+        "The full VCPS pipeline in one click: Market Direction (M38D) → "
+        "Sector Strength (M38A) → Stock Selection (M38B) → Structure + Zones (M38C) → "
+        "Volume/Volatility Compression (M38D) → Breakout Trigger (M38E). "
+        "A BUY/SELL signal here means every gate has been passed."
+    )
+
+    if st.button("🔍 Scan For Entry Signals", key="scan_entry_signals_btn"):
+        with st.spinner("Running the full VCPS pipeline — this can take 1-2 minutes..."):
+            from strategies.intraday_engine import scan_intraday_entries
+            st.session_state["entry_signal_result"] = scan_intraday_entries()
+
+    if "entry_signal_result" in st.session_state:
+        esr = st.session_state["entry_signal_result"]
+
+        if not esr["data_available"]:
+            st.warning("Could not run the entry scan — try again.")
+        else:
+            regime = esr["market_regime"]
+            if regime == "BULLISH":
+                st.success(f"## 🟢 Regime: {regime}")
+            elif regime == "BEARISH":
+                st.error(f"## 🔴 Regime: {regime}")
+            else:
+                st.warning(f"## ⚪ Regime: {regime}")
+
+            st.caption(esr["reason"])
+
+            long_sigs  = esr["long_signals"]
+            short_sigs = esr["short_signals"]
+            watching   = esr["watching"]
+
+            em1, em2, em3 = st.columns(3)
+            em1.metric("🟢 BUY Signals",  len(long_sigs))
+            em2.metric("🔴 SELL Signals", len(short_sigs))
+            em3.metric("👀 Watching",     len(watching))
+
+            if long_sigs:
+                st.success(f"✅ {len(long_sigs)} BUY signal(s) triggered!")
+                rows = []
+                for s in long_sigs:
+                    zone = s.get("zone") or {}
+                    rows.append({
+                        "Stock":       s["stock"],
+                        "Sector":      s["sector"],
+                        "Entry ₹":     s["entry_price"],
+                        "Now ₹":       s["latest_close"],
+                        "Demand Zone": f"{zone.get('zone_low','?')}–{zone.get('zone_high','?')}" if zone else "N/A",
+                        "Structure":   s["structure"],
+                        "Vol Ratio":   s.get("volume_ratio"),
+                        "BOS":         "✅" if s.get("bos_detected") else "—",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+            if short_sigs:
+                st.error(f"🔴 {len(short_sigs)} SELL signal(s) triggered!")
+                rows = []
+                for s in short_sigs:
+                    zone = s.get("zone") or {}
+                    rows.append({
+                        "Stock":       s["stock"],
+                        "Sector":      s["sector"],
+                        "Entry ₹":     s["entry_price"],
+                        "Now ₹":       s["latest_close"],
+                        "Supply Zone": f"{zone.get('zone_low','?')}–{zone.get('zone_high','?')}" if zone else "N/A",
+                        "Structure":   s["structure"],
+                        "Vol Ratio":   s.get("volume_ratio"),
+                        "BOS":         "✅" if s.get("bos_detected") else "—",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+            if not long_sigs and not short_sigs:
+                st.info("No entry triggered yet this scan — normal, VCPS setups are selective by design.")
+
+            if watching:
+                with st.expander(f"👀 Watching {len(watching)} stock(s) — trending or compressed, not triggered yet"):
+                    watch_rows = []
+                    for w in watching:
+                        watch_rows.append({
+                            "Stock":     w.get("stock_name", "?"),
+                            "Sector":    w.get("sector", "?"),
+                            "Structure": w.get("structure_type", "?"),
+                            "Status":    w.get("watch_reason", "?"),
+                        })
+                    st.dataframe(pd.DataFrame(watch_rows), use_container_width=True, hide_index=True)
+
+            st.caption(f"Fetched: {esr['fetched_at']}")
+
+    st.divider()
+
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
         {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},
