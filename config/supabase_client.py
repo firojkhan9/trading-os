@@ -9,8 +9,8 @@
 #   Falls back gracefully if Supabase unreachable.
 # ================================================
 
+import os
 import streamlit as st
-
 _client = None
 
 def get_client():

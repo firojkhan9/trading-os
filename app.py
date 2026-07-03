@@ -1108,6 +1108,102 @@ with tab2:
 
     st.divider()
 
+    # ── Intraday Market Direction Filter (M38D — Module 1) ───
+    st.subheader("🧭 Intraday Market Direction Filter")
+    st.caption(
+        "5-minute NIFTY VWAP + 20 EMA + watchlist breadth — the master gate for "
+        "intraday entries. NEUTRAL means no intraday trades allowed at all."
+    )
+
+    if st.button("🔍 Check Market Direction", key="check_direction_btn"):
+        with st.spinner("Fetching 5-min NIFTY data and calculating breadth..."):
+            from strategies.intraday_direction import get_intraday_direction_analysis
+            st.session_state["direction_result"] = get_intraday_direction_analysis()
+
+    if "direction_result" in st.session_state:
+        dr = st.session_state["direction_result"]
+
+        if not dr["data_available"]:
+            st.warning("Could not fetch intraday NIFTY data — try again during market hours.")
+        else:
+            regime = dr["market_regime"]
+            if regime == "BULLISH":
+                st.success(f"## 🟢 {regime} — intraday longs allowed")
+            elif regime == "BEARISH":
+                st.error(f"## 🔴 {regime} — intraday shorts allowed")
+            else:
+                st.warning(f"## ⚪ {regime} — no intraday trades allowed")
+
+            dm1, dm2, dm3, dm4 = st.columns(4)
+            dm1.metric("NIFTY (proxy)", f"₹{dr['nifty_price']}")
+            dm2.metric("VWAP", f"₹{dr['nifty_vwap']}",
+                       delta="Above" if dr["above_vwap"] else "Below")
+            dm3.metric("20 EMA", f"₹{dr['nifty_ema20']}",
+                       delta="Above" if dr["above_ema20"] else "Below")
+            dm4.metric(
+                "Breadth",
+                f"{dr['breadth_ratio']}:1" if dr.get("breadth_ratio") is not None else "N/A",
+                help=f"{dr['advancing']} advancing vs {dr['declining']} declining in watchlist"
+            )
+
+            for r in dr["reasons"]:
+                st.caption(f"• {r}")
+
+            st.caption(
+                f"Fetched: {dr['fetched_at']} | "
+                "Proxy: NIFTYBEES.NS (index tickers carry no volume, so VWAP needs an ETF proxy)"
+            )
+
+    st.divider()
+
+    # ── Compression Checker (M38D — Modules 6 + 7) ────────────
+    st.subheader("🌀 Compression Checker")
+    st.caption(
+        "Checks a single stock for the exhaustion-pullback pattern: "
+        "volume drying up AND volatility contracting on 5-min bars."
+    )
+
+    comp_stock = st.selectbox(
+        "Select stock to check:",
+        options=STOCK_NAMES,
+        key="compression_stock_sel"
+    )
+
+    if st.button("🔍 Check Compression", key="check_compression_btn"):
+        with st.spinner(f"Fetching 5-min data for {comp_stock}..."):
+            from strategies.intraday_direction import get_compression_analysis
+            comp_symbol = WATCHLIST[comp_stock]
+            st.session_state["compression_result"] = get_compression_analysis(comp_symbol)
+
+    if "compression_result" in st.session_state:
+        cr = st.session_state["compression_result"]
+
+        if not cr["data_available"]:
+            st.warning(f"Could not fetch 5-min data — {cr.get('reason', 'try again')}")
+        else:
+            if cr["compression_confirmed"]:
+                st.success("✅ COMPRESSION CONFIRMED — volume and volatility both contracted")
+            else:
+                st.info("No compression right now — normal volume/volatility levels")
+
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                vd = cr["volume_detail"]
+                st.metric(
+                    "Volume Compression",
+                    "YES ✅" if cr["volume_compression"] else "NO",
+                    help=f"Ratio: {vd.get('volume_ratio','N/A')}x avg | Percentile: {vd.get('percentile_rank','N/A')}%"
+                )
+            with cc2:
+                vt = cr["volatility_detail"]
+                st.metric(
+                    "Volatility Compression",
+                    "YES ✅" if cr["volatility_compression"] else "NO",
+                    help=f"ATR ratio: {vt.get('atr_ratio','N/A')}x avg | BB width ratio: {vt.get('bb_width_ratio','N/A')}x avg"
+                )
+
+    st.divider()
+
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
         {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},

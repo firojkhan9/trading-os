@@ -174,7 +174,7 @@ def save_loop_state(state: dict):
                 "error_count":      state.get("error_count",      0),
                 "last_error":       state.get("last_error"),
                 "last_reset_date":  state.get("last_reset_date"),
-            }, on_conflict="id").execute()
+            }, on_conflict="id").execute()  
     except Exception as e:
         print(f"⚠️ Supabase loop_state save failed: {e} — saved to JSON only")
 
