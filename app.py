@@ -1035,6 +1035,79 @@ with tab2:
 
     st.divider()
 
+    # ── Market Structure Validation (M38C) ────────
+    st.subheader("🏗️ Intraday Structure Validation")
+    st.caption(
+        "Are today's eligible stocks actually trending, and are they near a "
+        "Demand or Supply zone? Only UPTREND/DOWNTREND stocks near a zone qualify — "
+        "sideways (RANGE) stocks are rejected per the VCPS spec."
+    )
+
+    if st.button("🔍 Validate Market Structure", key="validate_structure_btn"):
+        if "filter_result" not in st.session_state or not st.session_state["filter_result"].get("eligible"):
+            st.warning("Run the Stock Selection Filter above first — need an eligible list to validate.")
+        else:
+            with st.spinner("Checking trend structure, BOS/CHOCH, and supply/demand zones..."):
+                from strategies.market_structure_validator import validate_intraday_universe
+                st.session_state["structure_result"] = validate_intraday_universe(
+                    st.session_state["filter_result"]["eligible"]
+                )
+
+    if "structure_result" in st.session_state:
+        structure_result = st.session_state["structure_result"]
+
+        if not structure_result["data_available"]:
+            st.info("No structure data yet — run the validation above.")
+        else:
+            validated = structure_result["validated"]
+            rejected  = structure_result["rejected"]
+
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Stocks Checked", len(validated) + len(rejected))
+            sm2.metric("✅ Trade Candidates", len(validated))
+            sm3.metric("❌ Rejected", len(rejected))
+
+            if validated:
+                st.success(
+                    f"🎯 {len(validated)} stock(s) are trending AND near a zone — "
+                    f"ready for the Entry Engine (M38D+)"
+                )
+
+                rows = []
+                for v in validated:
+                    setup = "LONG (near Demand)" if v["valid_for_long"] else "SHORT (near Supply)"
+                    zone  = v["demand_zone"] if v["valid_for_long"] else v["supply_zone"]
+                    dist  = v["distance_to_demand_pct"] if v["valid_for_long"] else v["distance_to_supply_pct"]
+                    rows.append({
+                        "Stock":        v["stock_name"],
+                        "Sector":       v["sector"],
+                        "Setup":        setup,
+                        "Structure":    v["trend_state"],
+                        "Zone ₹":       f"{zone['zone_low']}–{zone['zone_high']}" if zone else "N/A",
+                        "Zone Touches": zone["touches"] if zone else "—",
+                        "Distance %":   f"{dist}%" if dist is not None else "N/A",
+                        "BOS":          "✅" if v["bos_detected"] else "—",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            else:
+                st.info("No stocks passed structure validation today — normal in choppy markets.")
+
+            if rejected:
+                with st.expander(f"📋 Why {len(rejected)} stock(s) were rejected"):
+                    rej_rows = [
+                        {
+                            "Stock":     r["stock_name"],
+                            "Structure": r.get("structure_type", "N/A"),
+                            "Reason":    r.get("rejection_reason", "Unknown"),
+                        }
+                        for r in rejected
+                    ]
+                    st.dataframe(pd.DataFrame(rej_rows), use_container_width=True, hide_index=True)
+
+            st.caption(f"Fetched: {structure_result['fetched_at']}")
+
+    st.divider()
+
     st.subheader("📚 Strategy Guide by Regime")
     guide_data = [
         {"Regime": "BULL 🐂",       "Use": "EMA, MACD",      "Avoid": "Nothing",      "Cash": "20%"},
