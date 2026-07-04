@@ -649,6 +649,282 @@ def evaluate_trade_management(position: dict, current_price: float, current_data
     )
     return result
 
+
+# ════════════════════════════════════════════════
+# M38H — TRADE QUALITY SCORE ENGINE (Module 12)
+# 0-100 composite score combining every gate a
+# signal already passed, so the strongest setups of
+# the day can be told apart from the merely-eligible.
+# ════════════════════════════════════════════════
+
+TQS_WEIGHTS = {
+    "regime":      15,
+    "sector":      20,
+    "structure":   20,
+    "zone":        15,
+    "volume":      10,
+    "volatility":  10,
+    "risk_reward": 10,
+}   # Sums to 100, matching the spec exactly
+
+TQS_REJECT_THRESHOLD = 60   # Per spec: "Below 60 = Reject"
+
+
+def _get_sector_score_map(active_only: bool = True) -> dict:
+    """
+    Fetch sector scores ONCE per scan and build a lookup:
+      {sector_name: (rank, sector_score)}
+
+    Reuses strategies/sector_strength.py rather than recomputing
+    per-stock — sector ranking doesn't change between two stocks
+    in the same scan cycle.
+    """
+    try:
+        from strategies.sector_strength import calculate_sector_scores
+        df = calculate_sector_scores(active_only=active_only)
+        if df.empty:
+            return {}
+        return {
+            row["Sector"]: (int(row["Rank"]), float(row["Sector Score"]))
+            for _, row in df.iterrows()
+        }
+    except Exception:
+        return {}
+
+
+def _score_regime(direction_detail: dict) -> tuple:
+    """
+    Component — Market Regime (15 pts).
+    The signal already only exists because regime matched the trade
+    direction (Module 1's job) — this grades HOW CONVINCINGLY it
+    matched, using the same VWAP/EMA/breadth readings Module 1 used.
+    """
+    if not direction_detail or not direction_detail.get("data_available"):
+        return 8, "Regime data unavailable — neutral score"
+
+    pts = 10   # base — regime already confirmed direction (mandatory gate)
+
+    breadth_ratio = direction_detail.get("breadth_ratio")
+    regime        = direction_detail.get("market_regime")
+
+    if breadth_ratio is not None:
+        if regime == "BULLISH" and breadth_ratio >= 1.5:
+            pts += 5
+        elif regime == "BEARISH" and breadth_ratio <= 0.67:
+            pts += 5
+        elif regime in ("BULLISH", "BEARISH"):
+            pts += 2
+
+    return min(pts, TQS_WEIGHTS["regime"]), (
+        f"Regime {regime} confirmed | Breadth {breadth_ratio}:1"
+        if breadth_ratio is not None else f"Regime {regime} confirmed"
+    )
+
+
+def _score_sector(sector_name, sector_map: dict) -> tuple:
+    """Component — Sector Strength (20 pts)."""
+    if not sector_map or sector_name not in sector_map:
+        return 10, "Sector ranking unavailable — neutral score"
+
+    rank, score = sector_map[sector_name]
+    if rank == 1:   pts = 20
+    elif rank == 2: pts = 16
+    elif rank == 3: pts = 12
+    else:           pts = 6   # shouldn't normally happen — M38A already restricts to top 3
+
+    return pts, f"Sector rank #{rank} of watchlist (score {score})"
+
+
+def _score_structure(hh_count, hl_count, lh_count, ll_count, bos_detected, direction: str) -> tuple:
+    """
+    Component — Structure Quality (20 pts).
+    10 base (UPTREND/DOWNTREND already confirmed by M38C — mandatory gate)
+    + up to 6 for swing-point strength (HH+HL for LONG, LH+LL for SHORT)
+    + 4 if BOS (Break of Structure) confirms continuation.
+    """
+    pts = 10
+    swing_total = (
+        (hh_count or 0) + (hl_count or 0) if direction == "LONG"
+        else (lh_count or 0) + (ll_count or 0)
+    )
+
+    if swing_total >= 4:   pts += 6
+    elif swing_total >= 2: pts += 4
+    elif swing_total >= 1: pts += 2
+
+    if bos_detected:
+        pts += 4
+
+    reason = f"Swing structure strength: {swing_total} points"
+    if bos_detected:
+        reason += " | BOS confirmed"
+
+    return min(pts, TQS_WEIGHTS["structure"]), reason
+
+
+def _score_zone(zone: dict, distance_pct) -> tuple:
+    """Component — Zone Quality (15 pts)."""
+    if not zone:
+        return 0, "No zone data available"
+
+    touches = zone.get("touches", 1)
+    if touches >= 3:   touch_pts = 8
+    elif touches == 2: touch_pts = 5
+    else:              touch_pts = 2
+
+    if distance_pct is None:
+        dist_pts = 3
+    else:
+        d = abs(distance_pct)
+        if d <= 1.0:   dist_pts = 7
+        elif d <= 2.0: dist_pts = 5
+        elif d <= 3.0: dist_pts = 3
+        else:          dist_pts = 1
+
+    return touch_pts + dist_pts, f"{touches} touch(es) at this zone | {distance_pct}% from price"
+
+
+def _score_volume_compression(volume_detail: dict) -> tuple:
+    """Component — Volume Compression (10 pts)."""
+    if not volume_detail or not volume_detail.get("volume_compression"):
+        return 0, "Volume compression not confirmed"
+
+    ratio = volume_detail.get("volume_ratio")
+    if ratio is not None and ratio <= 0.30:
+        return 10, f"Extreme volume exhaustion ({ratio}x avg)"
+    elif ratio is not None and ratio <= 0.45:
+        return 8, f"Strong volume exhaustion ({ratio}x avg)"
+    else:
+        note = f"({ratio}x avg)" if ratio is not None else ""
+        return 6, f"Volume compression confirmed {note}".strip()
+
+
+def _score_volatility_compression(volatility_detail: dict) -> tuple:
+    """Component — Volatility Compression (10 pts)."""
+    if not volatility_detail or not volatility_detail.get("volatility_compression"):
+        return 0, "Volatility compression not confirmed"
+
+    atr_ratio = volatility_detail.get("atr_ratio")
+    if atr_ratio is not None and atr_ratio <= 0.50:
+        return 10, f"Deep ATR compression ({atr_ratio}x avg)"
+    elif atr_ratio is not None and atr_ratio <= 0.65:
+        return 8, f"Strong ATR compression ({atr_ratio}x avg)"
+    else:
+        note = f"({atr_ratio}x avg)" if atr_ratio is not None else ""
+        return 6, f"Volatility compression confirmed {note}".strip()
+
+
+def _score_risk_reward(target_1_rr, target_2_rr) -> tuple:
+    """
+    Component — Risk:Reward (10 pts).
+    Prefers Target 2 (variable, reflects the real zone-to-zone
+    opportunity) over Target 1 (fixed 2R by construction).
+    """
+    rr = target_2_rr if target_2_rr is not None else target_1_rr
+    if rr is None:
+        return 5, "Risk:Reward unavailable — neutral score"
+
+    if rr >= 3.0:   pts = 10
+    elif rr >= 2.5: pts = 8
+    elif rr >= 2.0: pts = 6
+    elif rr >= 1.5: pts = 4
+    else:           pts = 2
+
+    return pts, f"Risk:Reward {rr}:1"
+
+
+def classify_trade_grade(score: int) -> str:
+    """Per spec: 90+ A+, 80-89 A, 70-79 B, 60-69 C, below 60 REJECT."""
+    if score >= 90: return "A+"
+    elif score >= 80: return "A"
+    elif score >= 70: return "B"
+    elif score >= TQS_REJECT_THRESHOLD: return "C"
+    else: return "REJECT"
+
+
+def calculate_trade_quality_score(
+    direction: str,
+    sector_name,
+    sector_map: dict,
+    direction_detail: dict,
+    hh_count, hl_count, lh_count, ll_count,
+    bos_detected,
+    zone: dict,
+    distance_pct,
+    volume_detail: dict,
+    volatility_detail: dict,
+    target_1_rr,
+    target_2_rr,
+) -> dict:
+    """
+    Master function — Module 12. Combines all 7 weighted components
+    into a single 0-100 score. Every component carries its own
+    plain-English reason — same audit-everything pattern as the
+    rest of this project.
+    """
+    regime_pts, regime_reason = _score_regime(direction_detail)
+    sector_pts, sector_reason = _score_sector(sector_name, sector_map)
+    struct_pts, struct_reason = _score_structure(hh_count, hl_count, lh_count, ll_count, bos_detected, direction)
+    zone_pts,   zone_reason   = _score_zone(zone, distance_pct)
+    vol_pts,    vol_reason    = _score_volume_compression(volume_detail)
+    volat_pts,  volat_reason  = _score_volatility_compression(volatility_detail)
+    rr_pts,     rr_reason     = _score_risk_reward(target_1_rr, target_2_rr)
+
+    total = max(0, min(100, round(
+        regime_pts + sector_pts + struct_pts + zone_pts + vol_pts + volat_pts + rr_pts
+    )))
+    grade = classify_trade_grade(total)
+
+    breakdown = {
+        "Market Regime":          {"score": regime_pts, "max": TQS_WEIGHTS["regime"],      "reason": regime_reason},
+        "Sector Strength":        {"score": sector_pts,  "max": TQS_WEIGHTS["sector"],      "reason": sector_reason},
+        "Structure Quality":      {"score": struct_pts,  "max": TQS_WEIGHTS["structure"],   "reason": struct_reason},
+        "Zone Quality":           {"score": zone_pts,    "max": TQS_WEIGHTS["zone"],        "reason": zone_reason},
+        "Volume Compression":     {"score": vol_pts,     "max": TQS_WEIGHTS["volume"],      "reason": vol_reason},
+        "Volatility Compression": {"score": volat_pts,   "max": TQS_WEIGHTS["volatility"],  "reason": volat_reason},
+        "Risk:Reward":            {"score": rr_pts,      "max": TQS_WEIGHTS["risk_reward"], "reason": rr_reason},
+    }
+
+    return {
+        "trade_score":           total,
+        "trade_grade":           grade,
+        "trade_score_breakdown": breakdown,
+        "trade_score_rejected":  grade == "REJECT",
+    }
+
+
+def attach_trade_quality_score(signal: dict, candidate: dict, direction_detail: dict, sector_map: dict) -> dict:
+    """
+    Pulls the fields Module 12 needs from the signal dict (built in
+    scan_intraday_entries) and the raw M38C candidate dict (which
+    still carries hh/hl/lh/ll counts and the compression detail
+    dicts), then merges the score into the signal.
+    """
+    direction = "LONG" if signal.get("signal") == "BUY" else "SHORT"
+
+    tqs = calculate_trade_quality_score(
+        direction         = direction,
+        sector_name       = signal.get("sector"),
+        sector_map        = sector_map,
+        direction_detail  = direction_detail,
+        hh_count          = candidate.get("hh_count"),
+        hl_count          = candidate.get("hl_count"),
+        lh_count          = candidate.get("lh_count"),
+        ll_count          = candidate.get("ll_count"),
+        bos_detected      = signal.get("bos_detected"),
+        zone              = signal.get("zone"),
+        distance_pct      = signal.get("distance_to_zone_pct"),
+        volume_detail     = candidate.get("volume_detail"),
+        volatility_detail = candidate.get("volatility_detail"),
+        target_1_rr       = signal.get("target_1_rr"),
+        target_2_rr       = signal.get("target_2_rr"),
+    )
+
+    enriched = dict(signal)
+    enriched.update(tqs)
+    return enriched
+
+
 # ════════════════════════════════════════════════
 # MODULE 8 — MASTER ENTRY LOGIC
 # Chains M38A -> B -> C -> D -> breakout trigger
@@ -764,10 +1040,19 @@ def scan_intraday_entries(
     entry_direction = "LONG" if regime == "BULLISH" else "SHORT"
 
     def _worker(item):
-        symbol  = item.get("symbol")
-        trigger = _check_breakout_trigger(symbol, entry_direction)
-        merged  = dict(item)
-        merged["trigger"] = trigger
+        symbol = item.get("symbol")
+        cr     = get_compression_analysis(symbol)
+        merged = dict(item)   # keep all M38C fields (structure, zones, etc.)
+        merged.update({
+            "volume_compression":     cr["volume_compression"],
+            "volatility_compression": cr["volatility_compression"],
+            "compression_confirmed":  cr["compression_confirmed"],
+            "compression_data_available": cr["data_available"],
+            # M38H needs the ratio detail (not just the boolean) to
+            # grade HOW compressed a candidate is, not just whether.
+            "volume_detail":          cr.get("volume_detail", {}),
+            "volatility_detail":      cr.get("volatility_detail", {}),
+        })
         return merged
 
     triggered_results = []
@@ -800,6 +1085,9 @@ def scan_intraday_entries(
     dist_key          = "distance_to_demand_pct" if entry_direction == "LONG" else "distance_to_supply_pct"
     opposite_zone_key = "supply_zone" if entry_direction == "LONG" else "demand_zone"
 
+    # ── M38H — sector scores fetched ONCE for this batch ──
+    sector_map = _get_sector_score_map(active_only=active_only) if triggered_results else {}
+
     for r in triggered_results:
         trig = r["trigger"]
         signal = {
@@ -827,6 +1115,20 @@ def scan_intraday_entries(
 
         # ── M38F — attach stop loss (Module 9) and targets (Module 10) ──
         signal = attach_risk_management(signal)
+
+        # ── M38H — attach Trade Quality Score (Module 12) ─────
+        signal = attach_trade_quality_score(signal, r, direction, sector_map)
+
+        if signal.get("trade_score_rejected"):
+            # Passed every structural gate but scored below 60 —
+            # per spec ("Below 60 = Reject"), log as a watch item
+            # with the reason instead of a live signal.
+            r["watch_reason"] = (
+                f"Trade Quality Score {signal['trade_score']}/100 "
+                f"(Grade {signal['trade_grade']}) — below the 60 minimum, rejected"
+            )
+            result["watching"].append(r)
+            continue
 
         if entry_direction == "LONG":
             result["long_signals"].append(signal)

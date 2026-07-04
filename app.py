@@ -1243,14 +1243,22 @@ with tab2:
             em2.metric("🔴 SELL Signals", len(short_sigs))
             em3.metric("👀 Watching",     len(watching))
 
+            def _color_tqs_grade(val):
+                if val in ("A+", "A"): return "color: green; font-weight: bold"
+                if val == "B": return "color: lightgreen"
+                if val == "C": return "color: orange"
+                return ""
+
             if long_sigs:
                 st.success(f"✅ {len(long_sigs)} BUY signal(s) triggered!")
                 rows = []
-                for s in long_sigs:
+                for s in sorted(long_sigs, key=lambda x: x.get("trade_score", 0), reverse=True):
                     zone = s.get("zone") or {}
                     rows.append({
                         "Stock":       s["stock"],
                         "Sector":      s["sector"],
+                        "Trade Score": f"{s.get('trade_score','?')}/100",
+                        "Grade":       s.get("trade_grade", "?"),
                         "Entry ₹":     s["entry_price"],
                         "Now ₹":       s["latest_close"],
                         "Stop ₹":      s.get("stop_price", "N/A"),
@@ -1261,17 +1269,28 @@ with tab2:
                         "Vol Ratio":   s.get("volume_ratio"),
                         "BOS":         "✅" if s.get("bos_detected") else "—",
                     })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-                st.caption("💡 Stop uses the tightest of zone edge / compression candle / ATR. Target 1 = 2R, Target 2 = nearest opposite zone.")
+                st.dataframe(
+                    pd.DataFrame(rows).style.map(_color_tqs_grade, subset=["Grade"]),
+                    use_container_width=True, hide_index=True
+                )
+                st.caption(
+                    "💡 Stop uses the tightest of zone edge / compression candle / ATR. "
+                    "Target 1 = 2R, Target 2 = nearest opposite zone. "
+                    "Trade Score = Regime 15 + Sector 20 + Structure 20 + Zone 15 + "
+                    "Vol Compression 10 + Volatility Compression 10 + Risk:Reward 10 (100 max). "
+                    "Scores below 60 are auto-rejected — see 👀 Watching below."
+                )
 
             if short_sigs:
                 st.error(f"🔴 {len(short_sigs)} SELL signal(s) triggered!")
                 rows = []
-                for s in short_sigs:
+                for s in sorted(short_sigs, key=lambda x: x.get("trade_score", 0), reverse=True):
                     zone = s.get("zone") or {}
                     rows.append({
                         "Stock":       s["stock"],
                         "Sector":      s["sector"],
+                        "Trade Score": f"{s.get('trade_score','?')}/100",
+                        "Grade":       s.get("trade_grade", "?"),
                         "Entry ₹":     s["entry_price"],
                         "Now ₹":       s["latest_close"],
                         "Stop ₹":      s.get("stop_price", "N/A"),
@@ -1282,7 +1301,10 @@ with tab2:
                         "Vol Ratio":   s.get("volume_ratio"),
                         "BOS":         "✅" if s.get("bos_detected") else "—",
                     })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                st.dataframe(
+                    pd.DataFrame(rows).style.map(_color_tqs_grade, subset=["Grade"]),
+                    use_container_width=True, hide_index=True
+                )
 
             if not long_sigs and not short_sigs:
                 st.info("No entry triggered yet this scan — normal, VCPS setups are selective by design.")
