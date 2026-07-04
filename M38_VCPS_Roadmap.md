@@ -32,7 +32,7 @@ elsewhere in the codebase.
 | **M38C** | Module 4 + 5 — Market Structure + Supply/Demand Zones | Classifies each eligible stock as UPTREND/DOWNTREND/RANGE (RANGE rejected), detects BOS/CHOCH, finds nearest Demand/Supply zone with distance %. | `strategies/market_structure_validator.py` | ✅ Done |
 | **M38D** | Module 1 + 6 + 7 — Market Direction Filter + Volume Compression + Volatility Compression | Intraday-specific NIFTY direction gate (VWAP + 20 EMA + watchlist breadth proxy, on 5-min data). Detects exhaustion pullbacks: volume < 50% of 20-bar avg AND bottom 10th percentile; ATR < 80% of ATR20 avg AND BB width < 20-bar avg. Uses NIFTYBEES.NS as proxy since index tickers carry no volume. | `strategies/intraday_direction.py` | ✅ Done |
 | **M38E** | Module 8 — Entry Logic | Combines M38A-D outputs: LONG if regime=BULLISH + sector top-3 + UPTREND + compression=True + near Demand zone + breaks compression candle high. SHORT is the mirror. | `strategies/intraday_engine.py` (new) | ✅ Done |
-| **M38F** | Module 9 + 10 — Stop Loss Engine + Target Engine | Stop = max(zone edge, compression candle edge, ATR stop). Target 1 = 2R, Target 2 = opposite zone, Target 3 = 10 EMA trail. | `strategies/intraday_engine.py` | Not started |
+| **M38F** | Module 9 + 10 — Stop Loss Engine + Target Engine | Stop = max(zone edge, compression candle edge, ATR stop) for LONG / min(...) for SHORT. Target 1 = 2R, Target 2 = nearest opposite zone edge, Target 3 = 10 EMA trail (dynamic, re-checked live). | `strategies/intraday_engine.py` | ✅ Done |
 | **M38G** | Module 11 — Trade Management | At Target 1: book 50%, move stop to breakeven. Remainder trails via 10 EMA or structure-based stop. Wire into existing `position_manager.py` partial-exit machinery (already supports this pattern from M34). | `portfolio/position_manager.py` (patch), `strategies/intraday_engine.py` | Not started |
 | **M38H** | Module 12 — Trade Quality Score | 0-100 composite: Regime 15 + Sector 20 + Structure 20 + Zone 15 + Vol Compression 10 + Volatility Compression 10 + Risk:Reward 10. Grades A+ (90+) down to Reject (<60). | `strategies/intraday_engine.py` | Not started |
 | **M38I** | Module 13 — Scanner Integration | Add intraday columns (Market Regime, Sector Rank, Structure, Zones, Compression flags, Stop, Targets, Trade Score/Grade) to a dashboard tab, same pattern as existing Scanner tab. | `app.py` (patch), `strategies/performance_scanner.py` (patch, optional) | Not started |
@@ -96,4 +96,4 @@ elsewhere in the codebase.
 
 ---
 
-*Last updated: after M38D (Intraday Market Direction Filter + Volume/Volatility Compression)*
+*Last updated: after M38F (Risk Management Engine — Stop Loss + Target Engine)*

@@ -1253,12 +1253,16 @@ with tab2:
                         "Sector":      s["sector"],
                         "Entry ₹":     s["entry_price"],
                         "Now ₹":       s["latest_close"],
+                        "Stop ₹":      s.get("stop_price", "N/A"),
+                        "Target 1 ₹":  s.get("target_1", "N/A"),
+                        "Target 2 ₹":  s.get("target_2", "N/A"),
                         "Demand Zone": f"{zone.get('zone_low','?')}–{zone.get('zone_high','?')}" if zone else "N/A",
                         "Structure":   s["structure"],
                         "Vol Ratio":   s.get("volume_ratio"),
                         "BOS":         "✅" if s.get("bos_detected") else "—",
                     })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                st.caption("💡 Stop uses the tightest of zone edge / compression candle / ATR. Target 1 = 2R, Target 2 = nearest opposite zone.")
 
             if short_sigs:
                 st.error(f"🔴 {len(short_sigs)} SELL signal(s) triggered!")
@@ -1270,6 +1274,9 @@ with tab2:
                         "Sector":      s["sector"],
                         "Entry ₹":     s["entry_price"],
                         "Now ₹":       s["latest_close"],
+                        "Stop ₹":      s.get("stop_price", "N/A"),
+                        "Target 1 ₹":  s.get("target_1", "N/A"),
+                        "Target 2 ₹":  s.get("target_2", "N/A"),
                         "Supply Zone": f"{zone.get('zone_low','?')}–{zone.get('zone_high','?')}" if zone else "N/A",
                         "Structure":   s["structure"],
                         "Vol Ratio":   s.get("volume_ratio"),

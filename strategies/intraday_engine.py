@@ -78,6 +78,14 @@ try:
 except ImportError:
     SCANNER_MAX_WORKERS = 10
 
+import pandas as pd
+
+# ── M38F: Risk Management Settings (Module 9 + 10) ────────
+ATR_STOP_PERIOD     = 14    # 5-min bars used for the ATR stop component
+ATR_STOP_MULTIPLIER = 1.5   # ATR Stop = entry -/+ (ATR x multiplier)
+EMA_TRAIL_PERIOD    = 10    # Target 3 — dynamic trailing exit reference (10 EMA)
+RISK_REWARD_TARGET1 = 2.0   # Target 1 = entry +/- (risk_per_share x 2R)
+
 
 # ════════════════════════════════════════════════
 # ENTRY TRIGGER — breakout of the compression candle
@@ -151,6 +159,250 @@ def _check_breakout_trigger(symbol: str, direction: str, data=None) -> dict:
         result["reason"] = f"Breakout check error: {e}"
 
     return result
+
+
+# ════════════════════════════════════════════════
+# M38F — RISK MANAGEMENT ENGINE (Module 9 + 10)
+# Stop Loss Engine + Target Engine
+# ════════════════════════════════════════════════
+
+def calculate_stop_loss(
+    direction: str,
+    entry_price: float,
+    zone: dict,
+    compression_candle_high,
+    compression_candle_low,
+    atr_value,
+) -> dict:
+    """
+    Module 9 — Stop Loss Engine.
+
+    LONG:  Stop = max(Demand Zone Low, Compression Candle Low, ATR Stop)
+           -> the HIGHEST of the three (closest to entry) is the tightest,
+              most protective stop, per spec.
+    SHORT: Stop = min(Supply Zone High, Compression Candle High, ATR Stop)
+           -> the LOWEST of the three is the tightest stop.
+
+    zone: the entry-side zone (demand_zone for LONG, supply_zone for SHORT)
+    atr_value: current ATR on 5-min bars, or None if unavailable
+
+    Returns None if no candidate stop could be built, or if the computed
+    stop lands on the wrong side of entry (invalid setup — reject).
+    """
+    candidates = {}
+
+    if direction == "LONG":
+        if zone and zone.get("zone_low") is not None:
+            candidates["Demand Zone Low"] = round(float(zone["zone_low"]), 2)
+        if compression_candle_low is not None:
+            candidates["Compression Candle Low"] = round(float(compression_candle_low), 2)
+        if atr_value is not None:
+            candidates["ATR Stop"] = round(entry_price - (atr_value * ATR_STOP_MULTIPLIER), 2)
+
+        if not candidates:
+            return None
+
+        stop_basis = max(candidates, key=candidates.get)
+        stop_price = candidates[stop_basis]
+        risk_per_share = round(entry_price - stop_price, 2)
+
+    else:   # SHORT
+        if zone and zone.get("zone_high") is not None:
+            candidates["Supply Zone High"] = round(float(zone["zone_high"]), 2)
+        if compression_candle_high is not None:
+            candidates["Compression Candle High"] = round(float(compression_candle_high), 2)
+        if atr_value is not None:
+            candidates["ATR Stop"] = round(entry_price + (atr_value * ATR_STOP_MULTIPLIER), 2)
+
+        if not candidates:
+            return None
+
+        stop_basis = min(candidates, key=candidates.get)
+        stop_price = candidates[stop_basis]
+        risk_per_share = round(stop_price - entry_price, 2)
+
+    if risk_per_share <= 0:
+        return None   # Stop landed on the wrong side of entry — invalid, reject
+
+    return {
+        "stop_price":      stop_price,
+        "risk_per_share":  risk_per_share,
+        "stop_basis":      stop_basis,
+        "stop_candidates": candidates,
+    }
+
+
+def calculate_targets(
+    direction: str,
+    entry_price: float,
+    stop_price: float,
+    risk_per_share: float,
+    opposite_zone: dict,
+) -> dict:
+    """
+    Module 10 — Target Engine.
+
+    Target 1: 2R — twice the risk_per_share distance from entry.
+    Target 2: nearest edge of the OPPOSITE zone
+              (Supply Zone for LONG, Demand Zone for SHORT).
+              None if no opposite zone was found nearby.
+    Target 3 (EMA Trail) is handled separately by get_ema_trail_info() —
+    it's a dynamic rule, not a fixed price.
+    """
+    if direction == "LONG":
+        target_1 = round(entry_price + (risk_per_share * RISK_REWARD_TARGET1), 2)
+        target_2 = None
+        if opposite_zone and opposite_zone.get("zone_low") is not None:
+            target_2 = round(float(opposite_zone["zone_low"]), 2)   # nearest Supply edge
+    else:   # SHORT
+        target_1 = round(entry_price - (risk_per_share * RISK_REWARD_TARGET1), 2)
+        target_2 = None
+        if opposite_zone and opposite_zone.get("zone_high") is not None:
+            target_2 = round(float(opposite_zone["zone_high"]), 2)  # nearest Demand edge
+
+    target_2_rr = None
+    if target_2 is not None and risk_per_share > 0:
+        target_2_rr = round(abs(target_2 - entry_price) / risk_per_share, 2)
+
+    return {
+        "target_1":    target_1,
+        "target_1_rr": RISK_REWARD_TARGET1,
+        "target_2":    target_2,
+        "target_2_rr": target_2_rr,
+    }
+
+
+def get_ema_trail_info(data, period: int = EMA_TRAIL_PERIOD) -> dict:
+    """
+    Module 10 — Target 3: EMA Trail Exit.
+
+    Not a fixed price — a dynamic trailing rule. Per the original spec,
+    the remaining position exits when price closes above/below the 10 EMA
+    and breaks the high/low of that candle. This returns the CURRENT 10 EMA
+    value as a live reference point; the actual exit trigger is re-checked
+    every cycle (same stateless pattern as the rest of this engine).
+    """
+    if data is None or len(data) < period:
+        return {"ema_trail_value": None, "ema_trail_period": period, "available": False}
+    try:
+        ema = data["Close"].ewm(span=period, adjust=False).mean()
+        latest = float(ema.iloc[-1])
+        return {
+            "ema_trail_value": round(latest, 2),
+            "ema_trail_period": period,
+            "available": True,
+        }
+    except Exception:
+        return {"ema_trail_value": None, "ema_trail_period": period, "available": False}
+
+
+def attach_risk_management(signal: dict) -> dict:
+    """
+    Master function — combines Module 9 (Stop Loss) + Module 10 (Target).
+    Takes one triggered signal dict from scan_intraday_entries()'s
+    long_signals / short_signals and returns it enriched with:
+
+      stop_price, risk_per_share, stop_basis,
+      target_1, target_1_rr, target_2, target_2_rr,
+      ema_trail_value, ema_trail_period,
+      risk_management_available, risk_management_reason
+
+    signal["zone"] must be the entry-side zone (already set by
+    scan_intraday_entries) and signal["opposite_zone"] the zone on the
+    other side — both carried through from M38C's structure validation
+    so no extra daily-data fetch is needed here.
+    """
+    enriched = dict(signal)
+    enriched.update({
+        "stop_price": None, "risk_per_share": None, "stop_basis": None,
+        "target_1": None, "target_1_rr": None, "target_2": None, "target_2_rr": None,
+        "ema_trail_value": None, "ema_trail_period": EMA_TRAIL_PERIOD,
+        "risk_management_available": False,
+        "risk_management_reason": "",
+    })
+
+    direction   = "LONG" if signal.get("signal") == "BUY" else "SHORT"
+    entry_price = signal.get("entry_price")
+    symbol      = signal.get("symbol")
+    zone        = signal.get("zone")
+    opp_zone    = signal.get("opposite_zone")
+
+    if entry_price is None or symbol is None:
+        enriched["risk_management_reason"] = (
+            "Missing entry price or symbol — cannot compute risk levels"
+        )
+        return enriched
+
+    # 5-min data for the ATR stop component and EMA trail reference
+    intraday_data = None
+    try:
+        intraday_data = _fetch_intraday_data(symbol)
+    except Exception:
+        pass
+
+    atr_value = None
+    if intraday_data is not None:
+        try:
+            from strategies.market_structure import _calculate_atr
+            atr_series = _calculate_atr(intraday_data, period=ATR_STOP_PERIOD)
+            latest_atr = atr_series.iloc[-1]
+            if not pd.isna(latest_atr):
+                atr_value = round(float(latest_atr), 2)
+        except Exception:
+            pass
+
+    stop_result = calculate_stop_loss(
+        direction=direction,
+        entry_price=entry_price,
+        zone=zone,
+        compression_candle_high=signal.get("compression_candle_high"),
+        compression_candle_low=signal.get("compression_candle_low"),
+        atr_value=atr_value,
+    )
+
+    if stop_result is None:
+        enriched["risk_management_reason"] = (
+            "Could not compute a valid stop loss — no zone, compression candle, "
+            "or ATR data available, or the stop landed on the wrong side of entry"
+        )
+        return enriched
+
+    target_result = calculate_targets(
+        direction=direction,
+        entry_price=entry_price,
+        stop_price=stop_result["stop_price"],
+        risk_per_share=stop_result["risk_per_share"],
+        opposite_zone=opp_zone,
+    )
+
+    ema_info = get_ema_trail_info(intraday_data) if intraday_data is not None else {
+        "ema_trail_value": None, "ema_trail_period": EMA_TRAIL_PERIOD, "available": False,
+    }
+
+    t2_note = (
+        f" | Target 2 ₹{target_result['target_2']} ({target_result['target_2_rr']}R)"
+        if target_result["target_2"] is not None else " | No Target 2 zone found nearby"
+    )
+
+    enriched.update({
+        "stop_price":       stop_result["stop_price"],
+        "risk_per_share":   stop_result["risk_per_share"],
+        "stop_basis":       stop_result["stop_basis"],
+        "target_1":         target_result["target_1"],
+        "target_1_rr":      target_result["target_1_rr"],
+        "target_2":         target_result["target_2"],
+        "target_2_rr":      target_result["target_2_rr"],
+        "ema_trail_value":  ema_info.get("ema_trail_value"),
+        "ema_trail_period": ema_info.get("ema_trail_period", EMA_TRAIL_PERIOD),
+        "risk_management_available": True,
+        "risk_management_reason": (
+            f"Stop via {stop_result['stop_basis']} (₹{stop_result['stop_price']}) | "
+            f"Risk ₹{stop_result['risk_per_share']}/share | "
+            f"Target 1 (2R) ₹{target_result['target_1']}" + t2_note
+        ),
+    })
+    return enriched
+
 
 
 # ════════════════════════════════════════════════
@@ -300,8 +552,9 @@ def scan_intraday_entries(
     result["watching"].extend(not_triggered_yet)
 
     # ── Build the final signal dicts ──────────────
-    zone_key = "demand_zone" if entry_direction == "LONG" else "supply_zone"
-    dist_key = "distance_to_demand_pct" if entry_direction == "LONG" else "distance_to_supply_pct"
+    zone_key          = "demand_zone" if entry_direction == "LONG" else "supply_zone"
+    dist_key          = "distance_to_demand_pct" if entry_direction == "LONG" else "distance_to_supply_pct"
+    opposite_zone_key = "supply_zone" if entry_direction == "LONG" else "demand_zone"
 
     for r in triggered_results:
         trig = r["trigger"]
@@ -314,6 +567,7 @@ def scan_intraday_entries(
             "structure":               r.get("structure_type"),
             "trend_state":             r.get("trend_state"),
             "zone":                    r.get(zone_key),
+            "opposite_zone":           r.get(opposite_zone_key),
             "distance_to_zone_pct":    r.get(dist_key),
             "compression_candle_high": trig.get("compression_candle_high"),
             "compression_candle_low":  trig.get("compression_candle_low"),
@@ -326,6 +580,10 @@ def scan_intraday_entries(
             "bos_detected":            r.get("bos_detected"),
             "reason":                  trig.get("reason"),
         }
+
+        # ── M38F — attach stop loss (Module 9) and targets (Module 10) ──
+        signal = attach_risk_management(signal)
+
         if entry_direction == "LONG":
             result["long_signals"].append(signal)
         else:
