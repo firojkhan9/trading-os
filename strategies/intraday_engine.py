@@ -1330,3 +1330,104 @@ def get_intraday_scanner_df(
     result["df"] = pd.DataFrame(rows)
     result["data_available"] = True
     return result
+
+    # ════════════════════════════════════════════════
+# M38J — AUTOMATION-READY OUTPUT (Module 14)
+# Standardizes every triggered signal into the exact
+# dictionary shape execution_loop.py will consume once
+# the Intraday bucket goes live. Pure output formatting —
+# no new detection logic, everything here already exists
+# from M38E (entry) -> M38F (risk) -> M38H (score).
+# ════════════════════════════════════════════════
+
+def build_automation_payload(signal: dict, sector_map: dict) -> dict:
+    """
+    Converts one enriched signal (from scan_intraday_entries()'s
+    long_signals / short_signals) into the standardized dict the
+    VCPS spec calls for in Module 14.
+
+    Adds "symbol" beyond the spec's literal field list — execution_loop.py
+    cannot fetch a live price or place a trade with only the display name
+    ("RELIANCE"), so this is the one deliberate addition to the spec's
+    shape. Every other key matches the spec exactly.
+    """
+    sector_name = signal.get("sector")
+    sector_rank = None
+    if sector_map and sector_name in sector_map:
+        sector_rank, _ = sector_map[sector_name]
+
+    return {
+        "stock":         signal.get("stock"),
+        "symbol":        signal.get("symbol"),
+        "signal":        signal.get("signal"),
+        "entry_price":   signal.get("entry_price"),
+        "stop_price":    signal.get("stop_price"),
+        "target_1":      signal.get("target_1"),
+        "target_2":      signal.get("target_2"),
+        "trade_score":   signal.get("trade_score"),
+        "trade_grade":   signal.get("trade_grade"),
+        "market_regime": signal.get("market_regime"),
+        "sector_rank":   sector_rank,
+        "structure":     signal.get("structure"),
+    }
+
+
+def get_automation_ready_signals(
+    top_n_sectors: int = 3,
+    require_fo: bool = True,
+    active_only: bool = True,
+) -> dict:
+    """
+    Master function — Module 14 of the VCPS spec.
+
+    Runs the full M38A→H pipeline via scan_intraday_entries() and
+    returns ONLY the standardized, automation-ready payloads — the
+    exact shape the (future) Intraday execution loop will consume.
+
+    Deliberately excludes "watching" candidates — those aren't
+    trade-ready yet, they belong in the dashboard's 👀 Watching
+    section (Tab 2 / M38I overlay), not in an automation feed.
+
+    Returns:
+      {
+        "market_regime":  "BULLISH" / "BEARISH" / "NEUTRAL",
+        "signals":        [ {stock, symbol, signal, entry_price,
+                              stop_price, target_1, target_2,
+                              trade_score, trade_grade, market_regime,
+                              sector_rank, structure}, ... ],
+        "count":          int,
+        "fetched_at":     str,
+        "data_available": bool,
+      }
+    """
+    result = {
+        "market_regime":  "NEUTRAL",
+        "signals":        [],
+        "count":          0,
+        "fetched_at":     datetime.now().strftime('%d %b %Y %H:%M'),
+        "data_available": False,
+    }
+
+    try:
+        scan = scan_intraday_entries(
+            top_n_sectors=top_n_sectors,
+            require_fo=require_fo,
+            active_only=active_only,
+        )
+    except Exception as e:
+        result["reason"] = f"Automation output error: {e}"
+        return result
+
+    result["market_regime"] = scan.get("market_regime", "NEUTRAL")
+    result["fetched_at"]    = scan.get("fetched_at", result["fetched_at"])
+
+    if not scan.get("data_available"):
+        return result
+
+    sector_map  = _get_sector_score_map(active_only=active_only)
+    all_signals = scan.get("long_signals", []) + scan.get("short_signals", [])
+
+    result["signals"]        = [build_automation_payload(s, sector_map) for s in all_signals]
+    result["count"]          = len(result["signals"])
+    result["data_available"] = True
+    return result
