@@ -1558,6 +1558,75 @@ with tab3:
             mime      = "text/csv"
         )
 
+        st.divider()
+
+        # ════════════════════════════════════════
+        # M38I — INTRADAY VCPS SCANNER OVERLAY
+        # ════════════════════════════════════════
+        st.subheader("🎯 Intraday VCPS Scanner Overlay")
+        st.caption(
+            "Runs the full VCPS pipeline (Sector Strength → Stock Selection → "
+            "Structure/Zones → Compression → Entry Trigger → Trade Quality Score) "
+            "and shows every structure-validated stock in one table — triggered "
+            "signals AND still-watching candidates. Reuses the same engines as "
+            "the Market Regime tab, just laid out scanner-style."
+        )
+
+        if st.button("🔍 Run Intraday VCPS Overlay", key="run_intraday_overlay_btn"):
+            with st.spinner("Running full VCPS pipeline — 1-2 minutes..."):
+                from strategies.intraday_engine import get_intraday_scanner_df
+                st.session_state["intraday_overlay_result"] = get_intraday_scanner_df()
+
+        if "intraday_overlay_result" in st.session_state:
+            io_result = st.session_state["intraday_overlay_result"]
+
+            if not io_result["data_available"]:
+                st.warning("Could not run the intraday overlay — try again.")
+            else:
+                io_regime = io_result["market_regime"]
+                if io_regime == "BULLISH":
+                    st.success(f"🟢 Intraday Market Regime: **{io_regime}**")
+                elif io_regime == "BEARISH":
+                    st.error(f"🔴 Intraday Market Regime: **{io_regime}**")
+                else:
+                    st.warning(f"⚪ Intraday Market Regime: **{io_regime}** — no trades allowed")
+
+                st.caption(io_result["reason"])
+
+                io_df = io_result["df"]
+                if io_df.empty:
+                    st.info("No structure-validated intraday candidates right now.")
+                else:
+                    def _color_io_status(val):
+                        s = str(val)
+                        if "BUY"  in s: return "color: green; font-weight: bold"
+                        if "SELL" in s: return "color: red;   font-weight: bold"
+                        return "color: gray"
+
+                    def _color_io_grade(val):
+                        if val in ("A+", "A"): return "color: green; font-weight: bold"
+                        if val == "B": return "color: lightgreen"
+                        if val == "C": return "color: orange"
+                        return ""
+
+                    styled_io = io_df.style.map(_color_io_status, subset=["Status"])
+                    if "Trade Grade" in io_df.columns:
+                        styled_io = styled_io.map(_color_io_grade, subset=["Trade Grade"])
+
+                    st.dataframe(styled_io, use_container_width=True, hide_index=True)
+
+                    st.download_button(
+                        label     = "⬇️ Download Intraday VCPS Overlay",
+                        data      = io_df.to_csv(index=False),
+                        file_name = "intraday_vcps_overlay.csv",
+                        mime      = "text/csv",
+                        key       = "download_intraday_overlay",
+                    )
+
+                st.caption(f"Fetched: {io_result['fetched_at']}")
+
+        st.divider()
+
     elif "scan_full_df" not in st.session_state:
         st.info(f"👆 Select a period and click Scan All Stocks")
         st.caption("The scanner will fetch data for all stocks, calculate signals, scores and relative performance — all in one view")

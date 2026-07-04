@@ -6057,3 +6057,86 @@ Timestamp,Stock,Pattern,Direction,Candle_Date,Strength,Confidence,Signal,Accepte
 2026-06-16 23:06:00,,BEARISH_ENGULFING,BEARISH,2026-06-16,0.94,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.88,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.88x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹91 is 3.3% away)
 2026-06-16 23:06:01,,SHOOTING_STAR,BEARISH,2026-06-16,0.9,65,SELL 🕯️,YES,YES,YES,NO,YES,1.09,S/R: Price not near resistance (₹311 is 4.5% away)
 2026-06-17 09:17:49,NESTLEIND,HAMMER,BULLISH,2026-06-17,0.9,0,WEAK BUY 🕯️,NO,NO,NO,YES,YES,0.01,TREND: Price below EMA20 and EMA falling — trend not aligned for bullish pattern | VOLUME: Volume only 0.01x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:22:42,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,0,WEAK SELL 🕯️,NO,NO,NO,YES,YES,0.9,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.9x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:22:42,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.79,56,BUY 🕯️,YES,YES,NO,NO,YES,0.76,VOLUME: Volume only 0.76x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹1769 is 7.4% away)
+2026-07-04 22:22:44,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.14,
+2026-07-04 22:22:45,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.78,55,SELL 🕯️,YES,YES,NO,NO,YES,0.55,VOLUME: Volume only 0.55x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1400 is 4.3% away)
+2026-07-04 22:22:47,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.78,55,BUY 🕯️,YES,YES,NO,NO,YES,0.61,VOLUME: Volume only 0.61x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹10706 is 8.7% away)
+2026-07-04 22:22:49,,HAMMER,BULLISH,2026-07-03,0.9,67,BUY 🕯️,YES,YES,YES,NO,YES,1.45,S/R: Price not near support (₹2886 is 10.1% away)
+2026-07-04 22:22:51,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.82,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.46,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.46x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹447 is 3.4% away)
+2026-07-04 22:22:51,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.8,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.46,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.46x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹447 is 3.4% away)
+2026-07-04 22:22:52,,SHOOTING_STAR,BEARISH,2026-07-03,0.75,54,SELL 🕯️,YES,YES,NO,NO,YES,0.92,VOLUME: Volume only 0.92x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹201 is 5.9% away)
+2026-07-04 22:22:53,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.82,VOLUME: Volume only 0.82x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:22:55,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.78,VOLUME: Volume only 0.78x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:22:56,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.91,0,WEAK SELL 🕯️,NO,NO,YES,NO,YES,1.1,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | S/R: Price not near resistance (₹2597 is 2.1% away)
+2026-07-04 22:22:57,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,59,SELL 🕯️,YES,YES,NO,NO,YES,0.65,VOLUME: Volume only 0.65x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1182 is 12.1% away)
+2026-07-04 22:22:57,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.65,VOLUME: Volume only 0.65x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:22:58,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.06,
+2026-07-04 22:23:00,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.93,80,STRONG SELL 🕯️,YES,YES,YES,NO,YES,3.03,S/R: Price not near resistance (₹4429 is 10.9% away)
+2026-07-04 22:23:00,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.78,55,SELL 🕯️,YES,YES,NO,NO,YES,0.6,VOLUME: Volume only 0.6x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹15 is 7.6% away)
+2026-07-04 22:23:01,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.75,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.75x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹4535 is 2.4% away)
+2026-07-04 22:23:02,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.95,VOLUME: Volume only 0.95x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:03,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.01,
+2026-07-04 22:23:03,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.28,
+2026-07-04 22:23:05,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.81,71,SELL 🕯️,YES,YES,YES,NO,YES,1.81,S/R: Price not near resistance (₹524 is 8.0% away)
+2026-07-04 22:23:07,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.81,64,BUY 🕯️,YES,YES,YES,NO,YES,1.13,S/R: Price not near support (₹8211 is 7.7% away)
+2026-07-04 22:23:09,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.95,VOLUME: Volume only 0.95x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:10,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,67,SELL 🕯️,YES,YES,YES,NO,YES,1.17,S/R: Price not near resistance (₹1480 is 5.0% away)
+2026-07-04 22:23:14,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.1,
+2026-07-04 22:23:14,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.85,78,STRONG SELL 🕯️,YES,YES,YES,NO,YES,2.7,S/R: Price not near resistance (₹287 is 13.9% away)
+2026-07-04 22:23:16,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,60,SELL 🕯️,YES,YES,NO,NO,YES,0.63,VOLUME: Volume only 0.63x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹218 is 8.7% away)
+2026-07-04 22:23:16,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.81,56,SELL 🕯️,YES,YES,NO,NO,YES,0.63,VOLUME: Volume only 0.63x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹218 is 8.7% away)
+2026-07-04 22:23:17,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.86,73,BUY 🕯️,YES,YES,YES,NO,YES,1.74,S/R: Price not near support (₹880 is 9.7% away)
+2026-07-04 22:23:17,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.68,VOLUME: Volume only 0.68x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:18,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.79,56,SELL 🕯️,YES,YES,NO,NO,YES,0.58,VOLUME: Volume only 0.58x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹560 is 7.7% away)
+2026-07-04 22:23:18,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.93,80,STRONG SELL 🕯️,YES,YES,YES,NO,YES,2.25,S/R: Price not near resistance (₹424 is 10.5% away)
+2026-07-04 22:23:23,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.86,VOLUME: Volume only 0.86x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:27,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.78,55,SELL 🕯️,YES,YES,NO,NO,YES,0.79,VOLUME: Volume only 0.79x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1412 is 10.3% away)
+2026-07-04 22:23:28,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,68,SELL 🕯️,YES,YES,YES,NO,YES,1.29,S/R: Price not near resistance (₹3808 is 7.7% away)
+2026-07-04 22:23:30,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.86,66,BUY 🕯️,YES,YES,YES,NO,YES,1.21,S/R: Price not near support (₹2232 is 9.8% away)
+2026-07-04 22:23:30,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.81,56,BUY 🕯️,YES,YES,NO,NO,YES,0.73,VOLUME: Volume only 0.73x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹4350 is 8.8% away)
+2026-07-04 22:23:35,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.6,VOLUME: Volume only 0.6x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:39,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.74,54,SELL 🕯️,YES,YES,NO,NO,YES,0.91,VOLUME: Volume only 0.91x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1705 is 9.4% away)
+2026-07-04 22:23:40,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.79,71,SELL 🕯️,YES,YES,YES,NO,YES,1.73,S/R: Price not near resistance (₹5908 is 7.8% away)
+2026-07-04 22:23:41,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.8,71,BUY 🕯️,YES,YES,YES,NO,YES,1.88,S/R: Price not near support (₹405 is 5.0% away)
+2026-07-04 22:23:42,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.28,VOLUME: Volume only 0.28x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:43,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.61,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.61x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹82 is 2.4% away)
+2026-07-04 22:23:44,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.55,VOLUME: Volume only 0.55x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:44,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.8,0,WEAK SELL 🕯️,NO,NO,YES,YES,YES,1.04,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern
+2026-07-04 22:23:45,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,0,WEAK SELL 🕯️,NO,NO,YES,NO,YES,2.35,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | S/R: Price not near resistance (₹873 is 4.1% away)
+2026-07-04 22:23:45,,EVENING_STAR,BEARISH,2026-07-03,0.88,0,WEAK SELL 🕯️,NO,NO,YES,NO,YES,2.35,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | S/R: Price not near resistance (₹873 is 4.1% away)
+2026-07-04 22:23:45,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.8,0,WEAK SELL 🕯️,NO,NO,YES,NO,YES,2.35,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | S/R: Price not near resistance (₹873 is 4.1% away)
+2026-07-04 22:23:45,,MORNING_STAR,BULLISH,2026-07-03,0.88,66,BUY 🕯️,YES,YES,YES,NO,YES,1.4,S/R: Price not near support (₹1391 is 14.2% away)
+2026-07-04 22:23:45,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.89,67,BUY 🕯️,YES,YES,YES,NO,YES,1.4,S/R: Price not near support (₹1391 is 14.2% away)
+2026-07-04 22:23:46,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.71,VOLUME: Volume only 0.71x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:46,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.86,66,BUY 🕯️,YES,YES,YES,NO,YES,1.37,S/R: Price not near support (₹563 is 7.3% away)
+2026-07-04 22:23:47,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.65,VOLUME: Volume only 0.65x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:23:47,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.86,73,BUY 🕯️,YES,YES,YES,NO,YES,1.99,S/R: Price not near support (₹1290 is 7.5% away)
+2026-07-04 22:23:48,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.87,78,STRONG BUY 🕯️,YES,YES,YES,NO,YES,2.01,S/R: Price not near support (₹403 is 9.2% away)
+2026-07-04 22:23:51,,HAMMER,BULLISH,2026-07-03,0.75,54,BUY 🕯️,YES,YES,NO,NO,YES,0.35,VOLUME: Volume only 0.35x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹424 is 13.1% away)
+2026-07-04 22:23:52,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.12,
+2026-07-04 22:23:52,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.83,72,BUY 🕯️,YES,YES,YES,NO,YES,1.61,S/R: Price not near support (₹556 is 17.8% away)
+2026-07-04 22:23:55,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.67,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.67x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹571 is 3.1% away)
+2026-07-04 22:23:57,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.89,74,BUY 🕯️,YES,YES,YES,NO,YES,1.55,S/R: Price not near support (₹1575 is 18.6% away)
+2026-07-04 22:24:00,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,0,WEAK SELL 🕯️,NO,NO,NO,YES,YES,0.47,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.47x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:24:01,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.74,54,SELL 🕯️,YES,YES,NO,NO,YES,0.54,VOLUME: Volume only 0.54x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹3620 is 12.1% away)
+2026-07-04 22:24:03,,EVENING_STAR,BEARISH,2026-07-03,0.88,78,STRONG SELL 🕯️,YES,YES,YES,NO,YES,2.46,S/R: Price not near resistance (₹173 is 5.8% away)
+2026-07-04 22:24:03,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.88,79,STRONG SELL 🕯️,YES,YES,YES,NO,YES,2.46,S/R: Price not near resistance (₹173 is 5.8% away)
+2026-07-04 22:24:05,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.23,VOLUME: Volume only 0.23x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:24:06,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.95,60,SELL 🕯️,YES,YES,NO,NO,YES,0.54,VOLUME: Volume only 0.54x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹1714 is 7.3% away)
+2026-07-04 22:24:06,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.79,56,SELL 🕯️,YES,YES,NO,NO,YES,0.55,VOLUME: Volume only 0.55x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹833 is 3.0% away)
+2026-07-04 22:24:07,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.79,56,SELL 🕯️,YES,YES,NO,NO,YES,0.34,VOLUME: Volume only 0.34x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹282 is 4.0% away)
+2026-07-04 22:24:09,,DOJI,NEUTRAL,2026-07-03,0.6,48,WATCH 🕯️,YES,YES,NO,YES,YES,0.69,VOLUME: Volume only 0.69x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:24:10,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.14,
+2026-07-04 22:24:11,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.91,79,STRONG BUY 🕯️,YES,YES,YES,NO,YES,3.39,S/R: Price not near support (₹707 is 10.2% away)
+2026-07-04 22:24:12,,DOJI,NEUTRAL,2026-07-03,0.6,56,WATCH 🕯️,YES,YES,YES,YES,YES,1.35,
+2026-07-04 22:24:13,,SHOOTING_STAR,BEARISH,2026-07-03,0.75,74,SELL 🕯️,YES,YES,YES,NO,YES,2.23,S/R: Price not near resistance (₹332 is 17.4% away)
+2026-07-04 22:24:13,,SHOOTING_STAR,BEARISH,2026-07-03,0.9,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.49,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.49x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹515 is 6.8% away)
+2026-07-04 22:24:15,,BEARISH_ENGULFING,BEARISH,2026-07-03,0.81,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.43,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.43x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹568 is 3.3% away)
+2026-07-04 22:24:16,,SHOOTING_STAR,BEARISH,2026-07-03,0.75,0,WEAK SELL 🕯️,NO,NO,NO,YES,YES,0.99,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.99x average — below threshold of 1.5x. Weak signal.
+2026-07-04 22:24:17,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.95,80,STRONG BUY 🕯️,YES,YES,YES,NO,YES,11.0,S/R: Price not near support (₹423 is 18.0% away)
+2026-07-04 22:24:17,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.82,57,BUY 🕯️,YES,YES,NO,NO,YES,0.46,VOLUME: Volume only 0.46x average — below threshold of 1.5x. Weak signal. | S/R: Price not near support (₹151 is 31.9% away)
+2026-07-04 22:24:20,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.81,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.84,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.84x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹195 is 2.8% away)
+2026-07-04 22:24:21,,HAMMER,BULLISH,2026-07-03,0.9,67,BUY 🕯️,YES,YES,YES,NO,YES,1.37,S/R: Price not near support (₹317 is 9.9% away)
+2026-07-04 22:24:23,,BREAKOUT_CANDLE,BEARISH,2026-07-03,0.84,0,WEAK SELL 🕯️,NO,NO,NO,NO,YES,0.87,TREND: Price above EMA20 and EMA rising — trend not aligned for bearish pattern | VOLUME: Volume only 0.87x average — below threshold of 1.5x. Weak signal. | S/R: Price not near resistance (₹94 is 6.7% away)
+2026-07-04 22:24:24,,BREAKOUT_CANDLE,BULLISH,2026-07-03,0.79,0,WEAK BUY 🕯️,NO,NO,YES,NO,YES,1.04,TREND: Price below EMA20 and EMA falling — trend not aligned for bullish pattern | S/R: Price not near support (₹276 is 2.2% away)

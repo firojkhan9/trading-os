@@ -1204,3 +1204,129 @@ def check_single_stock_entry(stock_name: str, symbol: str, direction: str) -> di
     result["data_available"] = True
 
     return result
+
+    # ════════════════════════════════════════════════
+# M38I — SCANNER INTEGRATION (Module 13)
+# Flattens scan_intraday_entries() output into one
+# scanner-style table. Reuses M38A→H entirely — no
+# sector/structure/compression logic is recomputed here.
+# ════════════════════════════════════════════════
+
+def _fmt_zone_for_scanner(zone: dict) -> str:
+    """Compact zone display for the scanner table."""
+    if not zone:
+        return "N/A"
+    return f"₹{zone.get('zone_low', '?')}–{zone.get('zone_high', '?')} ({zone.get('touches', '?')}x)"
+
+
+def get_intraday_scanner_df(
+    top_n_sectors: int = 3,
+    require_fo: bool = True,
+    active_only: bool = True,
+) -> dict:
+    """
+    Master function — Module 13 of the VCPS spec.
+
+    Runs the full VCPS pipeline via scan_intraday_entries() and
+    flattens every structure-validated candidate — triggered
+    signals AND still-watching candidates — into ONE DataFrame
+    with the exact columns the spec calls for:
+      Stock, Market Regime, Sector, Sector Rank, Sector Score,
+      Structure, Demand Zone, Supply Zone, Volume Compression,
+      Volatility Compression, Stop Price, Target 1, Target 2,
+      Trade Score, Trade Grade, Status
+
+    Called by app.py Tab 3 (Scanner) for the "Intraday VCPS
+    Scanner Overlay" section — same pattern as the existing
+    daily Scanner table, just for the intraday pipeline.
+
+    liquidity_rejected / structure_rejected are excluded on purpose:
+    those stocks never reached the structure-validated stage this
+    table describes, and already have dedicated display blocks in
+    the M38B/M38C sections of Tab 2.
+    """
+    result = {
+        "market_regime":  "NEUTRAL",
+        "reason":         "",
+        "fetched_at":     datetime.now().strftime('%d %b %Y %H:%M'),
+        "df":             pd.DataFrame(),
+        "data_available": False,
+    }
+
+    try:
+        scan = scan_intraday_entries(
+            top_n_sectors=top_n_sectors,
+            require_fo=require_fo,
+            active_only=active_only,
+        )
+    except Exception as e:
+        result["reason"] = f"Intraday scan error: {e}"
+        return result
+
+    result["market_regime"] = scan.get("market_regime", "NEUTRAL")
+    result["reason"]        = scan.get("reason", "")
+    result["fetched_at"]    = scan.get("fetched_at", result["fetched_at"])
+
+    if not scan.get("data_available"):
+        return result
+
+    sector_map = _get_sector_score_map(active_only=active_only)
+
+    def _sector_rank_score(sector_name):
+        if sector_name in sector_map:
+            return sector_map[sector_name]
+        return None, None
+
+    rows = []
+
+    # ── Triggered signals — already fully enriched by M38F/G/H ──
+    for sig in scan.get("long_signals", []) + scan.get("short_signals", []):
+        rank, score = _sector_rank_score(sig.get("sector"))
+        is_buy = sig.get("signal") == "BUY"
+        rows.append({
+            "Stock":                  sig.get("stock"),
+            "Market Regime":          result["market_regime"],
+            "Sector":                 sig.get("sector"),
+            "Sector Rank":            rank,
+            "Sector Score":           score,
+            "Structure":              sig.get("structure"),
+            "Demand Zone":            _fmt_zone_for_scanner(sig.get("zone") if is_buy else sig.get("opposite_zone")),
+            "Supply Zone":            _fmt_zone_for_scanner(sig.get("opposite_zone") if is_buy else sig.get("zone")),
+            "Volume Compression":     "✅",
+            "Volatility Compression": "✅",
+            "Stop Price":             sig.get("stop_price"),
+            "Target 1":               sig.get("target_1"),
+            "Target 2":               sig.get("target_2"),
+            "Trade Score":            sig.get("trade_score"),
+            "Trade Grade":            sig.get("trade_grade"),
+            "Status":                 "🟢 BUY TRIGGERED" if is_buy else "🔴 SELL TRIGGERED",
+        })
+
+    # ── Watching — structure-validated, not yet triggered ──
+    for w in scan.get("watching", []):
+        stock_name  = w.get("stock_name") or w.get("stock")
+        sector      = w.get("sector")
+        rank, score = _sector_rank_score(sector)
+
+        rows.append({
+            "Stock":                  stock_name,
+            "Market Regime":          result["market_regime"],
+            "Sector":                 sector,
+            "Sector Rank":            rank,
+            "Sector Score":           score,
+            "Structure":              w.get("structure_type") or w.get("trend_state"),
+            "Demand Zone":            _fmt_zone_for_scanner(w.get("demand_zone")),
+            "Supply Zone":            _fmt_zone_for_scanner(w.get("supply_zone")),
+            "Volume Compression":     "✅" if w.get("volume_compression") else "—",
+            "Volatility Compression": "✅" if w.get("volatility_compression") else "—",
+            "Stop Price":             None,
+            "Target 1":               None,
+            "Target 2":               None,
+            "Trade Score":            None,
+            "Trade Grade":            None,
+            "Status":                 f"👀 {w.get('watch_reason', 'Watching')}",
+        })
+
+    result["df"] = pd.DataFrame(rows)
+    result["data_available"] = True
+    return result

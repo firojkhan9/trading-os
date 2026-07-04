@@ -35,7 +35,7 @@ elsewhere in the codebase.
 | **M38F** | Module 9 + 10 — Stop Loss Engine + Target Engine | Stop = max(zone edge, compression candle edge, ATR stop) for LONG / min(...) for SHORT. Target 1 = 2R, Target 2 = nearest opposite zone edge, Target 3 = 10 EMA trail (dynamic, re-checked live). | `strategies/intraday_engine.py` | ✅ Done |
 | **M38G** | Module 11 — Trade Management | At Target 1: book 50%, move stop to breakeven. Remainder trails via 10 EMA (candle closes wrong side of EMA + next candle breaks its high/low). Mandatory 3:15 PM hard exit overrides everything. | `portfolio/position_manager.py` (patch), `strategies/intraday_engine.py` | ✅ Done |
 | **M38H** | Module 12 — Trade Quality Score | 0-100 composite: Regime 15 + Sector 20 + Structure 20 + Zone 15 + Vol Compression 10 + Volatility Compression 10 + Risk:Reward 10. Grades A+ (90+) down to Reject (<60). Signals scoring <60 are pulled from long/short signals into `watching` with the reason. | `strategies/intraday_engine.py`, `strategies/intraday_direction.py` (patch) | ✅ Done |
-| **M38I** | Module 13 — Scanner Integration | Add intraday columns (Market Regime, Sector Rank, Structure, Zones, Compression flags, Stop, Targets, Trade Score/Grade) to a dashboard tab, same pattern as existing Scanner tab. | `app.py` (patch), `strategies/performance_scanner.py` (patch, optional) | Not started |
+| **M38I** | Module 13 — Scanner Integration | Flattens the full VCPS pipeline (triggered signals + watching candidates) into one scanner-style table — Market Regime, Sector Rank/Score, Structure, Zones, Compression flags, Stop, Targets, Trade Score/Grade — added to Tab 3 (Scanner). | `strategies/intraday_engine.py` (patch — `get_intraday_scanner_df()`), `app.py` (patch) | ✅ Done |
 | **M38J** | Module 14 — Automation-Ready Output | Standardized dict per spec (`stock`, `signal`, `entry_price`, `stop_price`, `target_1/2`, `trade_score`, `trade_grade`, `market_regime`, `sector_rank`, `structure`) for `execution_loop.py` to consume once intraday bucket goes live. | `strategies/intraday_engine.py` | Not started |
 | **M38K** | Module 15 — Backtest Integration | Add VCPS to the backtesting framework: Win Rate, Profit Factor, Avg R-Multiple, Expectancy, Max Drawdown, Sharpe, Sortino, Avg Holding Time, Sector-wise and Regime-wise performance breakdowns. | `strategies/intraday_backtest.py` (new) | Not started |
 
@@ -96,4 +96,4 @@ elsewhere in the codebase.
 
 ---
 
-*Last updated: after M38H (Trade Quality Score Engine — 0-100 composite score, A+ to REJECT grading, sub-60 signals auto-demoted to watching)*
+*Last updated: after M38I (Scanner Integration (Module 13))*
