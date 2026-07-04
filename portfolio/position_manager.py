@@ -381,13 +381,19 @@ def mark_rejected(position_id, reason):
 # POSITION ENTRY
 # ════════════════════════════════════════════════
 
-def mark_entered(position_id, buy_price, quantity, buy_value):
+def mark_entered(position_id, buy_price, quantity, buy_value, custom_stop=None, custom_target=None):
     """
     Mark READY → ENTERED after BUY executes.
     Calculates hard stop, target, and initial trailing stop.
+
+    custom_stop / custom_target (M38G): pass explicit price levels — e.g.
+    from strategies.intraday_engine.attach_risk_management() — to override
+    the fixed STOP_LOSS_PCT / TARGET_PROFIT_PCT calculation. VCPS intraday
+    positions size their stop/target from zone edges + ATR, not a flat
+    percentage. Defaults preserve existing behaviour for every other caller.
     """
-    hard_stop  = round(buy_price * (1 - STOP_LOSS_PCT),     2)
-    target     = round(buy_price * (1 + TARGET_PROFIT_PCT), 2)
+    hard_stop  = round(custom_stop, 2)   if custom_stop   is not None else round(buy_price * (1 - STOP_LOSS_PCT),     2)
+    target     = round(custom_target, 2) if custom_target is not None else round(buy_price * (1 + TARGET_PROFIT_PCT), 2)
     trail_stop = round(buy_price * (1 - TRAILING_STOP_PCT), 2)
 
     df = load_lifecycle()
@@ -660,6 +666,34 @@ def mark_partial_exit_done(position_id, partial_price, qty_sold):
     df.loc[mask, "last_updated"]  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     save_lifecycle(df)
     return {"status": "OK", "partial_sold": True}
+
+def move_stop_to_breakeven(position_id, breakeven_price=None):
+    """
+    M38G — Trade Management (Module 11).
+    After a Target 1 partial exit, move the hard stop to breakeven
+    (entry price) so the remaining position can never turn into a loss.
+
+    breakeven_price: pass an explicit value to override — defaults to
+    the position's own buy_price (the standard breakeven definition).
+    """
+    df   = load_lifecycle()
+    mask = df["position_id"] == position_id
+    if not mask.any():
+        return {"status": "ERROR", "reason": "Position not found"}
+
+    new_stop = breakeven_price if breakeven_price is not None else float(df.loc[mask, "buy_price"].iloc[0])
+    new_stop = round(new_stop, 2)
+
+    existing_notes = str(df.loc[mask, "notes"].iloc[0])
+    df.loc[mask, "hard_stop_price"] = str(new_stop)
+    df.loc[mask, "notes"] = (
+        existing_notes +
+        f" | Stop moved to breakeven ₹{new_stop} on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    df.loc[mask, "last_updated"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    save_lifecycle(df)
+    return {"status": "OK", "new_stop_price": new_stop}
 
 
 # ════════════════════════════════════════════════

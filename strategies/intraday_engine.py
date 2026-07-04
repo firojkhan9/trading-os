@@ -86,6 +86,11 @@ ATR_STOP_MULTIPLIER = 1.5   # ATR Stop = entry -/+ (ATR x multiplier)
 EMA_TRAIL_PERIOD    = 10    # Target 3 — dynamic trailing exit reference (10 EMA)
 RISK_REWARD_TARGET1 = 2.0   # Target 1 = entry +/- (risk_per_share x 2R)
 
+# ── M38G: Trade Management Settings (Module 11) ───────────
+PARTIAL_EXIT_PCT_TARGET1 = 50    # % of position booked when Target 1 (2R) hits
+MANDATORY_EXIT_HOUR      = 15    # Hard same-day exit — 3:15 PM IST, no exceptions
+MANDATORY_EXIT_MINUTE    = 15
+
 
 # ════════════════════════════════════════════════
 # ENTRY TRIGGER — breakout of the compression candle
@@ -403,7 +408,246 @@ def attach_risk_management(signal: dict) -> dict:
     })
     return enriched
 
+# ════════════════════════════════════════════════
+# M38G — TRADE MANAGEMENT ENGINE (Module 11)
+# Partial exit at Target 1 -> breakeven stop -> EMA trail
+# ════════════════════════════════════════════════
 
+def _is_past_intraday_cutoff() -> bool:
+    """
+    Module 11 — Mandatory time-based exit.
+    Per spec: "If not hitting 3:15 PM time exit..." — this is the hard
+    cutoff for ALL open intraday positions, regardless of P&L.
+
+    Reuses the same IST timezone object as the rest of the engine
+    (engine/loop_state.py) instead of redefining it here.
+    """
+    try:
+        from engine.loop_state import IST
+        from datetime import time as dtime
+        now_ist = datetime.now(IST)
+        return now_ist.time() >= dtime(MANDATORY_EXIT_HOUR, MANDATORY_EXIT_MINUTE)
+    except Exception:
+        return False   # Never block on a broken time check — price-based exits still apply
+
+
+def check_ema_trail_exit(direction: str, data, ema_period: int = EMA_TRAIL_PERIOD) -> dict:
+    """
+    Module 11 — EMA Trail Exit check (Target 3).
+
+    Per spec: "exit the remaining position when price closes above/below
+    the 10 EMA and breaks the high/low of that specific candle."
+
+    Stateless — same two-candle pattern as _check_breakout_trigger():
+      Signal candle  = data.iloc[-2] — did it CLOSE on the wrong side of the EMA?
+      Confirm candle = data.iloc[-1] — did it break that candle's high/low?
+
+    direction: "LONG" or "SHORT"
+    data: 5-min OHLCV DataFrame (same feed as the compression/breakout checks)
+    """
+    result = {
+        "exit_triggered":      False,
+        "ema_value":           None,
+        "signal_candle_close": None,
+        "signal_candle_low":   None,
+        "signal_candle_high":  None,
+        "confirm_low":         None,
+        "confirm_high":        None,
+        "reason":              "",
+        "data_available":      False,
+    }
+
+    if data is None or len(data) < ema_period + 2:
+        result["reason"] = f"Need {ema_period + 2}+ 5-min bars for EMA trail check"
+        return result
+
+    try:
+        ema = data["Close"].ewm(span=ema_period, adjust=False).mean()
+
+        signal_candle  = data.iloc[-2]
+        confirm_candle = data.iloc[-1]
+        signal_ema     = float(ema.iloc[-2])
+
+        signal_close = float(signal_candle["Close"])
+        signal_low   = float(signal_candle["Low"])
+        signal_high  = float(signal_candle["High"])
+        confirm_low  = float(confirm_candle["Low"])
+        confirm_high = float(confirm_candle["High"])
+
+        if direction == "LONG":
+            closed_below_ema = signal_close < signal_ema
+            broke_low        = confirm_low < signal_low
+            triggered        = closed_below_ema and broke_low
+            reason = (
+                f"{'✅ EMA trail exit' if triggered else 'Watching'} — "
+                f"prior candle closed {'below' if closed_below_ema else 'above/at'} "
+                f"10 EMA (₹{round(signal_ema,2)})"
+                + (f", and broke its low ₹{round(signal_low,2)}" if broke_low else ", low not yet broken")
+            )
+        else:   # SHORT
+            closed_above_ema = signal_close > signal_ema
+            broke_high       = confirm_high > signal_high
+            triggered        = closed_above_ema and broke_high
+            reason = (
+                f"{'✅ EMA trail exit' if triggered else 'Watching'} — "
+                f"prior candle closed {'above' if closed_above_ema else 'below/at'} "
+                f"10 EMA (₹{round(signal_ema,2)})"
+                + (f", and broke its high ₹{round(signal_high,2)}" if broke_high else ", high not yet broken")
+            )
+
+        result.update({
+            "exit_triggered":      triggered,
+            "ema_value":           round(signal_ema, 2),
+            "signal_candle_close": round(signal_close, 2),
+            "signal_candle_low":   round(signal_low, 2),
+            "signal_candle_high":  round(signal_high, 2),
+            "confirm_low":         round(confirm_low, 2),
+            "confirm_high":        round(confirm_high, 2),
+            "reason":              reason,
+            "data_available":      True,
+        })
+
+    except Exception as e:
+        result["reason"] = f"EMA trail check error: {e}"
+
+    return result
+
+
+def evaluate_trade_management(position: dict, current_price: float, current_data=None) -> dict:
+    """
+    Module 11 — Trade Management (M38G).
+
+    THE MASTER STATELESS DECISION FUNCTION for a live VCPS position.
+    Call this on every poll with the position's current state — this
+    engine holds no state of its own, same pattern as every other
+    module in the M38 series (candlestick_engine, market_structure, etc).
+
+    position dict — fields the caller must track and pass in:
+      direction         : "LONG" or "SHORT"
+      symbol            : Yahoo Finance symbol, e.g. "RELIANCE.NS"
+      entry_price       : original entry price
+      stop_price        : CURRENT active stop (starts as M38F's stop_price,
+                           becomes entry_price once breakeven is set)
+      target_1          : from M38F attach_risk_management()
+      target_2          : from M38F attach_risk_management() (optional)
+      partial_exit_done : bool — has the Target 1 50% booking already happened?
+
+    Returns the action the caller should execute:
+      HOLD                  — no action needed
+      SELL_TIME_EXIT        — 3:15 PM cutoff reached, exit everything
+      SELL_STOP             — stop hit, exit everything immediately
+      PARTIAL_EXIT_TARGET1  — Target 1 hit: sell 50%, move stop to breakeven
+      SELL_TARGET2          — remaining position, Target 2 reached
+      SELL_TRAIL_EMA        — remaining position, 10 EMA trail exit confirmed
+
+    Priority order matches the rest of this project (stop loss always
+    beats profit-taking): time exit -> stop -> target1/trail -> target2.
+    """
+    direction         = position.get("direction", "LONG")
+    entry_price       = position.get("entry_price")
+    stop_price        = position.get("stop_price")
+    target_1          = position.get("target_1")
+    target_2          = position.get("target_2")
+    partial_exit_done = bool(position.get("partial_exit_done", False))
+    symbol            = position.get("symbol")
+
+    result = {
+        "action":           "HOLD",
+        "reason":           "Within normal range — no action needed",
+        "new_stop_price":   stop_price,
+        "sell_qty_pct":     0,
+        "ema_trail_detail": None,
+    }
+
+    if entry_price is None or stop_price is None:
+        result["reason"] = "Missing entry_price or stop_price — cannot evaluate"
+        return result
+
+    # ── 1. Mandatory time-based exit (always wins) ────
+    if _is_past_intraday_cutoff():
+        result["action"]       = "SELL_TIME_EXIT"
+        result["sell_qty_pct"] = 100
+        result["reason"] = (
+            f"{MANDATORY_EXIT_HOUR}:{MANDATORY_EXIT_MINUTE:02d} PM IST cutoff reached — "
+            "mandatory same-day exit for all intraday positions"
+        )
+        return result
+
+    # ── 2. Hard stop loss (always wins over targets) ──
+    is_breakeven = partial_exit_done and abs(stop_price - entry_price) < 0.01
+    stop_hit = (
+        (direction == "LONG"  and current_price <= stop_price) or
+        (direction == "SHORT" and current_price >= stop_price)
+    )
+    if stop_hit:
+        result["action"]       = "SELL_STOP"
+        result["sell_qty_pct"] = 100
+        result["reason"] = (
+            f"Stop loss hit. Entry ₹{entry_price} → Stop ₹{stop_price} → Now ₹{current_price}"
+            + (" (breakeven stop — no loss on remainder)" if is_breakeven else "")
+        )
+        return result
+
+    # ── 3. Target 1 — book 50%, move stop to breakeven ─
+    if not partial_exit_done and target_1 is not None:
+        hit_target1 = (
+            (direction == "LONG"  and current_price >= target_1) or
+            (direction == "SHORT" and current_price <= target_1)
+        )
+        if hit_target1:
+            result["action"]         = "PARTIAL_EXIT_TARGET1"
+            result["sell_qty_pct"]   = PARTIAL_EXIT_PCT_TARGET1
+            result["new_stop_price"] = round(entry_price, 2)
+            result["reason"] = (
+                f"Target 1 (2R) reached at ₹{current_price} — booking "
+                f"{PARTIAL_EXIT_PCT_TARGET1}%, moving stop to breakeven "
+                f"₹{round(entry_price, 2)}. Remainder trails via 10 EMA."
+            )
+            return result
+
+    # ── 4. Remainder management (only after partial exit) ──
+    if partial_exit_done:
+        # 4a. Target 2 — optional full exit of remainder
+        if target_2 is not None:
+            hit_target2 = (
+                (direction == "LONG"  and current_price >= target_2) or
+                (direction == "SHORT" and current_price <= target_2)
+            )
+            if hit_target2:
+                result["action"]       = "SELL_TARGET2"
+                result["sell_qty_pct"] = 100
+                result["reason"] = f"Target 2 (opposite zone) reached at ₹{current_price} — closing remainder."
+                return result
+
+        # 4b. 10 EMA trail exit — needs fresh 5-min data
+        data = current_data
+        if data is None and symbol:
+            try:
+                data = _fetch_intraday_data(symbol)
+            except Exception:
+                data = None
+
+        ema_check = check_ema_trail_exit(direction, data)
+        result["ema_trail_detail"] = ema_check
+
+        if ema_check.get("exit_triggered"):
+            result["action"]       = "SELL_TRAIL_EMA"
+            result["sell_qty_pct"] = 100
+            result["reason"]       = ema_check.get("reason", "10 EMA trail exit confirmed")
+            return result
+
+        result["reason"] = (
+            "Remainder running with breakeven stop — "
+            + ema_check.get("reason", "watching 10 EMA for trail exit")
+        )
+        return result
+
+    # ── 5. Still holding full position, nothing triggered ──
+    result["reason"] = (
+        f"Holding full position — Entry ₹{entry_price} | Stop ₹{stop_price} | "
+        f"Target 1 ₹{target_1} | Now ₹{current_price}"
+    )
+    return result
 
 # ════════════════════════════════════════════════
 # MODULE 8 — MASTER ENTRY LOGIC
