@@ -547,6 +547,10 @@ def batch_compression_check(candidates: list, max_workers=SCANNER_MAX_WORKERS) -
             "volatility_compression": cr["volatility_compression"],
             "compression_confirmed":  cr["compression_confirmed"],
             "compression_data_available": cr["data_available"],
+            # M38H needs the ratio detail (not just the boolean) to
+            # grade HOW compressed a candidate is, not just whether.
+            "volume_detail":          cr.get("volume_detail", {}),
+            "volatility_detail":      cr.get("volatility_detail", {}),
         })
         return merged
 

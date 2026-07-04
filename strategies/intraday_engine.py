@@ -649,8 +649,7 @@ def evaluate_trade_management(position: dict, current_price: float, current_data
     )
     return result
 
-
-# ════════════════════════════════════════════════
+    # ════════════════════════════════════════════════
 # M38H — TRADE QUALITY SCORE ENGINE (Module 12)
 # 0-100 composite score combining every gate a
 # signal already passed, so the strongest setups of
@@ -924,7 +923,6 @@ def attach_trade_quality_score(signal: dict, candidate: dict, direction_detail: 
     enriched.update(tqs)
     return enriched
 
-
 # ════════════════════════════════════════════════
 # MODULE 8 — MASTER ENTRY LOGIC
 # Chains M38A -> B -> C -> D -> breakout trigger
@@ -1040,19 +1038,10 @@ def scan_intraday_entries(
     entry_direction = "LONG" if regime == "BULLISH" else "SHORT"
 
     def _worker(item):
-        symbol = item.get("symbol")
-        cr     = get_compression_analysis(symbol)
-        merged = dict(item)   # keep all M38C fields (structure, zones, etc.)
-        merged.update({
-            "volume_compression":     cr["volume_compression"],
-            "volatility_compression": cr["volatility_compression"],
-            "compression_confirmed":  cr["compression_confirmed"],
-            "compression_data_available": cr["data_available"],
-            # M38H needs the ratio detail (not just the boolean) to
-            # grade HOW compressed a candidate is, not just whether.
-            "volume_detail":          cr.get("volume_detail", {}),
-            "volatility_detail":      cr.get("volatility_detail", {}),
-        })
+        symbol  = item.get("symbol")
+        trigger = _check_breakout_trigger(symbol, entry_direction)
+        merged  = dict(item)
+        merged["trigger"] = trigger
         return merged
 
     triggered_results = []
