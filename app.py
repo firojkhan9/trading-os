@@ -2940,6 +2940,87 @@ with tab6:
         st.info("👆 Select stock, period and strategy, then click Run Backtest")
         st.caption("💡 Try 'Combined Signal' first — it's the most realistic test of your full system")
 
+st.divider()
+
+# ════════════════════════════════════════════
+# VCPS INTRADAY BACKTEST — Milestone 38K
+# ════════════════════════════════════════════
+st.subheader("🎯 VCPS Intraday Backtest (Beta)")
+st.caption(
+    "Replays the full VCPS entry/exit engine over the last ~60 days of 5-min "
+    "data across your watchlist — same functions the live loop uses, not a "
+    "reimplementation. See the notes below for scope limitations."
+)
+
+if st.button("🚀 Run VCPS Intraday Backtest", key="run_vcps_backtest"):
+    with st.spinner("Replaying 5-min history across the watchlist — this can take a few minutes..."):
+        from strategies.intraday_backtest import get_intraday_backtest_report
+        st.session_state["vcps_backtest_result"] = get_intraday_backtest_report()
+
+if "vcps_backtest_result" in st.session_state:
+    vr = st.session_state["vcps_backtest_result"]
+
+    if not vr["data_available"]:
+        st.warning("Could not run the backtest — check your watchlist has Sector data filled in.")
+    else:
+        m = vr["overall_metrics"]
+        vm1, vm2, vm3, vm4 = st.columns(4)
+        vm1.metric("Total Trades",  m.get("Total Trades", 0))
+        vm2.metric("Win Rate",      m.get("Win Rate", "0%"))
+        vm3.metric("Profit Factor", m.get("Profit Factor", "N/A"))
+        vm4.metric("Avg R-Multiple", m.get("Avg R-Multiple", 0))
+
+        vm5, vm6, vm7, vm8 = st.columns(4)
+        vm5.metric("Expectancy %",      m.get("Expectancy %", "0%"))
+        vm6.metric("Max Drawdown (R)",  m.get("Max Drawdown (R)", 0))
+        vm7.metric("Sharpe Ratio",      m.get("Sharpe Ratio", 0))
+        vm8.metric("Sortino Ratio",     m.get("Sortino Ratio", 0))
+
+        st.caption(f"Avg Holding Time: {m.get('Avg Holding Time', 'N/A')}")
+
+        st.divider()
+        st.subheader("🏭 Sector-wise Performance")
+        if not vr["sector_performance"].empty:
+            st.dataframe(vr["sector_performance"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No trades to break down by sector yet.")
+
+        st.divider()
+        st.subheader("🌡️ Regime-wise Performance")
+        if not vr["regime_performance"].empty:
+            st.dataframe(vr["regime_performance"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No trades to break down by regime yet.")
+
+        st.divider()
+        st.subheader("📋 Trade Log")
+        if not vr["trades_df"].empty:
+            def _color_r(val):
+                try:
+                    f = float(val)
+                    if f > 0: return "color: green"
+                    if f < 0: return "color: red"
+                except Exception:
+                    pass
+                return ""
+            st.dataframe(
+                vr["trades_df"].style.map(_color_r, subset=["r_multiple"]),
+                use_container_width=True, hide_index=True
+            )
+            st.download_button(
+                label="⬇️ Download VCPS Backtest Trades",
+                data=vr["trades_df"].to_csv(index=False),
+                file_name="vcps_intraday_backtest.csv", mime="text/csv"
+            )
+        else:
+            st.info("No trades triggered in this window — normal, VCPS is selective by design.")
+
+        if vr["skipped"]:
+            with st.expander(f"⚠️ {len(vr['skipped'])} stock(s) skipped"):
+                st.dataframe(pd.DataFrame(vr["skipped"]), use_container_width=True, hide_index=True)
+
+        st.caption(f"ℹ️ {vr['notes']}")
+        st.caption(f"Fetched: {vr['fetched_at']}")
 
 # ════════════════════════════════════════════════
 # TAB 7: STRATEGY COMPARISON
