@@ -81,6 +81,10 @@ from strategies.macd_strategy       import analyze_macd
 from strategies.combined_signal     import build_combined_summary
 from strategies.scoring_engine      import build_composite_score
 from strategies.fundamental_engine  import get_fundamental_score_only
+from strategies.volume_engine       import get_volume_score_only
+from strategies.candlestick_engine  import get_candlestick_score_only
+from strategies.market_structure    import get_market_structure_score_only
+from strategies.institutional_flow  import get_fii_dii_score_only
 
 from portfolio.capital_engine       import (
     bucket_buy,
@@ -110,6 +114,29 @@ from engine.decision_engine import (
     DECISION_NO_TRADE,
 )
 
+# ── Analytics (fire-and-forget, ADR-compliant) ────
+# Execution imports ONLY analytics.api — never analytics.storage,
+# analytics.models, analytics.recorder, or analytics.constants directly.
+from analytics.api import (
+    record_entry as _analytics_record_entry,
+    record_exit as _analytics_record_exit,
+    DECISION_BUY as A_BUY,
+    DECISION_SELL as A_SELL,
+    DECISION_NO_TRADE as A_NO_TRADE,
+    DECISION_REJECTED as A_REJECTED,
+    STAGE_SCORE_GATE,
+    STAGE_VOTE_GATE,
+    STAGE_REGIME_GATE,
+    STAGE_STRUCTURE_GATE,
+    STAGE_RISK_GATE,
+    STAGE_CAPITAL_GATE,
+    STAGE_EXECUTION_RULE,
+    OUTCOME_WIN,
+    OUTCOME_LOSS,
+    OUTCOME_BREAKEVEN,
+    SOURCE_PAPER,
+)
+
 import yfinance as yf
 import pandas as pd
 
@@ -128,6 +155,127 @@ ABSOLUTE_MIN_SCORE = 50
 
 # How many days of price data to fetch for indicator calculation
 INDICATOR_PERIOD = "60d"
+
+# ════════════════════════════════════════════════
+# ANALYTICS INTEGRATION — fire-and-forget only
+# Execution computes everything; analytics only records it.
+# Any failure here is swallowed — it must never interrupt trading.
+# ════════════════════════════════════════════════
+
+def _lookup_latest_position_id(stock_name: str, bucket_name: str) -> str | None:
+    """
+    TEMPORARY COMPATIBILITY LAYER ONLY.
+
+    This helper exists solely because capital_engine.bucket_buy()
+    does not yet return position_id in its result dict. It re-reads
+    the lifecycle table after bucket_buy() to find the position_id
+    that mark_entered() just assigned, purely so this file can pass
+    it through to analytics.api.record_entry().
+
+    - It MUST be removed once bucket_buy() returns position_id directly.
+    - No other module should ever import or depend on this helper.
+    - No future feature should be built around this helper — it is
+      not a general-purpose lifecycle lookup, only a stopgap for
+      this one gap in bucket_buy()'s return value.
+    """
+    try:
+        lc_df = load_lifecycle()
+        if lc_df.empty:
+            return None
+        match = lc_df[
+            (lc_df["stock"]  == stock_name) &
+            (lc_df["bucket"] == bucket_name) &
+            (lc_df["state"].isin(["ENTERED", "HOLDING", "TRAILING", "PARTIAL_EXIT"]))
+        ]
+        if match.empty:
+            return None
+        return str(match.iloc[-1]["position_id"])
+    except Exception:
+        return None
+
+
+def _record_analytics_entry(
+    stock_name: str,
+    symbol: str,
+    bucket_name: str,
+    regime: str,
+    decision: str,
+    cycle_id: str,
+    score_result: dict | None = None,
+    buy_votes: int | None = None,
+    sell_votes: int | None = None,
+    rejection_stage: str | None = None,
+    rejection_reason: str = "",
+    position_id: str | None = None,
+    entry_price: float | None = None,
+    quantity: int | None = None,
+    capital_used: float | None = None,
+) -> None:
+    """
+    Single shared builder for every entry-side analytics call in this
+    file — avoids repeating snapshot-construction logic at each of
+    the ~7 decision points below. Never calculates anything; only
+    copies values execution already produced, exactly as produced.
+
+    Bookkeeping ownership: cycle_id is supplied by the caller (one
+    value per execution cycle, generated once in run_one_cycle()) —
+    this function never generates it. decision_timestamp is
+    intentionally omitted here; recorder.py fills it automatically
+    per the ADR ("recorder owns bookkeeping, execution owns trading
+    facts"). Wrapped so a failure here can never propagate into the
+    trading loop.
+    """
+    try:
+        composite = (score_result or {}).get("composite_score")
+        individual_scores = (score_result or {}).get("individual_scores")
+
+        snapshot = {
+            "cycle_id":           cycle_id,
+            "stock":              stock_name,
+            "symbol":             symbol,
+            "regime":             regime,
+            "bucket":             bucket_name or "",
+            "source":             SOURCE_PAPER,
+            "composite_score":    composite,
+            "individual_scores":  individual_scores,
+            "buy_votes":          buy_votes,
+            "sell_votes":         sell_votes,
+            "decision":           decision,
+            "execution_result":   "EXECUTED" if decision == A_BUY else decision,
+            "rejection_stage":    rejection_stage or "",
+            "rejection_reason":   rejection_reason,
+            "position_id":        position_id or "",
+            "entry_price":        entry_price,
+            "quantity":           quantity,
+            "capital_used":       capital_used,
+            "trade_source":       SOURCE_PAPER,
+        }
+        _analytics_record_entry(snapshot)
+    except Exception:
+        pass
+
+
+def _record_analytics_exit(position_id: str, exit_price: float, pnl: float, pnl_pct: float, exit_reason: str, days_held: int = None) -> None:
+    """Fire-and-forget wrapper around analytics.api.record_exit()."""
+    try:
+        if pnl > 0:
+            outcome = OUTCOME_WIN
+        elif pnl < 0:
+            outcome = OUTCOME_LOSS
+        else:
+            outcome = OUTCOME_BREAKEVEN
+
+        _analytics_record_exit(position_id, {
+            "exit_price":    exit_price,
+            "exit_time":     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "exit_reason":   exit_reason,
+            "holding_days":  days_held,
+            "realized_pnl":  pnl,
+            "pnl_pct":       pnl_pct,
+            "outcome":       outcome,
+        })
+    except Exception:
+        pass
 
 
 # ════════════════════════════════════════════════
@@ -194,6 +342,7 @@ def _analyse_stock_signals(
     symbol: str,
     data: pd.DataFrame,
     regime: str,
+    fii_dii_score: int = 50,
 ) -> dict | None:
     """
     Run the full signal pipeline on one stock.
@@ -255,6 +404,25 @@ def _analyse_stock_signals(
         except Exception:
             fund_score = 50
 
+        # Volume score — reuses the same OHLCV `data` already fetched
+        # above for this cycle. No extra API call.
+        try:
+            vol_score = get_volume_score_only(data)
+        except Exception:
+            vol_score = 50
+
+        # Candlestick score — same `data`, no extra fetch.
+        try:
+            candle_score = get_candlestick_score_only(data, regime=regime)
+        except Exception:
+            candle_score = 50
+
+        # Market structure score — same `data`, no extra fetch.
+        try:
+            ms_score = get_market_structure_score_only(data)
+        except Exception:
+            ms_score = 50
+
         score_result = build_composite_score(
             stock_name            = stock_name,
             latest_close          = s_close,
@@ -272,7 +440,11 @@ def _analyse_stock_signals(
             regime                = regime,
             rs_score              = None,
             fundamental_score     = fund_score,
-            sentiment_score       = None,    # Skip in loop — too slow
+            sentiment_score       = None,    # Intentionally skipped — see M39 notes below
+            volume_score           = vol_score,
+            candlestick_score      = candle_score,
+            market_structure_score = ms_score,
+            fii_dii_score           = fii_dii_score,
         )
 
         return {
@@ -424,7 +596,7 @@ def _is_ok_to_buy(
 # and in which bucket
 # ════════════════════════════════════════════════
 
-def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
+def _run_buy_scan(watchlist: dict, regime: str, cycle_id: str) -> list[dict]:
     """
     Scan all watchlist stocks for new BUY opportunities.
     Returns a list of executed trade result dicts.
@@ -442,6 +614,14 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
     """
     decisions = []
 
+    # FII/DII is market-wide — fetch it ONCE for this whole cycle,
+    # not once per stock. institutional_flow.py also carries its own
+    # internal 4-hour cache, so this is safe even if called every cycle.
+    try:
+        cycle_fii_dii_score = get_fii_dii_score_only()
+    except Exception:
+        cycle_fii_dii_score = 50
+
     for stock_name, symbol in watchlist.items():
 
         # ── Fetch data ────────────────────────────
@@ -457,7 +637,10 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
             continue
 
         # ── Analyse signals ───────────────────────
-        result = _analyse_stock_signals(stock_name, symbol, data, regime)
+        result = _analyse_stock_signals(
+            stock_name, symbol, data, regime,
+            fii_dii_score=cycle_fii_dii_score,
+        )
         if result is None:
             continue    # Analysis failed — silent skip
 
@@ -468,15 +651,22 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
 
         # ── Skip if score is too low to even consider ─
         if score < ABSOLUTE_MIN_SCORE:
+            reason_txt = (
+                f"Score {score}/100 below minimum {ABSOLUTE_MIN_SCORE}/100. "
+                "No bucket would accept this."
+            )
             log_decision(
                 stock=stock_name, bucket="—",
                 decision="NO-TRADE",
                 score=score, signal=final_signal,
                 price=price, regime=regime,
-                reason=(
-                    f"Score {score}/100 below minimum {ABSOLUTE_MIN_SCORE}/100. "
-                    "No bucket would accept this."
-                ),
+                reason=reason_txt,
+            )
+            _record_analytics_entry(
+                stock_name, symbol, "", regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                rejection_stage=STAGE_SCORE_GATE,
+                rejection_reason=reason_txt,
             )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
@@ -486,15 +676,23 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
 
         # ── Skip if signal is not bullish ─────────
         if "BUY" not in str(final_signal).upper():
+            reason_txt = f"Signal is {final_signal} — not a BUY. No action taken."
             log_decision(
                 stock=stock_name, bucket="—",
                 decision="NO-TRADE",
                 score=score, signal=final_signal,
                 price=price, regime=regime,
-                reason=(
-                    f"Signal is {final_signal} — not a BUY. "
-                    "No action taken."
-                ),
+                reason=reason_txt,
+            )
+            # This is a strategy-vote outcome, not a score threshold —
+            # STAGE_VOTE_GATE is the correct ADR-approved stage here.
+            _record_analytics_entry(
+                stock_name, symbol, "", regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                rejection_stage=STAGE_VOTE_GATE,
+                rejection_reason=reason_txt,
             )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
@@ -528,6 +726,19 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
                 price=price, regime=regime,
                 reason=orch_result["summary"],
             )
+            # Orchestrator combines several gates (score, votes, regime,
+            # conflicts, portfolio risk) into one decision — there is no
+            # single existing stage that precisely fits every orchestrator
+            # rejection, so this is recorded as an execution-level rule
+            # rather than guessing a more specific gate.
+            _record_analytics_entry(
+                stock_name, symbol, target_bucket or "", regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                rejection_stage=STAGE_EXECUTION_RULE,
+                rejection_reason=orch_result["summary"],
+            )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
                 "reason": orch_result["summary"],
@@ -556,6 +767,16 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
                 price=price, regime=regime,
                 reason=reject_reason,
             )
+            # _is_ok_to_buy() is dominated by capital/position-limit/cash
+            # checks, so STAGE_CAPITAL_GATE is the closest existing fit.
+            _record_analytics_entry(
+                stock_name, symbol, target_bucket, regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                rejection_stage=STAGE_CAPITAL_GATE,
+                rejection_reason=reject_reason,
+            )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
                 "reason": reject_reason
@@ -583,6 +804,14 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
                 price=price, regime=regime,
                 reason=dec_result["rejection_reason"],
             )
+            _record_analytics_entry(
+                stock_name, symbol, target_bucket, regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                rejection_stage=STAGE_RISK_GATE,
+                rejection_reason=dec_result["rejection_reason"],
+            )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
                 "reason": dec_result["rejection_reason"],
@@ -605,6 +834,18 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
                 price=price, regime=regime,
                 reason=dec_result["text_summary"][:500],
             )
+            # Temporary lookup — see _lookup_latest_position_id() docstring.
+            pos_id = _lookup_latest_position_id(stock_name, target_bucket)
+            _record_analytics_entry(
+                stock_name, symbol, target_bucket, regime, A_BUY, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                position_id=pos_id,
+                entry_price=buy_result["price"],
+                quantity=buy_result["quantity"],
+                capital_used=buy_result["value"],
+            )
             decisions.append({
                 "stock": stock_name, "decision": "BUY",
                 "bucket": target_bucket, "price": price,
@@ -617,12 +858,21 @@ def _run_buy_scan(watchlist: dict, regime: str) -> list[dict]:
                 f"₹{price} x {buy_result['quantity']} shares"
             )
         else:
+            reason_txt = f"BUY rejected by bucket engine: {buy_result.get('reason','')}"
             log_decision(
                 stock=stock_name, bucket=target_bucket,
                 decision="NO-TRADE",
                 score=score, signal=final_signal,
                 price=price, regime=regime,
-                reason=f"BUY rejected by bucket engine: {buy_result.get('reason','')}",
+                reason=reason_txt,
+            )
+            _record_analytics_entry(
+                stock_name, symbol, target_bucket, regime, A_NO_TRADE, cycle_id,
+                score_result=result,
+                buy_votes=buy_votes,
+                sell_votes=result.get("sell_votes"),
+                rejection_stage=STAGE_CAPITAL_GATE,
+                rejection_reason=reason_txt,
             )
             decisions.append({
                 "stock": stock_name, "decision": "NO-TRADE",
@@ -697,6 +947,14 @@ def _run_exit_monitor(watchlist: dict, regime: str) -> list[dict]:
             if sell_result["status"] == "EXECUTED":
                 actual_pnl = sell_result.get("pnl", 0)
                 pnl_pct    = sell_result.get("pnl_pct", pnl_pct)
+                _record_analytics_exit(
+                    position_id = pos_id,
+                    exit_price  = current_price,
+                    pnl         = actual_pnl,
+                    pnl_pct     = pnl_pct,
+                    exit_reason = action,
+                    days_held   = result.get("days_held"),
+                )
                 # Explainable SELL decision record
                 make_sell_decision(
                     stock_name        = stock,
@@ -867,6 +1125,10 @@ def run_one_cycle(
       POST-RUN   → update loop state, calculate next run time
     """
     cycle_start = datetime.now()
+    # One cycle_id per execution cycle — shared by every Analytics
+    # Record created while this cycle scans the watchlist (ADR:
+    # a cycle_id identifies ONE cycle, not one stock evaluation).
+    cycle_id = cycle_start.strftime('%Y%m%d_%H%M%S')
     summary = {
         "cycle_time":  cycle_start.strftime('%Y-%m-%d %H:%M:%S'),
         "ran":         False,
@@ -1015,7 +1277,7 @@ def run_one_cycle(
         buy_decisions = []
         if safe and not scan_only:
             print(f"\n🔍 Scanning {len(watchlist)} stocks for entries...")
-            buy_decisions = _run_buy_scan(watchlist, regime)
+            buy_decisions = _run_buy_scan(watchlist, regime, cycle_id)
             buy_count  = sum(1 for d in buy_decisions if d.get("decision") == "BUY")
             no_trade_c = sum(1 for d in buy_decisions if d.get("decision") == "NO-TRADE")
             summary["buys"]      = buy_count
