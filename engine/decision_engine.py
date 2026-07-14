@@ -183,17 +183,21 @@ def build_reasons_for_buy(
     """
     Build a list of positive reasons supporting a BUY.
     Each reason is plain English. Sorted by impact.
+
+    combined_votes["buy"] is a VOTE STRENGTH (weighted evidence,
+    0-4 range) — thresholds below use ranges (>=) rather than exact
+    equality so fractional strength values are handled correctly.
     """
     reasons = []
     confirming = confluence.get("confirming_signals", [])
 
     buy_votes = combined_votes.get("buy", 0)
-    if buy_votes >= 4:
-        reasons.append(f"✅ All 4 strategies agree — STRONG BUY consensus")
-    elif buy_votes == 3:
-        reasons.append(f"✅ 3 of 4 strategies agree — solid buy signal")
-    elif buy_votes == 2:
-        reasons.append(f"🟡 2 of 4 strategies agree — moderate signal")
+    if buy_votes >= 3.5:
+        reasons.append(f"✅ Strong vote strength ({buy_votes:.1f}/4) — STRONG BUY consensus")
+    elif buy_votes >= 2.5:
+        reasons.append(f"✅ Solid vote strength ({buy_votes:.1f}/4) — solid buy signal")
+    elif buy_votes >= 1.0:
+        reasons.append(f"🟡 Moderate vote strength ({buy_votes:.1f}/4) — moderate signal")
 
     # Individual dimension checks
     trend = individual_scores.get("Trend", 50)
@@ -265,14 +269,18 @@ def build_reasons_against_buy(
     """
     Build a list of warnings / risks for a BUY.
     Honest assessment — not to block, but to inform.
+
+    combined_votes["sell"] is a VOTE STRENGTH (weighted evidence,
+    0-4 range) — thresholds below use ranges rather than exact
+    equality so fractional strength values are handled correctly.
     """
     reasons = []
     sell_votes = combined_votes.get("sell", 0)
 
-    if sell_votes >= 2:
-        reasons.append(f"⚠️ {sell_votes} strategies say SELL — mixed signals, lower conviction")
-    elif sell_votes == 1:
-        reasons.append(f"⚠️ 1 strategy is bearish — not full consensus")
+    if sell_votes >= 2.0:
+        reasons.append(f"⚠️ Sell vote strength {sell_votes:.1f}/4 — mixed signals, lower conviction")
+    elif sell_votes >= 0.5:
+        reasons.append(f"⚠️ Some bearish vote strength ({sell_votes:.1f}/4) — not full consensus")
 
     momentum = individual_scores.get("Momentum", 50)
     if momentum <= 35:

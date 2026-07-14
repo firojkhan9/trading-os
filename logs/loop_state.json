@@ -1,15 +1,15 @@
 {
   "status": "RUNNING",
   "interval_minutes": 15,
-  "last_run": "2026-07-13 00:16:44",
-  "next_run": "2026-07-13 00:31:44",
-  "runs_today": 1,
-  "decisions_today": 201,
+  "last_run": "2026-07-14 10:47:05",
+  "next_run": "2026-07-14 11:02:05",
+  "runs_today": 0,
+  "decisions_today": 0,
   "buys_today": 0,
   "sells_today": 0,
   "pnl_today": 0.0,
-  "last_updated": "2026-07-13 00:16:44",
+  "last_updated": "2026-07-15 00:00:22",
   "error_count": 0,
   "last_error": null,
-  "last_reset_date": "2026-07-13"
+  "last_reset_date": "2026-07-15"
 }

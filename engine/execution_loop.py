@@ -346,11 +346,18 @@ def _analyse_stock_signals(
 ) -> dict | None:
     """
     Run the full signal pipeline on one stock.
-    Returns a result dict with score, signal, votes.
+    Returns a result dict with score, signal, and vote STRENGTH
+    (weighted evidence, not a raw vote count — see
+    strategies.combined_signal.get_individual_votes for details).
     Returns None if analysis fails.
 
     This is a lightweight version of what the Scanner tab does —
-    same logic, but called per-stock in the loop.
+    same logic, but called per-stock in the loop. Unlike the
+    dashboard's Tab 1 call to build_combined_summary(), this one
+    supplies ema_trend / macd_momentum so EMA and MACD can
+    contribute a soft ±0.5 vote on days without a fresh crossover —
+    those two strategies would otherwise sit at 0 on the vast
+    majority of trading days.
     """
     try:
         analyzed   = analyze_stock(data.copy())
@@ -364,10 +371,12 @@ def _analyse_stock_signals(
         latest_macd = macd_data.iloc[-1]
 
         combined = build_combined_summary(
-            ma_signal   = latest_ma["Signal"],
-            ema_signal  = latest_ema["EMA_Signal"],
-            bb_signal   = latest_bb["BB_Signal"],
-            macd_signal = latest_macd["MACD_Crossover"],
+            ma_signal      = latest_ma["Signal"],
+            ema_signal     = latest_ema["EMA_Signal"],
+            bb_signal      = latest_bb["BB_Signal"],
+            macd_signal    = latest_macd["MACD_Crossover"],
+            ema_trend      = latest_ema.get("EMA_Trend"),
+            macd_momentum  = latest_macd.get("MACD_Momentum"),
         )
 
         # Extract safe float values for composite score

@@ -175,15 +175,25 @@ def calculate_volatility_score(bb_pct, bb_signal):
 
 def calculate_signal_score(combined_votes, combined_score):
     """
-    Score based on combined strategy voting.
-    Returns 0-100.
-    All 4 agree BUY = 100 | All agree SELL = 0
-    """
-    buy_count  = combined_votes.get("buy",  0)
-    sell_count = combined_votes.get("sell", 0)
-    total      = 4
+    Score based on combined strategy voting STRENGTH — not a count.
 
-    score      = ((buy_count - sell_count) / total) * 50 + 50
+    combined_votes carries VOTE STRENGTH values (as produced by
+    combined_signal.build_combined_summary's "Strategies Buy" /
+    "Strategies Sell" — sums of weighted evidence, where a fresh
+    crossover contributes 1.0 and a soft trend confirmation
+    contributes 0.5). This function treats them as continuous
+    strength via plain arithmetic — it never rounds or collapses
+    them into an integer vote count.
+
+    Returns 0-100.
+    All 4 strategies at full BUY strength  = 100
+    All 4 strategies at full SELL strength = 0
+    """
+    buy_strength  = combined_votes.get("buy",  0)
+    sell_strength = combined_votes.get("sell", 0)
+    total         = 4
+
+    score      = ((buy_strength - sell_strength) / total) * 50 + 50
     normalized = (combined_score / 4) * 20
     score     += normalized
 

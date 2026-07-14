@@ -113,8 +113,8 @@ BUCKET_SCORE_WEIGHTS = {
 
 # Minimum buy votes (out of 4 strategies) per bucket
 BUCKET_MIN_VOTES = {
-    "Long-Term": 3,
-    "Swing":     2,
+    "Long-Term": 2,
+    "Swing":     1,
     "Intraday":  1,
 }
 
@@ -240,8 +240,15 @@ def detect_confluence(
     """
     Count how many independent signals are aligned bullishly.
 
+    combined_votes["buy"] / ["sell"] are VOTE STRENGTHS (weighted
+    evidence, range 0-4) — NOT integer vote counts. A fresh
+    crossover contributes 1.0, a soft trend confirmation contributes
+    0.5. Thresholds below are therefore continuous (>=) rather than
+    exact equality (==), so a fractional strength like 2.5 is
+    handled correctly instead of silently matching nothing.
+
     Signals checked:
-      1. Strategy votes (MA+RSI, EMA, Bollinger, MACD) — from combined_votes
+      1. Strategy vote strength (MA+RSI, EMA, Bollinger, MACD)
       2. Volume confirmation — Volume score ≥ 60
       3. Market structure    — Mkt Structure score ≥ 60
       4. Candlestick pattern — Candlestick score ≥ 60
@@ -257,16 +264,16 @@ def detect_confluence(
     confirming  = []
     conflicting = []
 
-    buy_votes  = combined_votes.get("buy",  0)
-    sell_votes = combined_votes.get("sell", 0)
+    buy_strength  = combined_votes.get("buy",  0)
+    sell_strength = combined_votes.get("sell", 0)
 
-    # 1. Strategy votes
-    if buy_votes >= 3:
-        confirming.append(f"Strategy votes: {buy_votes}/4 say BUY")
-    elif buy_votes == 2:
-        confirming.append(f"Strategy votes: {buy_votes}/4 say BUY (weak)")
-    elif sell_votes >= 2:
-        conflicting.append(f"Strategy votes: {sell_votes}/4 say SELL")
+    # 1. Strategy vote strength
+    if buy_strength >= 3.0:
+        confirming.append(f"Strategy vote strength: {buy_strength:.1f}/4 say BUY")
+    elif buy_strength >= 1.5:
+        confirming.append(f"Strategy vote strength: {buy_strength:.1f}/4 say BUY (weak)")
+    elif sell_strength >= 1.5:
+        conflicting.append(f"Strategy vote strength: {sell_strength:.1f}/4 say SELL")
 
     # 2. Volume
     vol_score = individual_scores.get("Volume", 50)
@@ -336,6 +343,11 @@ def detect_conflicts(
     Detect conflicting signals that should reduce confidence
     or trigger a REVIEW decision.
 
+    combined_votes["buy"] / ["sell"] are VOTE STRENGTHS (0-4 range),
+    not integer counts — comparisons below use ranges (e.g.
+    0 < sell_strength < 2.0) instead of exact equality so fractional
+    strength values are handled correctly.
+
     Conflict types:
       HARD  → must resolve before entering (e.g. bear market + BUY signal)
       SOFT  → reduces confidence but doesn't block (e.g. weak volume on breakout)
@@ -348,27 +360,29 @@ def detect_conflicts(
     hard = []
     soft = []
 
-    buy_votes  = combined_votes.get("buy",  0)
-    sell_votes = combined_votes.get("sell", 0)
-    hold_votes = combined_votes.get("hold", 0)
+    buy_strength  = combined_votes.get("buy",  0)
+    sell_strength = combined_votes.get("sell", 0)
 
-    # Hard: SELL signals present alongside BUY signals
-    # Hard: STRONG conflict — 2+ strategies say SELL while others say BUY
-    # A single SELL vote is normal (one strategy lagging) — soft conflict only
-    if buy_votes > 0 and sell_votes >= 2:
+    # Hard: SELL evidence present alongside BUY evidence.
+    # Hard: STRONG conflict — sell strength ≥2.0 while buy evidence exists.
+    # A small amount of sell strength (< 2.0) is normal (one strategy
+    # lagging) — soft conflict only.
+    if buy_strength > 0 and sell_strength >= 2.0:
         hard.append(
-            f"Strong conflict: {buy_votes} BUY vs {sell_votes} SELL — "
+            f"Strong conflict: {buy_strength:.1f} BUY strength vs "
+            f"{sell_strength:.1f} SELL strength — "
             "majority disagreement on direction"
         )
-    elif buy_votes > 0 and sell_votes == 1:
+    elif buy_strength > 0 and 0 < sell_strength < 2.0:
         soft.append(
-            f"Minor signal conflict: {buy_votes} BUY, 1 SELL — "
-            "one strategy disagrees, proceed with caution"
+            f"Minor signal conflict: {buy_strength:.1f} BUY strength, "
+            f"{sell_strength:.1f} SELL strength — "
+            "some disagreement, proceed with caution"
         )
 
     # Hard: Regime score very low but signal says BUY
     regime_score = individual_scores.get("Regime", 50)
-    if regime_score <= 25 and buy_votes >= 2:
+    if regime_score <= 25 and buy_strength >= 2.0:
         hard.append(
             f"BEAR market (Regime={regime_score}/100) with BUY signal — "
             "market conditions oppose this trade"
@@ -393,10 +407,11 @@ def detect_conflicts(
             "breakout without volume is often a false move"
         )
 
-    # Soft: Only 2 strategies agree for a Long-Term bucket
-    if suggested_bucket == "Long-Term" and buy_votes < 3:
+    # Soft: Below full vote strength for a Long-Term bucket
+    if suggested_bucket == "Long-Term" and buy_strength < 3.0:
         soft.append(
-            f"Long-Term bucket requires 3+ strategy votes — only {buy_votes}/4 agree. "
+            f"Long-Term bucket requires 3.0+ vote strength — only "
+            f"{buy_strength:.1f}/4 present. "
             "Lower conviction for a multi-week hold."
         )
 
@@ -427,7 +442,7 @@ def apply_rejection_filters(
     bucket_name:     str,
     bucket_score:    int,
     composite_score: int,
-    buy_votes:       int,
+    buy_votes:       float,
     regime:          str,
     conflicts:       dict,
     proposed_value:  float = 0,
@@ -436,10 +451,16 @@ def apply_rejection_filters(
     Apply all rejection filters in sequence.
     Returns (approved: bool, rejection_reasons: list[str])
 
+    buy_votes is a VOTE STRENGTH (weighted evidence, 0-4 range), not
+    an integer vote count. BUCKET_MIN_VOTES thresholds (3 / 2 / 1)
+    are compared against this strength directly with plain numeric
+    comparison — no change to threshold values, since the numeric
+    comparison already works correctly against a float.
+
     Filters (in priority order):
       1. Bear market gate       — no new longs in full BEAR
       2. Bucket score threshold — bucket-specific min score
-      3. Minimum vote count     — bucket requires N strategies to agree
+      3. Minimum vote strength  — bucket requires N worth of strategy evidence
       4. Hard conflict block    — conflicting signals require resolution
       5. Cooldown check         — was this stock stopped out recently?
       6. Portfolio risk gate    — bucket exposure, sector limits etc.
@@ -464,11 +485,11 @@ def apply_rejection_filters(
             f"are below {bucket_name} minimum ({min_score}/100)."
         )
 
-    # 3. Minimum vote count
+    # 3. Minimum vote strength
     min_votes = BUCKET_MIN_VOTES.get(bucket_name, 2)
     if buy_votes < min_votes:
         reasons.append(
-            f"Only {buy_votes}/4 strategies agree — {bucket_name} requires at least {min_votes}."
+            f"Only {buy_votes:.1f}/4 vote strength — {bucket_name} requires at least {min_votes}."
         )
 
     # 4. Hard conflicts block

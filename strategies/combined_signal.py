@@ -37,21 +37,45 @@ def get_individual_votes(
     ma_signal,
     ema_signal,
     bb_signal,
-    macd_signal
+    macd_signal,
+    ema_trend=None,
+    macd_momentum=None,
 ):
     """
-    Convert each strategy signal to a numeric vote.
+    Convert each strategy signal to a numeric VOTE STRENGTH.
 
-    BUY signals  → +1
-    SELL signals → -1
-    Everything else → 0
+    Fresh BUY crossover      → +1.0
+    Confirmed bullish trend  → +0.5   (no fresh crossover today, but
+                                        the underlying trend/momentum
+                                        is clearly bullish)
+    Neutral / no opinion     →  0.0
+    Confirmed bearish trend  → -0.5
+    Fresh SELL crossover     → -1.0
+
+    EMA and MACD only fire a full ±1.0 on the exact day their lines
+    cross — every other day they sit at HOLD even during a strong,
+    obvious trend. ema_trend / macd_momentum (optional) let the
+    caller supply the underlying trend/momentum state so those two
+    strategies can still contribute a SOFT ±0.5 vote on non-crossover
+    days instead of contributing nothing. This is real evidence
+    (computed from EMA9 vs EMA21 / MACD vs Signal), not noise — a
+    sideways or undecided trend still yields exactly 0.
+
+    Passing None (the default) for either argument preserves the
+    exact previous behaviour — pure crossover-only voting — for any
+    caller that doesn't supply trend context.
+
+    IMPORTANT: these are VOTE STRENGTHS, not vote counts. Downstream
+    code must never collapse a fractional value back into a full
+    vote (e.g. never do `if v > 0: count += 1`). Sum the strengths
+    directly instead — see get_signal_confidence() below.
     """
 
     def signal_to_vote(signal):
         s = str(signal).upper()
-        if "BUY"  in s: return  1
-        if "SELL" in s: return -1
-        return 0
+        if "BUY"  in s: return  1.0
+        if "SELL" in s: return -1.0
+        return 0.0
 
     votes = {
         "MA + RSI":        signal_to_vote(ma_signal),
@@ -59,6 +83,20 @@ def get_individual_votes(
         "Bollinger Bands": signal_to_vote(bb_signal),
         "MACD":            signal_to_vote(macd_signal),
     }
+
+    if votes["EMA Crossover"] == 0 and ema_trend:
+        trend_upper = str(ema_trend).upper()
+        if "UPTREND" in trend_upper:
+            votes["EMA Crossover"] = 0.5
+        elif "DOWNTREND" in trend_upper:
+            votes["EMA Crossover"] = -0.5
+
+    if votes["MACD"] == 0 and macd_momentum:
+        momentum_upper = str(macd_momentum).upper()
+        if "BULLISH" in momentum_upper:
+            votes["MACD"] = 0.5
+        elif "BEARISH" in momentum_upper:
+            votes["MACD"] = -0.5
 
     return votes
 
@@ -117,21 +155,34 @@ def get_combined_signal(score, weights=None):
 
 def get_signal_confidence(votes):
     """
-    Calculate how much the strategies agree with each other.
+    Calculate how much the strategies agree with each other, using
+    VOTE STRENGTH (weighted evidence) — NOT a vote count.
 
-    All 4 agree = 100% confidence
-    3 agree     = 75%
-    2 agree     = 50%
-    1 or split  = 25%
+    buy_strength  = sum of every positive vote value. A fresh +1.0
+                     crossover counts fully; a soft +0.5 trend
+                     confirmation counts as HALF a vote. It is never
+                     rounded or collapsed back into a whole vote —
+                     doing that (e.g. `if v > 0: count += 1`) would
+                     turn weighted evidence back into a plain count
+                     and defeat the entire purpose of soft voting.
+    sell_strength = sum of the absolute value of every negative vote.
+    hold_count    = number of strategies sitting at EXACTLY 0 (a
+                     genuine count is correct here — a strategy is
+                     either offering some directional evidence or it
+                     isn't; there's no such thing as "half neutral").
+
+    Returns the same 4-tuple shape as before so every existing
+    caller keeps working — buy/sell are now floats instead of ints.
     """
-    buy_count  = sum(1 for v in votes.values() if v ==  1)
-    sell_count = sum(1 for v in votes.values() if v == -1)
-    hold_count = sum(1 for v in votes.values() if v ==  0)
+    buy_strength  = sum(max(v, 0) for v in votes.values())
+    sell_strength = sum(abs(min(v, 0)) for v in votes.values())
+    hold_count    = sum(1 for v in votes.values() if v == 0)
 
-    majority = max(buy_count, sell_count, hold_count)
-    confidence = round((majority / len(votes)) * 100)
+    total      = len(votes)
+    majority   = max(buy_strength, sell_strength, hold_count)
+    confidence = round((majority / total) * 100)
 
-    return confidence, buy_count, sell_count, hold_count
+    return confidence, buy_strength, sell_strength, hold_count
 
 
 def build_combined_summary(
@@ -139,20 +190,35 @@ def build_combined_summary(
     ema_signal,
     bb_signal,
     macd_signal,
-    weights=None
+    weights=None,
+    ema_trend=None,
+    macd_momentum=None,
 ):
     """
     Master function — takes all 4 signals and returns
     a complete combined analysis dictionary.
 
-    Called by app.py to display on the dashboard.
+    Called by app.py to display on the dashboard, and by the
+    execution loop to drive BUY decisions.
+
+    ema_trend / macd_momentum: optional soft-vote context — see
+    get_individual_votes() for details. Any caller that omits them
+    gets the exact previous crossover-only behaviour.
+
+    "Strategies Buy" / "Strategies Sell" in the returned dict are
+    VOTE STRENGTHS (floats, weighted evidence, 0-4) — NOT vote
+    counts. Every consumer of this dict downstream (scoring_engine,
+    orchestrator, decision_engine) must treat them as continuous
+    strength and must never round/collapse them back into an
+    integer count.
     """
     if weights is None:
         weights = DEFAULT_WEIGHTS
 
-    # Step 1: Get individual votes
+    # Step 1: Get individual vote strengths
     votes = get_individual_votes(
-        ma_signal, ema_signal, bb_signal, macd_signal
+        ma_signal, ema_signal, bb_signal, macd_signal,
+        ema_trend=ema_trend, macd_momentum=macd_momentum,
     )
 
     # Step 2: Calculate weighted score
@@ -161,8 +227,8 @@ def build_combined_summary(
     # Step 3: Get final signal
     final_signal = get_combined_signal(score, weights)
 
-    # Step 4: Calculate confidence
-    confidence, buys, sells, holds = get_signal_confidence(votes)
+    # Step 4: Calculate confidence + vote strengths (not counts)
+    confidence, buy_strength, sell_strength, hold_count = get_signal_confidence(votes)
 
     # Step 5: Build readable vote summary
     vote_labels = {
@@ -176,9 +242,9 @@ def build_combined_summary(
         "Final Signal":   final_signal,
         "Score":          score,
         "Confidence":     f"{confidence}%",
-        "Strategies Buy": buys,
-        "Strategies Sell":sells,
-        "Strategies Hold":holds,
+        "Strategies Buy": buy_strength,
+        "Strategies Sell":sell_strength,
+        "Strategies Hold":hold_count,
         "Votes":          votes,
         "Signals":        vote_labels,
         "Weights":        weights,

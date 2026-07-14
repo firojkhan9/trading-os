@@ -70,7 +70,7 @@ BUCKET_CONFIG = {
         "color":            "#00cc66",
         # Signal indicators that suggest Long-Term
         "signal_keywords":  ["STRONG BUY"],
-        "min_buy_votes":    3,           # needs 3-4 strategies to agree
+        "min_buy_votes":    2,           # needs 3-4 strategies to agree
     },
     "Swing": {
         "allocation_pct":   0.30,        # 30% = ₹1,80,000
@@ -83,7 +83,7 @@ BUCKET_CONFIG = {
         "description":      "Swing trading — momentum + EMA + MACD + RS",
         "color":            "#3399ff",
         "signal_keywords":  ["BUY", "STRONG BUY"],
-        "min_buy_votes":    2,
+        "min_buy_votes":    1,
     },
     "Intraday": {
         "allocation_pct":   0.10,        # 10% = ₹60,000
