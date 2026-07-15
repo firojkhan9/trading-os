@@ -55,7 +55,7 @@ from datetime import datetime
 # ── Settings ──────────────────────────────────────
 SWING_LOOKBACK      = 5    # Bars left AND right to confirm a swing point
 SR_ZONE_TOLERANCE   = 0.02 # 2% — levels within 2% are treated as the same zone
-BREAKOUT_VOL_RATIO  = 1.5  # Volume must be > 1.5x average to confirm breakout
+BREAKOUT_VOL_RATIO  = 1.0  # Volume must be > 1.5x average to confirm breakout
 ATR_PERIOD          = 14   # ATR lookback period
 BB_PERIOD           = 20   # Bollinger Bands period for squeeze detection
 SQUEEZE_PERCENTILE  = 25   # BB width below 25th percentile = squeeze

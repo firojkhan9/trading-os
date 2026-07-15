@@ -37,7 +37,7 @@ import numpy as np
 # ── Settings ──────────────────────────────────────
 VOLUME_MA_PERIOD    = 20    # Days for average volume baseline
 VOLUME_SPIKE_RATIO  = 2.0   # >2x average = significant spike
-VOLUME_HIGH_RATIO   = 1.5   # >1.5x = above average (good confirmation)
+VOLUME_HIGH_RATIO   = 1.0   # >1.5x = above average (good confirmation)
 VOLUME_LOW_RATIO    = 0.7   # <0.7x = low volume (weak signal)
 CMF_PERIOD          = 20    # Chaikin Money Flow lookback
 OBV_TREND_DAYS      = 5     # Days to measure OBV trend direction

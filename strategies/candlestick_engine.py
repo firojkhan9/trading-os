@@ -53,7 +53,7 @@ SHADOW_RATIO_HAMMER = 2.0    # Lower shadow >= 2x body = Hammer
 SHADOW_RATIO_STAR   = 2.0    # Upper shadow >= 2x body = Shooting Star
 DOJI_BODY_RATIO     = 0.10   # Body < 10% of range = Doji
 
-VOLUME_CONFIRM_RATIO = 1.5   # Volume must be > 1.5x average to confirm
+VOLUME_CONFIRM_RATIO = 1.0   # Volume must be > 1.5x average to confirm
 SR_PROXIMITY_PCT     = 2.0   # Must be within 2% of support/resistance level
 BREAKOUT_MOVE_PCT    = 1.5   # Body must cover > 1.5% for a breakout candle
 

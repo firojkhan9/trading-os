@@ -46,7 +46,7 @@ except ImportError:
 # Conservative defaults for intraday safety.
 # Tune later once you have live results to learn from.
 MIN_PRICE           = 100.0   # ₹ — avoids illiquid penny stocks
-MIN_VOLUME_RATIO    = 1.5     # today's volume vs 20-day average
+MIN_VOLUME_RATIO    = 1.0     # today's volume vs 20-day average
 MIN_ATR_PCT         = 1.0     # ATR14 as % of price — needs real daily range
 MIN_TRADED_VALUE_CR = 5.0     # ₹ crore — today's Price × Volume
 ATR_PERIOD          = 14
