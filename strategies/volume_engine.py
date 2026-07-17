@@ -68,6 +68,15 @@ def calculate_volume_ratio(data):
 
     Normalises volume across stocks — 2x means the same
     for RELIANCE as for ITC.
+
+    The last row of `data` may represent today's LIVE, still-
+    accumulating trading session. Comparing that partial-day volume
+    directly against a 20-day FULL-DAY average systematically
+    understates the ratio throughout market hours. To correct this,
+    only the LAST row is re-computed via the shared intraday RVOL
+    engine (strategies/volume_profile.py), which accounts for how
+    much of the session has elapsed. Every historical (completed)
+    row keeps its original, already-correct raw ratio.
     """
     data = data.copy()
     if 'Volume_MA' not in data.columns:
@@ -77,6 +86,24 @@ def calculate_volume_ratio(data):
     data['Volume_Ratio'] = data['Volume_Ratio'].replace(
         [float('inf'), float('-inf')], None
     )
+
+    # ── Correct only the latest bar, if it is a live/partial session ──
+    if not data.empty:
+        try:
+            from strategies.volume_profile import get_intraday_rvol
+            latest_idx = data.index[-1]
+            latest_vol = data['Volume'].iloc[-1]
+            latest_avg = data['Volume_MA'].iloc[-1]
+            corrected_ratio = get_intraday_rvol(
+                current_volume=latest_vol,
+                avg_volume=latest_avg,
+                latest_bar_timestamp=latest_idx,
+            )
+            if corrected_ratio is not None:
+                data.loc[latest_idx, 'Volume_Ratio'] = corrected_ratio
+        except Exception:
+            pass  # Fall back silently to the raw ratio already computed above
+
     return data
 
 

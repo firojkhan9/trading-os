@@ -108,7 +108,25 @@ def _run_all_checks(stock_name, data, fo_universe, require_fo=True):
     vol_ma       = data["Volume"].rolling(window=VOLUME_MA_PERIOD).mean()
     avg_vol      = float(vol_ma.iloc[-1]) if not pd.isna(vol_ma.iloc[-1]) else None
 
-    vol_ratio       = round(latest_vol / avg_vol, 2) if avg_vol and avg_vol > 0 else None
+    # ── Time-of-day-correct relative volume (single source of truth) ──
+    # Raw latest_vol / avg_vol systematically understates today's ratio
+    # during market hours, since latest_vol is a partial-session figure
+    # while avg_vol is a 20-day average of completed sessions. The
+    # shared RVOL engine corrects for this only when the latest bar is
+    # live; otherwise it returns the same raw ratio as before.
+    try:
+        from strategies.volume_profile import get_intraday_rvol
+        latest_bar_timestamp = data.index[-1] if len(data.index) > 0 else None
+        raw_ratio = get_intraday_rvol(
+            current_volume=latest_vol,
+            avg_volume=avg_vol,
+            latest_bar_timestamp=latest_bar_timestamp,
+        )
+    except Exception:
+        raw_ratio = round(latest_vol / avg_vol, 2) if avg_vol and avg_vol > 0 else None
+
+    vol_ratio = round(raw_ratio, 2) if raw_ratio is not None else None
+
     atr_pct         = _calculate_atr_pct(data)
     traded_value_cr = round((latest_close * latest_vol) / 1e7, 2)   # ₹ in crores
 
