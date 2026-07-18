@@ -64,6 +64,18 @@ except ImportError:
 NIFTY_PROXY_SYMBOL     = "NIFTYBEES.NS"
 BANKNIFTY_PROXY_SYMBOL = "BANKBEES.NS"
 
+# ── In-memory intraday fetch cache ────────────────
+# 5-min bars only change once every 5 minutes, so re-fetching the
+# same symbol multiple times within one scan cycle (Direction Filter
+# + Compression Checker + batch VCPS scan can all ask for NIFTYBEES.NS
+# in the same few seconds) wastes calls against an endpoint that's
+# already prone to throttling (see _fetch_intraday_data docstring).
+# Cached per (symbol, interval), short TTL so we never trade on stale
+# bars, and a successful fetch is shared across every caller in the
+# same cycle instead of re-hitting yfinance 3-4x back to back.
+_INTRADAY_FETCH_CACHE = {}
+_INTRADAY_CACHE_TTL_SECONDS = 90
+
 # ── Intraday data settings ────────────────────────
 INTRADAY_PERIOD   = "5d"    # yfinance 5-min data allows up to 60d; 5d is plenty
 INTRADAY_INTERVAL = "5m"
@@ -90,26 +102,95 @@ MIN_BARS_VOLATILITY_CHECK = 45   # ATR14 warm-up + 20-bar rolling avg + buffer
 # DATA FETCHING
 # ════════════════════════════════════════════════
 
-def _fetch_intraday_data(symbol, period=INTRADAY_PERIOD, interval=INTRADAY_INTERVAL):
+def _fetch_intraday_data(symbol, period=INTRADAY_PERIOD, interval=INTRADAY_INTERVAL, _diag=None):
     """
     Fetch intraday OHLCV data. Returns None on any failure —
     callers must handle gracefully (never crash the engine).
+
+    CACHING:
+      Checks the in-memory cache first (keyed by symbol+interval,
+      TTL 90s). A cache hit skips the network call entirely — this
+      is what lets Direction Filter, Compression Checker, and the
+      batch VCPS scan all reuse one NIFTYBEES.NS fetch per cycle
+      instead of hitting yfinance repeatedly for the same bars.
+
+    RESILIENCE (fixes "Could not fetch NIFTY data" during market hours):
+      yfinance's minute-level intraday endpoint is frequently throttled/
+      empty when called from datacenter IPs (Streamlit Cloud, AWS, GCP) —
+      the same root cause already documented in institutional_flow.py's
+      NSE fallback chain. Daily data is unaffected because it's served
+      differently. We retry a few times with a short pause, and fall
+      back from 5m -> 15m interval (Yahoo throttles 5m harder than 15m)
+      before giving up.
+
+    _diag: optional dict the caller can pass in to receive the failure
+    reason (never required — purely diagnostic, defaults to silent).
     """
-    try:
-        data = yf.download(
-            tickers=symbol, period=period, interval=interval,
-            progress=False, auto_adjust=True,
-        )
-        if data.empty:
-            return None
-        data.columns = [col[0] for col in data.columns]
-        data = data.dropna(subset=["Close"])
-        data = data[data["Close"] > 0]
-        if data.empty:
-            return None
-        return data
-    except Exception:
-        return None
+    import time as _time
+
+    cache_key = f"{symbol}|{interval}"
+    cached = _INTRADAY_FETCH_CACHE.get(cache_key)
+    if cached is not None:
+        cached_at, cached_data = cached
+        age = _time.time() - cached_at
+        if age < _INTRADAY_CACHE_TTL_SECONDS:
+            if _diag is not None:
+                _diag["ok"] = True
+                _diag["interval_used"] = interval
+                _diag["from_cache"] = True
+                _diag["cache_age_seconds"] = round(age, 1)
+            return cached_data
+
+    attempts = [
+        (period, interval),
+        (period, interval),          # retry same params once
+        (period, "15m"),             # fallback to a coarser interval
+    ]
+
+    last_reason = "Unknown fetch failure"
+
+    for i, (p, iv) in enumerate(attempts):
+        try:
+            data = yf.download(
+                tickers=symbol, period=p, interval=iv,
+                progress=False, auto_adjust=True, threads=False,
+            )
+            if data.empty:
+                last_reason = f"Empty dataframe returned (attempt {i+1}, interval={iv})"
+                if i < len(attempts) - 1:
+                    _time.sleep(1.5)
+                continue
+
+            data.columns = [col[0] for col in data.columns]
+            data = data.dropna(subset=["Close"])
+            data = data[data["Close"] > 0]
+
+            if data.empty:
+                last_reason = f"All rows had null/zero Close (attempt {i+1})"
+                continue
+
+            # Cache under the interval that actually succeeded — if we
+            # fell back to 15m, later 5m requests for the same symbol
+            # within TTL will still miss and retry fresh (correct,
+            # since 5m and 15m bars aren't interchangeable).
+            _INTRADAY_FETCH_CACHE[f"{symbol}|{iv}"] = (_time.time(), data)
+
+            if _diag is not None:
+                _diag["ok"] = True
+                _diag["interval_used"] = iv
+                _diag["from_cache"] = False
+            return data
+
+        except Exception as e:
+            last_reason = f"Exception on attempt {i+1} ({iv}): {e}"
+            if i < len(attempts) - 1:
+                _time.sleep(1.5)
+            continue
+
+    if _diag is not None:
+        _diag["ok"] = False
+        _diag["reason"] = last_reason
+    return None
 
 
 def _calculate_vwap(data):
@@ -232,11 +313,15 @@ def get_intraday_direction_analysis(watchlist_dict=None):
         "fetched_at":       datetime.now().strftime('%d %b %Y %H:%M'),
     }
 
-    nifty_data = _fetch_intraday_data(NIFTY_PROXY_SYMBOL)
+    _diag = {}
+    nifty_data = _fetch_intraday_data(NIFTY_PROXY_SYMBOL, _diag=_diag)
     if nifty_data is None or len(nifty_data) < DIRECTION_EMA_PERIOD:
+        fail_reason = _diag.get("reason", "no diagnostic info captured")
         result["reasons"] = [
-            "Could not fetch NIFTY (proxy) 5-min data — defaulting to NEUTRAL. "
-            "No trades allowed until data is available."
+            f"Could not fetch NIFTY (proxy) 5-min data after retries — defaulting to NEUTRAL. "
+            f"Details: {fail_reason}. If this fails consistently on Streamlit Cloud but works "
+            f"on your laptop, Yahoo is throttling the cloud server's IP for intraday data — "
+            f"not a market-hours issue."
         ]
         result["summary"] = result["reasons"][0]
         return result
